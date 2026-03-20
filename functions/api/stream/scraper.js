@@ -36,9 +36,6 @@ export async function scrape(mediaType, tmdbId, season = "1", episode = "1") {
                 "Sec-Fetch-Dest": "empty",
                 "Sec-Fetch-Mode": "cors",
                 "Sec-Fetch-Site": "cross-site",
-                "Sec-Ch-Ua": '"Chromium";v="146", "Microsoft Edge";v="146", "Not/A)Brand";v="24"',
-                "Sec-Ch-Ua-Mobile": "?0",
-                "Sec-Ch-Ua-Platform": '"Windows"',
             },
         });
         if (!res.ok) return { sources: [], subtitles: [] };
