@@ -8,6 +8,18 @@ export async function onRequestOptions() {
     return new Response(null, { status: 204, headers: CORS });
 }
 
+export async function onRequestHead({ request }) {
+    const { searchParams } = new URL(request.url);
+    const url = searchParams.get("url");
+    if (!url) return new Response(null, { status: 400, headers: CORS });
+    try {
+        const upstream = await fetch(url, { method: 'HEAD', headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", "Referer": "https://madvid3.xyz/", "Origin": "https://madvid3.xyz" } });
+        return new Response(null, { status: upstream.ok ? 200 : upstream.status, headers: CORS });
+    } catch {
+        return new Response(null, { status: 502, headers: CORS });
+    }
+}
+
 export async function onRequestGet({ request }) {
     const { searchParams } = new URL(request.url);
     const url = searchParams.get("url");
