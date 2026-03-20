@@ -10,8 +10,8 @@ export async function onRequestOptions() {
     return new Response(null, { status: 204, headers: CORS });
 }
 
-export async function onRequestGet({ request, env }) {
-    const { searchParams, origin } = new URL(request.url);
+export async function onRequestGet({ request }) {
+    const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
     const season = searchParams.get("season") ?? "1";
     const episode = searchParams.get("episode") ?? "1";
@@ -22,18 +22,13 @@ export async function onRequestGet({ request, env }) {
     const enc = new TextEncoder();
 
     (async () => {
-        await scrapeStream("tv", id, season, episode, origin, env.PROXY_SECRET ?? "", async (source) => {
+        await scrapeStream("tv", id, season, episode, async (source) => {
             await writer.write(enc.encode(JSON.stringify(source) + "\n"));
         });
         await writer.close();
     })();
 
     return new Response(readable, {
-        headers: {
-            ...CORS,
-            "Content-Type": "application/x-ndjson",
-            "X-Content-Type-Options": "nosniff",
-            "Cache-Control": "no-cache",
-        },
+        headers: { ...CORS, "Content-Type": "application/x-ndjson", "Cache-Control": "no-cache" },
     });
 }
