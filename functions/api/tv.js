@@ -16,6 +16,6 @@ export async function onRequestGet({ request }) {
     const season = searchParams.get("season") ?? "1";
     const episode = searchParams.get("episode") ?? "1";
     if (!id) return Response.json({ success: false, error: "Missing id" }, { status: 400, headers: CORS });
-    const sources = await scrape("tv", id, season, episode);
-    return Response.json({ success: sources.length > 0, results_found: sources.length, sources }, { headers: CORS });
+    const { sources, subtitles } = await scrape("tv", id, season, episode);
+    return Response.json({ success: sources.length > 0, results_found: sources.length, sources, subtitles }, { headers: CORS });
 }
