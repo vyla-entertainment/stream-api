@@ -270,7 +270,7 @@ async function verifySources(sources) {
     return results.filter((r) => r.status === "fulfilled" && r.value).map((r) => r.value);
 }
 
-export async function scrape(mediaType, tmdbId, season = "1", episode = "1") {
+export async function scrape(mediaType, tmdbId, season = "1", episode = "1", origin = "") {
     const settled = await Promise.allSettled([
         provider02Downloader(mediaType, tmdbId, season, episode),
         providerRgShows(mediaType, tmdbId, season, episode),
@@ -281,5 +281,7 @@ export async function scrape(mediaType, tmdbId, season = "1", episode = "1") {
         providerVixSrc(mediaType, tmdbId, season, episode),
     ]);
     const all = settled.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
-    return verifySources(all);
+    const verified = await verifySources(all);
+    if (!origin) return verified;
+    return verified.map((s) => ({ ...s, url: `${origin}/proxy?url=${encodeURIComponent(s.url)}` }));
 }
