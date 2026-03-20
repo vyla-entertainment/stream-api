@@ -20,6 +20,68 @@ export async function onRequestGet({ request }) {
         return Response.json({ error: "Missing url" }, { status: 400, headers: CORS });
     }
 
+    const decodedUrl = decodeURIComponent(url);
+
+    if (decodedUrl.includes("02pcembed.site/v1/proxy")) {
+        return handleEmbedProxy(decodedUrl);
+    }
+
+    return handleDirectProxy(url, searchParams);
+}
+
+async function handleEmbedProxy(proxyUrl) {
+    const dataParam = new URL(proxyUrl).searchParams.get("data");
+    if (!dataParam) {
+        return Response.json({ error: "Missing data param" }, { status: 400, headers: CORS });
+    }
+
+    let parsed;
+    try {
+        parsed = JSON.parse(decodeURIComponent(dataParam));
+    } catch {
+        try {
+            parsed = JSON.parse(dataParam);
+        } catch {
+            return Response.json({ error: "Failed to parse data param" }, { status: 400, headers: CORS });
+        }
+    }
+
+    const realUrl = parsed.url;
+    const extraHeaders = parsed.headers ?? {};
+
+    if (!realUrl) {
+        return Response.json({ error: "No url in data" }, { status: 400, headers: CORS });
+    }
+
+    let upstream;
+    try {
+        upstream = await fetch(realUrl, {
+            headers: {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150 Safari/537.36",
+                ...extraHeaders,
+            },
+        });
+    } catch (e) {
+        return Response.json({ error: "Fetch failed: " + e.message }, { status: 502, headers: CORS });
+    }
+
+    if (!upstream.ok) {
+        return Response.json({ error: "Upstream returned " + upstream.status }, { status: 502, headers: CORS });
+    }
+
+    const contentType = upstream.headers.get("content-type") || "application/octet-stream";
+
+    return new Response(upstream.body, {
+        status: 200,
+        headers: {
+            ...CORS,
+            "Content-Type": contentType,
+            "Content-Length": upstream.headers.get("content-length") || "",
+        },
+    });
+}
+
+async function handleDirectProxy(url, searchParams) {
     const headersParam = searchParams.get("headers");
     let extraHeaders = {};
     if (headersParam) {
@@ -38,7 +100,7 @@ export async function onRequestGet({ request }) {
     try {
         upstream = await fetch(url, {
             headers: {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150 Safari/537.36",
                 "Referer": "https://madvid3.xyz/",
                 "Origin": "https://madvid3.xyz",
                 ...extraHeaders,
