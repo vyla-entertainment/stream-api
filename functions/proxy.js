@@ -14,27 +14,36 @@ export async function onRequestGet({ request }) {
 
     if (!url) return Response.json({ error: "Missing url" }, { status: 400, headers: CORS });
 
+    let upstream;
     try {
-        const upstream = await fetch(url, {
+        upstream = await fetch(url, {
             headers: {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                "Range": request.headers.get("Range") || "",
-            }
-        });
-
-        const contentType = upstream.headers.get("content-type") || "application/octet-stream";
-        const filename = url.split("/").pop().split("?")[0] || "vyla-download";
-
-        return new Response(upstream.body, {
-            status: upstream.status,
-            headers: {
-                ...CORS,
-                "Content-Type": contentType,
-                "Content-Disposition": `attachment; filename="${filename}"`,
-                "Content-Length": upstream.headers.get("content-length") || "",
+                "Referer": "https://madvid3.xyz/",
+                "Origin": "https://madvid3.xyz",
             }
         });
     } catch (e) {
-        return Response.json({ error: e.message }, { status: 500, headers: CORS });
+        return Response.json({ error: "Fetch failed: " + e.message }, { status: 502, headers: CORS });
     }
+
+    if (!upstream.ok) {
+        return Response.json({ error: "Upstream returned " + upstream.status }, { status: 502, headers: CORS });
+    }
+
+    const contentType = upstream.headers.get("content-type") || "video/mp4";
+
+    if (!contentType.includes("video") && !contentType.includes("octet")) {
+        return Response.json({ error: "Upstream returned non-video content: " + contentType }, { status: 502, headers: CORS });
+    }
+
+    return new Response(upstream.body, {
+        status: 200,
+        headers: {
+            ...CORS,
+            "Content-Type": "video/mp4",
+            "Content-Disposition": 'attachment; filename="vyla-download.mp4"',
+            "Content-Length": upstream.headers.get("content-length") || "",
+        }
+    });
 }
