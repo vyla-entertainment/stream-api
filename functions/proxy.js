@@ -13,53 +13,37 @@ export async function onRequestHead() {
 }
 
 export async function onRequestGet({ request }) {
-    const { searchParams } = new URL(request.url);
-    const url = searchParams.get("url");
+    const { searchParams, pathname } = new URL(request.url);
 
-    if (!url) {
+    if (pathname.endsWith("/download")) {
+        return handleDownload(searchParams);
+    }
+
+    return handleProxy(searchParams);
+}
+
+async function handleDownload(searchParams) {
+    const encodedUrl = searchParams.get("url");
+    const filename = searchParams.get("filename") || "download.mp4";
+
+    if (!encodedUrl) {
         return Response.json({ error: "Missing url" }, { status: 400, headers: CORS });
     }
 
-    const decodedUrl = decodeURIComponent(url);
-
-    if (decodedUrl.includes("02pcembed.site/v1/proxy")) {
-        return handleEmbedProxy(decodedUrl);
-    }
-
-    return handleDirectProxy(url, searchParams);
-}
-
-async function handleEmbedProxy(proxyUrl) {
-    const dataParam = new URL(proxyUrl).searchParams.get("data");
-    if (!dataParam) {
-        return Response.json({ error: "Missing data param" }, { status: 400, headers: CORS });
-    }
-
-    let parsed;
-    try {
-        parsed = JSON.parse(decodeURIComponent(dataParam));
-    } catch {
-        try {
-            parsed = JSON.parse(dataParam);
-        } catch {
-            return Response.json({ error: "Failed to parse data param" }, { status: 400, headers: CORS });
-        }
-    }
-
-    const realUrl = parsed.url;
-    const extraHeaders = parsed.headers ?? {};
-
-    if (!realUrl) {
-        return Response.json({ error: "No url in data" }, { status: 400, headers: CORS });
-    }
+    const decoded = decodeURIComponent(encodedUrl);
 
     let upstream;
     try {
-        upstream = await fetch(realUrl, {
+        upstream = await fetch(decoded, {
             headers: {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150 Safari/537.36",
-                ...extraHeaders,
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                "Referer": "https://02movie.com/",
+                "Origin": "https://02movie.com",
             },
+            cf: {
+                cacheTtl: 3600,
+                cacheEverything: true
+            }
         });
     } catch (e) {
         return Response.json({ error: "Fetch failed: " + e.message }, { status: 502, headers: CORS });
@@ -69,19 +53,28 @@ async function handleEmbedProxy(proxyUrl) {
         return Response.json({ error: "Upstream returned " + upstream.status }, { status: 502, headers: CORS });
     }
 
-    const contentType = upstream.headers.get("content-type") || "application/octet-stream";
+    const contentType = upstream.headers.get("content-type") || "video/mp4";
+    const contentLength = upstream.headers.get("content-length") || "";
 
     return new Response(upstream.body, {
         status: 200,
         headers: {
             ...CORS,
             "Content-Type": contentType,
-            "Content-Length": upstream.headers.get("content-length") || "",
+            "Content-Disposition": `attachment; filename="${filename}"`,
+            ...(contentLength && { "Content-Length": contentLength }),
+            "Cache-Control": "public, max-age=3600"
         },
     });
 }
 
-async function handleDirectProxy(url, searchParams) {
+async function handleProxy(searchParams) {
+    const url = searchParams.get("url");
+
+    if (!url) {
+        return Response.json({ error: "Missing url" }, { status: 400, headers: CORS });
+    }
+
     const headersParam = searchParams.get("headers");
     let extraHeaders = {};
     if (headersParam) {
@@ -100,11 +93,15 @@ async function handleDirectProxy(url, searchParams) {
     try {
         upstream = await fetch(url, {
             headers: {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150 Safari/537.36",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
                 "Referer": "https://madvid3.xyz/",
                 "Origin": "https://madvid3.xyz",
                 ...extraHeaders,
             },
+            cf: {
+                cacheTtl: 3600,
+                cacheEverything: true
+            }
         });
     } catch (e) {
         return Response.json({ error: "Fetch failed: " + e.message }, { status: 502, headers: CORS });
@@ -123,6 +120,7 @@ async function handleDirectProxy(url, searchParams) {
             "Content-Type": contentType,
             "Content-Disposition": 'attachment; filename="vyla-download.mp4"',
             "Content-Length": upstream.headers.get("content-length") || "",
+            "Cache-Control": "public, max-age=3600"
         },
     });
 }
