@@ -150,7 +150,7 @@ function sortSources(sources) {
     return [...sources].sort((a, b) => qualityRank(b.quality) - qualityRank(a.quality));
 }
 
-async function safeFetch(url, options = {}, timeoutMs = 10000) {
+async function safeFetch(url, options = {}, timeoutMs = 5000) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
@@ -186,7 +186,7 @@ async function fetchMovieDownloaderToken(media) {
                 "sec-fetch-mode": "cors",
                 "sec-fetch-site": "same-origin",
             },
-        });
+        }, 4000);
         if (!res.ok) return null;
         const json = await res.json();
         return json.token ?? null;
@@ -226,7 +226,7 @@ async function fetchMovieDownloader(media) {
                 origin: BASE,
                 referer,
             },
-        });
+        }, 5000);
         if (!res.ok) return { sources, subtitles };
         const data = await res.json();
 
@@ -297,7 +297,7 @@ async function fetchVixSrc(media) {
     };
 
     try {
-        const htmlRes = await safeFetch(pageUrl, { headers });
+        const htmlRes = await safeFetch(pageUrl, { headers }, 4000);
         if (!htmlRes.ok) return { sources, subtitles };
         const html = await htmlRes.text();
 
@@ -313,7 +313,7 @@ async function fetchVixSrc(media) {
 
         const plRes = await safeFetch(masterUrl, {
             headers: { ...headers, Referer: pageUrl },
-        });
+        }, 4000);
         if (!plRes.ok) return { sources, subtitles };
         const content = await plRes.text();
 
@@ -381,7 +381,7 @@ async function fetchVidSrc(media) {
     async function fetchText(url) {
         try {
             if (url.startsWith("//")) url = "https:" + url;
-            const res = await safeFetch(url, { headers });
+            const res = await safeFetch(url, { headers }, 4000);
             if (!res.ok) return null;
             return await res.text();
         } catch {
@@ -448,7 +448,7 @@ async function resolveM3u8(url, headers) {
                 ...headers,
                 Accept: "application/vnd.apple.mpegurl,application/x-mpegURL,*/*",
             },
-        });
+        }, 4000);
         if (!res.ok) return { variants: [{ url, quality: "unknown" }] };
         const text = await res.text();
 
@@ -510,7 +510,7 @@ async function fetchUembed(media) {
     let streams = null;
     for (const url of apis) {
         try {
-            const res = await safeFetch(url, { headers });
+            const res = await safeFetch(url, { headers }, 4000);
             if (!res.ok) continue;
             const data = await res.json();
             if (Array.isArray(data) && data.length > 0) {
@@ -617,7 +617,7 @@ async function fetchVidRock(media) {
         const encrypted = await encryptVidRockId(itemId);
         const pageUrl = `${BASE}api/${media.type}/${encrypted}`;
 
-        const res = await safeFetch(pageUrl, { headers });
+        const res = await safeFetch(pageUrl, { headers }, 4000);
         if (!res.ok) return { sources, subtitles };
         const data = await res.json();
 
@@ -635,7 +635,7 @@ async function fetchVidRock(media) {
 
             if (stream.url.includes("hls2.vdrk.site")) {
                 try {
-                    const cdnRes = await safeFetch(stream.url, { headers });
+                    const cdnRes = await safeFetch(stream.url, { headers }, 4000);
                     if (!cdnRes.ok) continue;
                     const cdnData = await cdnRes.json();
                     for (const obj of cdnData) {
@@ -675,7 +675,7 @@ async function fetchVidRock(media) {
                     ? `${SUB_BASE}/v2/tv/${media.tmdbId}/${media.season}/${media.episode}`
                     : `${SUB_BASE}/v2/movie/${media.tmdbId}`;
 
-            const subRes = await safeFetch(subUrl, { headers: { ...headers, Referer: BASE } });
+            const subRes = await safeFetch(subUrl, { headers: { ...headers, Referer: BASE } }, 3000);
             if (subRes.ok) {
                 const subsData = await subRes.json();
                 for (const sub of subsData) {
@@ -707,20 +707,45 @@ async function fetchRgShows(media) {
             : `${BASE}/tv/${media.tmdbId}/${media.season}/${media.episode}`;
 
     try {
-        const res = await safeFetch(pageUrl, { headers });
+        const res = await safeFetch(pageUrl, { headers }, 4000);
         if (!res.ok) return { sources: [], subtitles: [] };
         const data = await res.json();
         if (!data?.stream?.url) return { sources: [], subtitles: [] };
 
+        let finalUrl = data.stream.url;
+        let sourceHeaders = headers;
+
+        if (finalUrl.includes("02pcembed.site/v1/proxy")) {
+            try {
+                const proxyUrl = new URL(finalUrl);
+                const rawData = proxyUrl.searchParams.get("data");
+                if (rawData) {
+                    const decoded = JSON.parse(decodeURIComponent(rawData));
+                    if (decoded?.url && decoded.url !== "error") {
+                        finalUrl = decoded.url;
+                        sourceHeaders = {
+                            "User-Agent": decoded.headers?.["User-Agent"] ?? UA,
+                            Accept: decoded.headers?.["Accept"] ?? "*/*",
+                            "Accept-Language": decoded.headers?.["Accept-Language"] ?? "en-US,en;q=0.9",
+                            Referer: decoded.headers?.["Referer"] ?? FRONTEND,
+                            Origin: decoded.headers?.["Origin"] ?? FRONTEND,
+                        };
+                    }
+                }
+            } catch {
+                return { sources: [], subtitles: [] };
+            }
+        }
+
         return {
             sources: [
                 {
-                    url: unwrapThirdPartyProxy(data.stream.url),
+                    url: finalUrl,
                     quality: "1080p",
-                    type: "mp4",
+                    type: finalUrl.includes(".m3u8") ? "hls" : "mp4",
                     provider: "RgShows",
                     audioTracks: [{ language: "eng", label: "English" }],
-                    headers,
+                    headers: sourceHeaders,
                 },
             ],
             subtitles: [],
@@ -787,7 +812,7 @@ async function fetchVidZee(media) {
                 url += `&ss=${media.season}&ep=${media.episode}`;
             }
             try {
-                const res = await safeFetch(url, { headers }, 8000);
+                const res = await safeFetch(url, { headers }, 4000);
                 if (!res.ok) return null;
                 return await res.json();
             } catch {
@@ -901,7 +926,7 @@ async function fetchEmbed02(media) {
                 Accept: "application/json, text/javascript, */*; q=0.01",
                 "Accept-Language": "en-US,en;q=0.9",
             },
-        });
+        }, 4000);
         if (!res.ok) return { sources: [], subtitles: [] };
         const data = await res.json();
 
