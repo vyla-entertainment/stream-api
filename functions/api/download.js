@@ -4,63 +4,47 @@ const CORS = {
     "Access-Control-Allow-Headers": "*",
 };
 
-const PROXY_PATTERNS = {
-    "https://hls1.vid1.site": [/\/proxy\/(.+)$/],
-    "https://madplay.site": [/\/api\/[^/]+\/proxy\?url=(.+)$/],
-    "https://madvid3.xyz": [/\/api\/[^/]+\/proxy\?url=(.+)$/],
-    "https://hlsproxy3.asiaflix.net": [/\/m3u8-proxy\?url=(.+?)(?:&|$)/],
-    "https://streams.smashystream.top": [/\/proxy\/m3u8\/(.+?)\/[^/]+$/],
-    "*": [
-        /^https:\/\/[^/]+\.workers\.dev\/((?:https?:\/\/|https?%3A%2F%2F).+)$/,
-        /^https:\/\/[^/]+\.workers\.dev\/((?:https?:\/\/)?[^/]+\/file2\/.+)$/,
-        /^https:\/\/.+?\.workers\.dev\/((?:https?:\/\/).+)$/,
-        /\/proxy\/(.+)$/,
-        /\/m3u8-proxy\?url=(.+?)(?:&|$)/,
-        /\/api\/[^/]+\/proxy\?url=(.+)$/,
-        /\/proxy\?.*url=([^&]+)/,
-        /\/stream\/proxy\/(.+)$/,
-        /\/(?:hls-proxy|proxy)\?url=([^&]+)/,
-    ],
-};
-
-function unwrapProxy(url) {
+function decodeUrl(url) {
     try {
+        let prev;
         for (let i = 0; i < 5; i++) {
-            const origin = new URL(url).origin;
-            const patterns = [...(PROXY_PATTERNS[origin] ?? []), ...PROXY_PATTERNS["*"]];
-            let matched = false;
-            for (const p of patterns) {
-                const m = url.match(p);
-                if (m?.[1]) {
-                    let decoded = m[1];
-                    for (let j = 0; j < 3; j++) {
-                        try {
-                            const next = decodeURIComponent(decoded);
-                            if (next === decoded) break;
-                            decoded = next;
-                        } catch { break; }
-                    }
-                    url = decoded;
-                    matched = true;
-                    break;
-                }
-            }
-            if (!matched) break;
+            prev = url;
+            url = decodeURIComponent(url);
+            if (url === prev) break;
         }
     } catch { }
     return url;
 }
 
-function extractEmbeddedHeaders(rawUrl) {
-    try {
-        const decoded = decodeURIComponent(rawUrl);
-        const dataMatch = decoded.match(/[?&]data=(\{.+\})/);
-        if (dataMatch) {
-            const parsed = JSON.parse(decodeURIComponent(dataMatch[1]));
-            return { url: parsed.url ?? null, headers: parsed.headers ?? {} };
-        }
-    } catch { }
-    return { url: null, headers: {} };
+function getHeaders(url) {
+    const isHakunaya = url.includes("hakunaymatata");
+    return {
+        "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/134.0.0.0 Safari/537.36",
+        ...(isHakunaya
+            ? {
+                Referer: "https://lok-lok.cc/",
+                Origin: "https://lok-lok.cc",
+            }
+            : {}),
+    };
+}
+
+async function fetchWithFallback(url, headers) {
+    const tries = [
+        () => fetch(url, { headers }),
+        () => fetch(url, { headers: { ...headers, Referer: "" } }),
+        () => fetch(url, { headers: { ...headers, Origin: "" } }),
+    ];
+
+    for (const fn of tries) {
+        try {
+            const res = await fn();
+            if (res.ok) return res;
+        } catch { }
+    }
+
+    throw new Error("All fetch attempts failed");
 }
 
 export async function onRequestOptions() {
@@ -69,72 +53,94 @@ export async function onRequestOptions() {
 
 export async function onRequestGet({ request }) {
     const { searchParams } = new URL(request.url);
-    const encodedUrl = searchParams.get("url");
-    const filename = searchParams.get("filename") || "download.mp4";
+
+    let encodedUrl = searchParams.get("url");
+    const filename = searchParams.get("filename") || "video.mp4";
+    const info = searchParams.get("info");
 
     if (!encodedUrl) {
-        return Response.json({
-            success: false,
-            error: "Missing url parameter",
-            usage: {
-                download: "/api/download?url=<encoded_url>&filename=<name.mp4>",
-                info: "/api/download?url=<encoded_url>&info=1",
-            },
-        }, { status: 400, headers: CORS });
+        return Response.json(
+            { success: false, error: "Missing url param" },
+            { status: 400, headers: CORS }
+        );
     }
 
-    const unwrappedUrl = unwrapProxy(encodedUrl);
-    const { url: embeddedUrl, headers: embeddedHeaders } = extractEmbeddedHeaders(unwrappedUrl);
-    const finalUrl = embeddedUrl ? embeddedUrl : unwrappedUrl;
-    const isHakunaya = finalUrl.includes("hakunaymatata");
+    const decoded = decodeUrl(encodedUrl);
 
-    const fetchHeaders = {
-        ...embeddedHeaders,
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.6884.98 Safari/537.36",
-        ...(isHakunaya ? { Referer: "https://lok-lok.cc/", Origin: "https://lok-lok.cc" } : {}),
-    };
+    let finalUrl;
+    try {
+        finalUrl = new URL(decoded).href;
+    } catch {
+        return Response.json(
+            { success: false, error: "Invalid URL" },
+            { status: 400, headers: CORS }
+        );
+    }
 
-    if (searchParams.get("info") === "1") {
-        let upstream;
+    const headers = getHeaders(finalUrl);
+
+    if (info === "1") {
         try {
-            upstream = await fetch(finalUrl, { method: "HEAD", headers: fetchHeaders });
+            const head = await fetch(finalUrl, {
+                method: "HEAD",
+                headers,
+            });
+
+            return Response.json(
+                {
+                    success: head.ok,
+                    status: head.status,
+                    url: finalUrl,
+                    content_type: head.headers.get("content-type"),
+                    content_length: head.headers.get("content-length"),
+                },
+                { headers: CORS }
+            );
         } catch (e) {
-            return Response.json({ success: false, error: "Fetch failed: " + e.message }, { status: 502, headers: CORS });
+            return Response.json(
+                { success: false, error: e.message },
+                { headers: CORS }
+            );
         }
-
-        const contentLength = upstream.headers.get("content-length");
-
-        return Response.json({
-            success: upstream.ok,
-            resolved_url: finalUrl,
-            original_url: encodedUrl,
-            filename,
-            status: upstream.status,
-            content_type: upstream.headers.get("content-type"),
-            content_length: contentLength ? parseInt(contentLength) : null,
-            content_length_mb: contentLength ? parseFloat((parseInt(contentLength) / 1024 / 1024).toFixed(2)) : null,
-            accept_ranges: upstream.headers.get("accept-ranges"),
-            last_modified: upstream.headers.get("last-modified"),
-            download_url: "/api/download?url=" + encodedUrl + "&filename=" + encodeURIComponent(filename),
-        }, { headers: CORS });
     }
 
     let upstream;
     try {
-        upstream = await fetch(finalUrl, {
-            headers: fetchHeaders,
-            cf: { cacheTtl: 3600, cacheEverything: true },
-        });
+        upstream = await fetchWithFallback(finalUrl, headers);
     } catch (e) {
-        return Response.json({ success: false, error: "Fetch failed: " + e.message }, { status: 502, headers: CORS });
+        return Response.json(
+            { success: false, error: e.message },
+            { status: 502, headers: CORS }
+        );
     }
 
-    if (!upstream.ok) {
-        return Response.json({ success: false, error: "Upstream returned " + upstream.status }, { status: 502, headers: CORS });
-    }
+    const contentType =
+        upstream.headers.get("content-type") || "application/octet-stream";
 
-    const contentType = upstream.headers.get("content-type") || "video/mp4";
-    const contentLength = upstream.headers.get("content-length") || "";
+    const isHLS = finalUrl.includes(".m3u8");
+
+    if (isHLS) {
+        const text = await upstream.text();
+
+        const fixed = text
+            .split("\n")
+            .map((line) => {
+                if (!line || line.startsWith("#")) return line;
+                if (line.startsWith("http")) {
+                    return `/api/download?url=${encodeURIComponent(line)}`;
+                }
+                const base = finalUrl.substring(0, finalUrl.lastIndexOf("/") + 1);
+                return `/api/download?url=${encodeURIComponent(base + line)}`;
+            })
+            .join("\n");
+
+        return new Response(fixed, {
+            headers: {
+                ...CORS,
+                "Content-Type": "application/vnd.apple.mpegurl",
+            },
+        });
+    }
 
     return new Response(upstream.body, {
         status: 200,
@@ -142,7 +148,6 @@ export async function onRequestGet({ request }) {
             ...CORS,
             "Content-Type": contentType,
             "Content-Disposition": `attachment; filename="${filename}"`,
-            ...(contentLength && { "Content-Length": contentLength }),
             "Cache-Control": "public, max-age=3600",
         },
     });
