@@ -27,6 +27,9 @@ function buildFfmpegCommand(url, headers, filename) {
 }
 
 function buildDownloadUrl(url, headers, filename) {
+    if (url.includes("hakunaymatata")) {
+        return "https://02movie.com/api/download?url=" + encodeURIComponent(url) + "&filename=" + encodeURIComponent(filename);
+    }
     const h = Object.keys(headers).length
         ? "&headers=" + encodeURIComponent(btoa(JSON.stringify(headers)))
         : "";
@@ -71,6 +74,24 @@ function deduplicateSources(sources) {
         seen.add(key);
         return true;
     });
+}
+
+async function fetchSignedUrls(tmdbId) {
+    try {
+        const res = await fetch("https://02movie.com/api/movies/download?id=" + tmdbId, {
+            headers: {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/134.0.0.0 Safari/537.36",
+                Referer: "https://02movie.com/",
+                Origin: "https://02movie.com",
+            },
+        });
+        if (!res.ok) return null;
+        const text = await res.text();
+        const clean = text.replace(/```json|```/g, "").trim();
+        return JSON.parse(clean);
+    } catch {
+        return null;
+    }
 }
 
 function enrichSource(s, index, prefix) {
@@ -147,22 +168,39 @@ export async function onRequestGet({ request }) {
         return Response.json({ success: false, error: "Missing id" }, { status: 400, headers: CORS });
     }
 
-    const { sources, subtitles } = await scrape("movie", id);
+    const [{ sources, subtitles }, signedData] = await Promise.all([
+        scrape("movie", id),
+        fetchSignedUrls(id),
+    ]);
 
     const deduped = deduplicateSources(sources);
-    const results = deduped.map((s, i) => enrichSource(s, i, id));
+
+    const signedMap = new Map();
+    if (signedData) {
+        const downloads = signedData?.data?.downloadData?.data?.downloads ?? [];
+        for (const dl of downloads) {
+            if (dl.url && dl.resolution) {
+                signedMap.set(dl.resolution + "p", dl.url);
+            }
+        }
+    }
+
+    const results = deduped.map((s, i) => {
+        const base = enrichSource(s, i, id);
+        if (!base.is_hls && signedMap.has(s.quality)) {
+            const signedUrl = signedMap.get(s.quality);
+            base.download_url = buildDownloadUrl(signedUrl, `${id}_${s.quality}_${i + 1}.mp4`);
+        }
+        return base;
+    });
 
     const cleanSubtitles = deduplicateSubtitles(subtitles);
 
-    const body = JSON.stringify({
+    return new Response(JSON.stringify({
         success: results.length > 0,
         tmdb_id: id,
         results_found: results.length,
         sources: results,
         subtitles: cleanSubtitles,
-    });
-
-    return new Response(body, {
-        headers: { ...CORS, "Content-Type": "application/json" },
-    });
+    }), { headers: { ...CORS, "Content-Type": "application/json" } });
 }
