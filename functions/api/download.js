@@ -18,29 +18,48 @@ const PROXY_PATTERNS = {
         /\/api\/[^/]+\/proxy\?url=(.+)$/,
         /\/proxy\?.*url=([^&]+)/,
         /\/stream\/proxy\/(.+)$/,
+        /\/(?:hls-proxy|proxy)\?url=([^&]+)/,
     ],
 };
 
 function unwrapProxy(url) {
     try {
-        const origin = new URL(url).origin;
-        const patterns = [...(PROXY_PATTERNS[origin] ?? []), ...PROXY_PATTERNS["*"]];
-        for (const p of patterns) {
-            const m = url.match(p);
-            if (m?.[1]) {
-                let decoded = m[1];
-                for (let i = 0; i < 3; i++) {
-                    try {
-                        const next = decodeURIComponent(decoded);
-                        if (next === decoded) break;
-                        decoded = next;
-                    } catch { break; }
+        for (let i = 0; i < 5; i++) {
+            const origin = new URL(url).origin;
+            const patterns = [...(PROXY_PATTERNS[origin] ?? []), ...PROXY_PATTERNS["*"]];
+            let matched = false;
+            for (const p of patterns) {
+                const m = url.match(p);
+                if (m?.[1]) {
+                    let decoded = m[1];
+                    for (let j = 0; j < 3; j++) {
+                        try {
+                            const next = decodeURIComponent(decoded);
+                            if (next === decoded) break;
+                            decoded = next;
+                        } catch { break; }
+                    }
+                    url = decoded;
+                    matched = true;
+                    break;
                 }
-                return decoded;
             }
+            if (!matched) break;
         }
     } catch { }
     return url;
+}
+
+function extractEmbeddedHeaders(rawUrl) {
+    try {
+        const decoded = decodeURIComponent(rawUrl);
+        const dataMatch = decoded.match(/[?&]data=(\{.+\})/);
+        if (dataMatch) {
+            const parsed = JSON.parse(decodeURIComponent(dataMatch[1]));
+            return { url: parsed.url ?? null, headers: parsed.headers ?? {} };
+        }
+    } catch { }
+    return { url: null, headers: {} };
 }
 
 export async function onRequestOptions() {
@@ -63,20 +82,21 @@ export async function onRequestGet({ request }) {
         }, { status: 400, headers: CORS });
     }
 
-    const rawUrl = decodeURIComponent(encodedUrl);
-    const url = unwrapProxy(rawUrl);
-    const isHakunaya = url.includes("hakunaymatata");
+    const { url: embeddedUrl, headers: embeddedHeaders } = extractEmbeddedHeaders(url);
+    const finalUrl = embeddedUrl ? embeddedUrl : url;
+    const isHakunaya = finalUrl.includes("hakunaymatata");
 
     const fetchHeaders = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.6884.98 Safari/537.36",
         Referer: isHakunaya ? "https://lok-lok.cc/" : "https://02movie.com/",
         Origin: isHakunaya ? "https://lok-lok.cc" : "https://02movie.com",
+        ...embeddedHeaders,
     };
 
     if (searchParams.get("info") === "1") {
         let upstream;
         try {
-            upstream = await fetch(url, { method: "HEAD", headers: fetchHeaders });
+            upstream = await fetch(finalUrl, { method: "HEAD", headers: fetchHeaders });
         } catch (e) {
             return Response.json({ success: false, error: "Fetch failed: " + e.message }, { status: 502, headers: CORS });
         }
@@ -100,7 +120,7 @@ export async function onRequestGet({ request }) {
 
     let upstream;
     try {
-        upstream = await fetch(url, {
+        upstream = await fetch(finalUrl, {
             headers: fetchHeaders,
             cf: { cacheTtl: 3600, cacheEverything: true },
         });
