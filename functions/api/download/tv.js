@@ -1,10 +1,19 @@
-import { scrape } from "../../_lib/scraper.js";
-
 const CORS = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, OPTIONS",
     "Access-Control-Allow-Headers": "*",
 };
+
+const PROVIDERS = [
+    "moviedownloader",
+    "vixsrc",
+    "vidsrc",
+    "uembed",
+    "vidrock",
+    "rgshows",
+    "vidzee",
+    "embed02",
+];
 
 function getSourceHeaders(url) {
     if (url.includes("hakunaymatata")) return { Referer: "https://lok-lok.cc/", Origin: "https://lok-lok.cc" };
@@ -64,25 +73,12 @@ function dedupeKey(url) {
     } catch { return real; }
 }
 
-function deduplicateSources(sources) {
-    const seen = new Set();
-    return sources.filter(s => {
-        const real = unwrapEmbedUrl(s.url);
-        if (!real || real === "error" || real === "null" || !real.startsWith("http")) return false;
-        const key = dedupeKey(s.url);
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-    });
-}
-
 function enrichSource(s, index, prefix) {
     const realUrl = unwrapEmbedUrl(s.url);
     const isHLS = s.type === "hls" || realUrl.includes(".m3u8") || realUrl.includes("/playlist/");
     const realHeaders = getSourceHeaders(realUrl);
     const filename = `${prefix}_${s.quality || "unknown"}_${index + 1}.mp4`;
     const proxyUrl = `/api/proxy?url=${encodeURIComponent(realUrl)}&headers=${encodeURIComponent(btoa(JSON.stringify(realHeaders)))}`;
-
     return {
         provider: s.provider,
         quality: s.quality || "unknown",
@@ -129,23 +125,12 @@ function unwrapSubtitleUrl(url) {
     } catch { return url; }
 }
 
-function deduplicateSubtitles(subtitles) {
-    const seen = new Set();
-    return subtitles.filter(s => {
-        if (!s.url || !s.url.startsWith("http")) return false;
-        const real = unwrapSubtitleUrl(s.url);
-        if (seen.has(real)) return false;
-        seen.add(real);
-        return true;
-    });
-}
-
 export async function onRequestOptions() {
     return new Response(null, { status: 204, headers: CORS });
 }
 
 export async function onRequestGet({ request }) {
-    const { searchParams } = new URL(request.url);
+    const { searchParams, origin } = new URL(request.url);
     const id = searchParams.get("id");
     const season = searchParams.get("season") ?? "1";
     const episode = searchParams.get("episode") ?? "1";
@@ -154,22 +139,53 @@ export async function onRequestGet({ request }) {
         return Response.json({ success: false, error: "Missing id" }, { status: 400, headers: CORS });
     }
 
-    const { sources, subtitles } = await scrape("tv", id, season, episode);
+    const scrapeBase = `${origin}/api/scrape?type=tv&id=${encodeURIComponent(id)}`;
 
-    const deduped = deduplicateSources(sources);
+    const results = await Promise.allSettled(
+        PROVIDERS.map(provider =>
+            fetch(`${scrapeBase}&provider=${provider}`)
+                .then(r => r.ok ? r.json() : { sources: [], subtitles: [] })
+                .catch(() => ({ sources: [], subtitles: [] }))
+        )
+    );
 
-    const prefix = `s${season}e${episode}`;
-    const results = deduped.map((s, i) => enrichSource(s, i, prefix));
+    const allSources = [];
+    const allSubtitles = [];
+    const seenSourceKeys = new Set();
+    const seenSubUrls = new Set();
 
-    const cleanSubtitles = deduplicateSubtitles(subtitles);
+    for (const result of results) {
+        if (result.status !== "fulfilled") continue;
+        const { sources = [], subtitles = [] } = result.value;
+
+        for (const s of sources) {
+            if (!s.url || s.url === "error" || s.url === "null" || !s.url.startsWith("http")) continue;
+            const key = dedupeKey(s.url);
+            if (seenSourceKeys.has(key)) continue;
+            seenSourceKeys.add(key);
+            allSources.push(s);
+        }
+
+        for (const s of subtitles) {
+            if (!s.url || !s.url.startsWith("http")) continue;
+            const real = unwrapSubtitleUrl(s.url);
+            if (seenSubUrls.has(real)) continue;
+            seenSubUrls.add(real);
+            allSubtitles.push(s);
+        }
+    }
+
+    const QUALITY_PRIORITY = { "2160p": 9, "1440p": 8, "1080p": 7, "720p": 6, "480p": 5, "360p": 4, "240p": 3, hd: 2, auto: 1, unknown: 0 };
+    const qualityRank = q => QUALITY_PRIORITY[(q ?? "").toLowerCase()] ?? 0;
+    const sorted = [...allSources].sort((a, b) => qualityRank(b.quality) - qualityRank(a.quality));
+
+    const results2 = sorted.map((s, i) => enrichSource(s, i, `s${season}e${episode}`));
 
     return new Response(JSON.stringify({
-        success: results.length > 0,
+        success: results2.length > 0,
         tmdb_id: id,
-        season,
-        episode,
-        results_found: results.length,
-        sources: results,
-        subtitles: cleanSubtitles,
+        results_found: results2.length,
+        sources: results2,
+        subtitles: allSubtitles,
     }), { headers: { ...CORS, "Content-Type": "application/json" } });
 }
