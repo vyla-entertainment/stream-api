@@ -18,15 +18,22 @@ function decodeUrl(url) {
 
 function getHeaders(url) {
     const isHakunaya = url.includes("hakunaymatata");
+    const isTripplestream = url.includes("tripplestream.online") || url.includes("hlmv-files");
     return {
-        "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/134.0.0.0 Safari/537.36",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/134.0.0.0 Safari/537.36",
         ...(isHakunaya
             ? {
                 Referer: "https://lok-lok.cc/",
                 Origin: "https://lok-lok.cc",
             }
-            : {}),
+            : isTripplestream
+                ? {
+                    Referer: "https://www.rgshows.ru",
+                    Origin: "https://www.rgshows.ru",
+                    Accept: "application/json, text/javascript, */*; q=0.01",
+                    "Accept-Language": "en-US,en;q=0.9",
+                }
+                : {}),
     };
 }
 

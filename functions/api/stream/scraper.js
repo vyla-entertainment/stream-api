@@ -707,15 +707,40 @@ async function fetchRgShows(media) {
         const data = await res.json();
         if (!data?.stream?.url) return { sources: [], subtitles: [] };
 
+        let finalUrl = data.stream.url;
+        let sourceHeaders = headers;
+
+        if (finalUrl.includes("02pcembed.site/v1/proxy")) {
+            try {
+                const proxyUrl = new URL(finalUrl);
+                const rawData = proxyUrl.searchParams.get("data");
+                if (rawData) {
+                    const decoded = JSON.parse(decodeURIComponent(rawData));
+                    if (decoded?.url && decoded.url !== "error") {
+                        finalUrl = decoded.url;
+                        sourceHeaders = {
+                            "User-Agent": decoded.headers?.["User-Agent"] ?? UA,
+                            Accept: decoded.headers?.["Accept"] ?? "*/*",
+                            "Accept-Language": decoded.headers?.["Accept-Language"] ?? "en-US,en;q=0.9",
+                            Referer: decoded.headers?.["Referer"] ?? FRONTEND,
+                            Origin: decoded.headers?.["Origin"] ?? FRONTEND,
+                        };
+                    }
+                }
+            } catch {
+                return { sources: [], subtitles: [] };
+            }
+        }
+
         return {
             sources: [
                 {
-                    url: unwrapThirdPartyProxy(data.stream.url),
+                    url: finalUrl,
                     quality: "1080p",
-                    type: "mp4",
+                    type: finalUrl.includes(".m3u8") ? "hls" : "mp4",
                     provider: "RgShows",
                     audioTracks: [{ language: "eng", label: "English" }],
-                    headers,
+                    headers: sourceHeaders,
                 },
             ],
             subtitles: [],
