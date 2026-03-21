@@ -1,11 +1,20 @@
-import { scrape } from "../../_lib/scraper.js";
-
 const CORS = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, OPTIONS",
     "Access-Control-Allow-Headers": "*",
     "Cache-Control": "public, max-age=300, s-maxage=900",
 };
+
+const PROVIDERS = [
+    "moviedownloader",
+    "vixsrc",
+    "vidsrc",
+    "uembed",
+    "vidrock",
+    "rgshows",
+    "vidzee",
+    "embed02",
+];
 
 function getSourceHeaders(url) {
     if (url.includes("hakunaymatata")) return { Referer: "https://lok-lok.cc/", Origin: "https://lok-lok.cc" };
@@ -45,43 +54,62 @@ function dedupeKey(url) {
     } catch { return real; }
 }
 
-function deduplicateSources(sources) {
-    const seen = new Set();
-    return sources.filter(s => {
-        const real = unwrapEmbedUrl(s.url);
-        if (!real || real === "error" || real === "null" || !real.startsWith("http")) return false;
-        const key = dedupeKey(s.url);
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-    });
-}
-
 export async function onRequestOptions() {
     return new Response(null, { status: 204, headers: CORS });
 }
 
 export async function onRequestGet({ request }) {
-    const { searchParams } = new URL(request.url);
+    const { searchParams, origin } = new URL(request.url);
     const id = searchParams.get("id");
 
     if (!id) {
         return Response.json({ success: false, error: "Missing id" }, { status: 400, headers: CORS });
     }
 
-    const { sources, subtitles } = await scrape("movie", id);
+    const scrapeBase = `${origin}/api/scrape?type=movie&id=${encodeURIComponent(id)}`;
 
-    const deduped = deduplicateSources(sources);
+    const results = await Promise.allSettled(
+        PROVIDERS.map(provider =>
+            fetch(`${scrapeBase}&provider=${provider}`)
+                .then(r => r.ok ? r.json() : { sources: [], subtitles: [] })
+                .catch(() => ({ sources: [], subtitles: [] }))
+        )
+    );
 
-    const mapped = deduped.map(s => {
-        const realUrl = unwrapEmbedUrl(s.url);
-        const realHeaders = getSourceHeaders(realUrl);
-        const proxyUrl = `/api/proxy?url=${encodeURIComponent(realUrl)}&headers=${encodeURIComponent(btoa(JSON.stringify(realHeaders)))}`;
-        return { ...s, url: realUrl, vlc_url: proxyUrl };
-    });
+    const allSources = [];
+    const allSubtitles = [];
+    const seenSourceKeys = new Set();
+    const seenSubUrls = new Set();
+
+    for (const result of results) {
+        if (result.status !== "fulfilled") continue;
+        const { sources = [], subtitles = [] } = result.value;
+
+        for (const s of sources) {
+            if (!s.url || s.url === "error" || s.url === "null" || !s.url.startsWith("http")) continue;
+            const key = dedupeKey(s.url);
+            if (seenSourceKeys.has(key)) continue;
+            seenSourceKeys.add(key);
+            const realUrl = unwrapEmbedUrl(s.url);
+            const realHeaders = getSourceHeaders(realUrl);
+            const proxyUrl = `/api/proxy?url=${encodeURIComponent(realUrl)}&headers=${encodeURIComponent(btoa(JSON.stringify(realHeaders)))}`;
+            allSources.push({ ...s, url: realUrl, vlc_url: proxyUrl });
+        }
+
+        for (const s of subtitles) {
+            if (!s.url || !s.url.startsWith("http")) continue;
+            if (seenSubUrls.has(s.url)) continue;
+            seenSubUrls.add(s.url);
+            allSubtitles.push(s);
+        }
+    }
+
+    const QUALITY_PRIORITY = { "2160p": 9, "1440p": 8, "1080p": 7, "720p": 6, "480p": 5, "360p": 4, "240p": 3, hd: 2, auto: 1, unknown: 0 };
+    const qualityRank = q => QUALITY_PRIORITY[(q ?? "").toLowerCase()] ?? 0;
+    const sorted = [...allSources].sort((a, b) => qualityRank(b.quality) - qualityRank(a.quality));
 
     return Response.json(
-        { success: mapped.length > 0, results_found: mapped.length, sources: mapped, subtitles },
+        { success: sorted.length > 0, results_found: sorted.length, sources: sorted, subtitles: allSubtitles },
         { headers: CORS }
     );
 }
