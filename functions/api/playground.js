@@ -11,8 +11,8 @@ export async function onRequestGet() {
     --primary: 0 0 0;
     --primary-light: 255 255 255;
     --primary-dark: 0 0 0;
-    --background-dark: 14 14 16;
-    --gray-50: 242 242 242;
+    --background-dark: 0 0 0;
+    --gray-50: 17 17 17;
     --gray-100: 238 238 238;
     --gray-200: 222 222 222;
     --gray-300: 206 206 206;
@@ -21,8 +21,8 @@ export async function onRequestGet() {
     --gray-600: 79 79 79;
     --gray-700: 62 62 62;
     --gray-800: 37 37 37;
-    --gray-900: 15 15 18;
-    --gray-950: 14 14 16;
+    --gray-900: 18 18 18;
+    --gray-950: 0 0 0;
   }
 
   *, *::before, *::after { 
@@ -120,10 +120,9 @@ export async function onRequestGet() {
 
   .fetch-btn {
     background: rgb(var(--gray-50));
-    color: rgb(var(--gray-950));
+    color: rgb(var(--primary-light));
     border: none;
     border-radius: 13px;
-    font-size: 0.875rem;
     font-weight: 700;
     height: 36px;
     width: 36px;
@@ -159,7 +158,6 @@ export async function onRequestGet() {
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* ── Grid ── */
   .grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
@@ -177,7 +175,6 @@ export async function onRequestGet() {
   }
   .empty svg { display: block; margin: 0 auto 12px; opacity: 0.3; }
 
-  /* ── Skeleton ── */
   @keyframes shimmer {
     0%   { background-position: -600px 0; }
     100% { background-position:  600px 0; }
@@ -216,7 +213,6 @@ export async function onRequestGet() {
   .sk-btn.med  { width: 64px; }
   .sk-btn.sm   { width: 72px; }
 
-  /* ── Real card ── */
   .card {
     background: rgb(var(--gray-950));
     border: 1px solid rgb(var(--gray-800));
