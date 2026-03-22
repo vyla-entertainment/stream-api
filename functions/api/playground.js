@@ -1,10 +1,11 @@
 export async function onRequestGet() {
-    const html = `<!DOCTYPE html>
+  const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Vyla Playground</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
   :root {
     --primary: 0 0 0;
@@ -41,6 +42,16 @@ export async function onRequestGet() {
     overflow: auto;
     scrollbar-width: none;
     -ms-overflow-style: none;
+    position: relative;
+  }
+
+  .bg-grid {
+    position: absolute;
+    inset: 0;
+    background-color: rgb(var(--background-dark));
+    background-size: 32px 32px;
+    print: print-color-exact;
+    z-index: -1;
   }
 
   body::-webkit-scrollbar {
@@ -79,12 +90,13 @@ export async function onRequestGet() {
     color: rgb(var(--gray-500));
     text-transform: uppercase;
     letter-spacing: 0.06em;
+    margin-left: 4px;
   }
 
   input, select {
     background: rgb(var(--gray-900));
     border: 1px solid rgb(var(--gray-800));
-    border-radius: 7px;
+    border-radius: 13px;
     color: rgb(var(--gray-100));
     font-size: 0.875rem;
     padding: 9px 12px;
@@ -110,10 +122,11 @@ export async function onRequestGet() {
     background: rgb(var(--gray-50));
     color: rgb(var(--gray-950));
     border: none;
-    border-radius: 7px;
+    border-radius: 13px;
     font-size: 0.875rem;
     font-weight: 700;
-    padding: 9px 22px;
+    height: 36px;
+    width: 36px;
     cursor: pointer;
     transition: background 0.15s, opacity 0.15s;
     white-space: nowrap;
@@ -298,11 +311,7 @@ export async function onRequestGet() {
 </style>
 </head>
 <body>
-
-<div class="header">
-  <h1>Vyla Playground</h1>
-  <p>Fetch and browse sources for any movie or TV episode by TMDB ID</p>
-</div>
+<div class="bg-grid"></div>
 
 <div class="controls">
   <div class="form-row">
@@ -327,7 +336,7 @@ export async function onRequestGet() {
     </div>
     <div class="field">
       <label>&nbsp;</label>
-      <button class="fetch-btn" id="fetch-btn" onclick="fetchSources()">Fetch Sources</button>
+      <button class="fetch-btn" id="fetch-btn" onclick="fetchSources()"><i class="fas fa-chevron-right"></i></button>
     </div>
   </div>
 </div>
@@ -497,12 +506,12 @@ function copyFfmpeg(btn, i) {
 </body>
 </html>`;
 
-    return new Response(html, {
-        status: 200,
-        headers: {
-            "Content-Type": "text/html;charset=UTF-8",
-            "Access-Control-Allow-Origin": "*",
-            "X-Frame-Options": "ALLOWALL",
-        },
-    });
+  return new Response(html, {
+    status: 200,
+    headers: {
+      "Content-Type": "text/html;charset=UTF-8",
+      "Access-Control-Allow-Origin": "*",
+      "X-Frame-Options": "ALLOWALL",
+    },
+  });
 }
