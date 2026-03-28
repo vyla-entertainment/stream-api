@@ -1,4 +1,7 @@
 const PROVIDERS = {
+    vidlink: {
+        BASE: "https://vidlink-scraper.vercel.app",
+    },
 
     moviedownloader: {
         BASE: "https://02moviedownloader.site",
@@ -973,6 +976,27 @@ function extractQualityFromUrl(url) {
     return "unknown";
 }
 
+async function fetchVidLink(media) {
+    const { BASE } = PROVIDERS.vidlink;
+    const url = media.type === "movie"
+        ? `${BASE}/?id=${media.tmdbId}`
+        : `${BASE}/?id=${media.tmdbId}&season=${media.season}&episode=${media.episode}`;
+
+    return {
+        sources: [
+            {
+                url: url,
+                type: "hls",
+                quality: "1080p",
+                provider: "VidLink",
+                audioTracks: [{ language: "eng", label: "English" }],
+                headers: {}
+            }
+        ],
+        subtitles: []
+    };
+}
+
 export async function scrape(mediaType, tmdbId, season = "1", episode = "1") {
     const media = {
         type: mediaType === "tv" ? "tv" : "movie",
@@ -982,6 +1006,7 @@ export async function scrape(mediaType, tmdbId, season = "1", episode = "1") {
     };
 
     const providerFns = [
+        fetchVidLink,
         fetchMovieDownloader,
         fetchVixSrc,
         fetchVidSrc,
@@ -1027,6 +1052,7 @@ export async function scrape(mediaType, tmdbId, season = "1", episode = "1") {
     return { sources: finalSources, subtitles: finalSubtitles };
 }
 export {
+    fetchVidLink,
     fetchMovieDownloader,
     fetchVixSrc,
     fetchVidSrc,

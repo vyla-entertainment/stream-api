@@ -1,4 +1,5 @@
 import {
+    fetchVidLink,
     fetchMovieDownloader,
     fetchVixSrc,
     fetchVidSrc,
@@ -16,6 +17,7 @@ const CORS = {
 };
 
 const PROVIDERS = {
+    vidlink: fetchVidLink,
     moviedownloader: fetchMovieDownloader,
     vixsrc: fetchVixSrc,
     vidsrc: fetchVidSrc,

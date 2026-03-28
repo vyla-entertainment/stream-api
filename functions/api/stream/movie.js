@@ -6,6 +6,7 @@ const CORS = {
 };
 
 const PROVIDERS = [
+    "vidlink",
     "moviedownloader",
     "vixsrc",
     "vidsrc",
