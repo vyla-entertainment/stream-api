@@ -992,7 +992,6 @@ async function fetchVidLink(media) {
         const data = await res.json().catch(() => null);
         if (!data?.url) return { sources, subtitles };
 
-        // HF-proxied playable URL
         const playable = `${PROXY_API}${encodeURIComponent(data.url.split("?")[0])}`;
 
         sources.push({
@@ -1003,9 +1002,7 @@ async function fetchVidLink(media) {
             audioTracks: [{ language: "eng", label: "English" }],
             headers: { "User-Agent": "Mozilla/5.0" }
         });
-
     } catch {
-        // Return empty results on error
     }
 
     return { sources, subtitles };
