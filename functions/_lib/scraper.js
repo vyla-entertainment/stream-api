@@ -1,6 +1,7 @@
 const PROVIDERS = {
     vidlink: {
-        BASE: "https://vidlink-scraper.vercel.app",
+        API: "https://jonathangalindo-vyla-player.hf.space/api/?id=",
+        PROXY_API: "https://jonathangalindo-vyla-player.hf.space/api/?url=",
     },
 
     moviedownloader: {
@@ -977,24 +978,37 @@ function extractQualityFromUrl(url) {
 }
 
 async function fetchVidLink(media) {
-    const { BASE } = PROVIDERS.vidlink;
-    const url = media.type === "movie"
-        ? `${BASE}/?id=${media.tmdbId}`
-        : `${BASE}/?id=${media.tmdbId}&season=${media.season}&episode=${media.episode}`;
+    const { API, PROXY_API } = PROVIDERS.vidlink;
+    const sources = [];
+    const subtitles = [];
 
-    return {
-        sources: [
-            {
-                url: url,
-                type: "hls",
-                quality: "1080p",
-                provider: "VidLink",
-                audioTracks: [{ language: "eng", label: "English" }],
-                headers: {}
-            }
-        ],
-        subtitles: []
-    };
+    try {
+        const res = await safeFetch(`${API}${media.tmdbId}`, {
+            headers: { "User-Agent": "Mozilla/5.0" }
+        });
+
+        if (!res.ok) return { sources, subtitles };
+
+        const data = await res.json().catch(() => null);
+        if (!data?.url) return { sources, subtitles };
+
+        // HF-proxied playable URL
+        const playable = `${PROXY_API}${encodeURIComponent(data.url.split("?")[0])}`;
+
+        sources.push({
+            url: playable,
+            type: "hls",
+            quality: "1080p",
+            provider: "VidLink",
+            audioTracks: [{ language: "eng", label: "English" }],
+            headers: { "User-Agent": "Mozilla/5.0" }
+        });
+
+    } catch {
+        // Return empty results on error
+    }
+
+    return { sources, subtitles };
 }
 
 export async function scrape(mediaType, tmdbId, season = "1", episode = "1") {
