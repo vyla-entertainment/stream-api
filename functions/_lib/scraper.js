@@ -37,7 +37,8 @@ const PROVIDERS = {
     },
 
     vidzee: {
-        BASE: "https://player.vidzee.wtf",
+        BASE: "https://core.vidzee.wtf",
+        PLAYER: "https://player.vidzee.wtf",
     },
 
     embed02: {
@@ -62,6 +63,7 @@ const THIRD_PARTY_PROXY_PATTERNS = {
         /\/api\/[^/]+\/proxy\?url=(.+)$/,
         /\/proxy\?.*url=([^&]+)/,
         /\/stream\/proxy\/(.+)$/,
+        /^https:\/\/[^/]+\/((?:https?:\/\/)?[a-zA-Z0-9.-]+\/file2\/.+)$/,
     ],
 };
 
@@ -127,7 +129,6 @@ function filterEnglishSubtitles(subtitles) {
             label.includes("en") ||
             ENGLISH_LANG_CODES.has(lang) ||
             label === "unknown"
-
         );
     });
 }
@@ -287,11 +288,6 @@ async function fetchVixSrc(media) {
     const sources = [];
     const subtitles = [];
 
-    const pageUrl =
-        media.type === "movie"
-            ? `${BASE}/movie/${media.tmdbId}`
-            : `${BASE}/tv/${media.tmdbId}/${media.season}/${media.episode}`;
-
     const headers = {
         "User-Agent": UA,
         Accept: "application/json, text/javascript, */*; q=0.01",
@@ -301,13 +297,24 @@ async function fetchVixSrc(media) {
     };
 
     try {
-        const htmlRes = await safeFetch(pageUrl, { headers });
-        if (!htmlRes.ok) return { sources, subtitles };
-        const html = await htmlRes.text();
+        const apiUrl =
+            media.type === "movie"
+                ? `${BASE}/api/movie/${media.tmdbId}`
+                : `${BASE}/api/tv/${media.tmdbId}/${media.season}/${media.episode}`;
 
-        const token = html.match(/token["']\s*:\s*["']([^"']+)/)?.[1];
-        const expires = html.match(/expires["']\s*:\s*["']([^"']+)/)?.[1];
-        const playlist = html.match(/url\s*:\s*["']([^"']+)/)?.[1];
+        const apiRes = await safeFetch(apiUrl, { headers });
+        if (!apiRes.ok) return { sources, subtitles };
+        const apiData = await apiRes.json();
+
+        if (!apiData?.src) return { sources, subtitles };
+
+        const embedRes = await safeFetch(BASE + apiData.src, { headers });
+        if (!embedRes.ok) return { sources, subtitles };
+        const html = await embedRes.text();
+
+        const token = html.match(/token[\"']\s*:\s*[\"']([^\"']+)/)?.[1];
+        const expires = html.match(/expires[\"']\s*:\s*[\"']([^\"']+)/)?.[1];
+        const playlist = html.match(/url\s*:\s*[\"']([^\"']+)/)?.[1];
 
         if (!token || !expires || !playlist) return { sources, subtitles };
         if (parseInt(expires, 10) * 1000 - 60000 < Date.now()) return { sources, subtitles };
@@ -316,7 +323,7 @@ async function fetchVixSrc(media) {
         const masterUrl = `${playlist}${sep}token=${token}&expires=${expires}&h=1`;
 
         const plRes = await safeFetch(masterUrl, {
-            headers: { ...headers, Referer: pageUrl },
+            headers: { ...headers, Referer: apiUrl },
         });
         if (!plRes.ok) return { sources, subtitles };
         const content = await plRes.text();
@@ -351,7 +358,7 @@ async function fetchVixSrc(media) {
             quality: bestRes ? bestRes + "p" : "HD",
             provider: "VixSrc",
             audioTracks: finalAudio,
-            headers: { ...headers, Referer: pageUrl },
+            headers: { ...headers, Referer: apiUrl },
         });
 
         const subRx = /#EXT-X-MEDIA:TYPE=SUBTITLES[^\n]*/g;
@@ -759,59 +766,83 @@ async function fetchRgShows(media) {
     }
 }
 
-const VIDZEE_KEY_B64 = "YWxvb2tlcGFyYXRoZXdpdGhsYXNzaQ==";
+async function vidzeeDerive(raw) {
+    try {
+        const base64ToBytes = (s) => {
+            const t = atob(s.replace(/\s+/g, ""));
+            const r = new Uint8Array(t.length);
+            for (let i = 0; i < t.length; i++) r[i] = t.charCodeAt(i);
+            return r;
+        };
 
-async function vidzeeDecrypt(streamUrls) {
-    const results = [];
-    const rawKey = atob(VIDZEE_KEY_B64).padEnd(32, "\0");
-    const keyBytes = new TextEncoder().encode(rawKey);
+        let t = base64ToBytes(raw);
+        if (t.length <= 28) return null;
 
-    const cryptoKey = await crypto.subtle.importKey(
-        "raw",
-        keyBytes,
-        { name: "AES-CBC" },
-        false,
-        ["decrypt"]
-    );
+        const n = t.slice(0, 12);
+        const r = t.slice(12, 28);
+        const a = t.slice(28);
 
-    for (const streamUrl of streamUrls) {
-        try {
-            const decoded = atob(streamUrl.link);
-            const colonIdx = decoded.indexOf(":");
-            if (colonIdx === -1) continue;
+        const i = new Uint8Array(a.length + r.length);
+        i.set(a, 0);
+        i.set(r, a.length);
 
-            const ivB64 = decoded.substring(0, colonIdx);
-            const cipherB64 = decoded.substring(colonIdx + 1);
-
-            const iv = Uint8Array.from(atob(ivB64), (c) => c.charCodeAt(0));
-            const ciphertext = Uint8Array.from(atob(cipherB64), (c) => c.charCodeAt(0));
-
-            const decrypted = await crypto.subtle.decrypt({ name: "AES-CBC", iv }, cryptoKey, ciphertext);
-            const text = new TextDecoder().decode(decrypted).trim();
-            if (text) results.push(text);
-        } catch { }
+        const enc = new TextEncoder();
+        const l = await crypto.subtle.digest("SHA-256", enc.encode("4f2a9c7d1e8b3a6f0d5c2e9a7b1f4d8c"));
+        const o = await crypto.subtle.importKey("raw", l, { name: "AES-GCM" }, false, ["decrypt"]);
+        const c = await crypto.subtle.decrypt({ name: "AES-GCM", iv: n, tagLength: 128 }, o, i);
+        return new TextDecoder().decode(c);
+    } catch {
+        return null;
     }
+}
 
-    return results;
+async function vidzeeDecryptLink(encryptedData, decryptionKey) {
+    try {
+        if (!encryptedData || !decryptionKey) return "";
+
+        const decoded = atob(encryptedData);
+        const [ivBase64, cipherBase64] = decoded.split(":");
+        if (!ivBase64 || !cipherBase64) return "";
+
+        const iv = Uint8Array.from(atob(ivBase64), (c) => c.charCodeAt(0));
+        const cipherBytes = Uint8Array.from(atob(cipherBase64), (c) => c.charCodeAt(0));
+
+        const encoded = new TextEncoder().encode(decryptionKey);
+        const keyBytes = new Uint8Array(32);
+        keyBytes.set(encoded.slice(0, 32));
+
+        const cryptoKey = await crypto.subtle.importKey("raw", keyBytes, { name: "AES-CBC" }, false, ["decrypt"]);
+        const decrypted = await crypto.subtle.decrypt({ name: "AES-CBC", iv }, cryptoKey, cipherBytes);
+        return new TextDecoder().decode(decrypted);
+    } catch {
+        return "";
+    }
 }
 
 async function fetchVidZee(media) {
-    const { BASE } = PROVIDERS.vidzee;
+    const { BASE, PLAYER } = PROVIDERS.vidzee;
     const headers = {
         "User-Agent": UA,
         Accept: "application/json, text/javascript, */*; q=0.01",
         "Accept-Language": "en-US,en;q=0.9",
-        Referer: BASE,
-        Origin: BASE,
+        Referer: PLAYER,
+        Origin: PLAYER,
     };
 
     const sources = [];
     const subtitles = [];
 
     try {
+        const keyRes = await safeFetch(`${BASE}/api-key`, { headers });
+        if (!keyRes.ok) return { sources, subtitles };
+        const rawKey = await keyRes.text();
+        if (!rawKey) return { sources, subtitles };
+
+        const decKey = await vidzeeDerive(rawKey);
+        if (!decKey) return { sources, subtitles };
 
         const serverPromises = Array.from({ length: 14 }, async (_, id) => {
-            let url = `${BASE}/api/server?id=${media.tmdbId}&sr=${id}`;
+            let url = `${PLAYER}/api/server?id=${media.tmdbId}&sr=${id}`;
             if (media.type === "tv") {
                 url += `&ss=${media.season}&ep=${media.episode}`;
             }
@@ -833,7 +864,7 @@ async function fetchVidZee(media) {
         const decryptResults = await Promise.all(
             serverResults.map(async (resp) => ({
                 resp,
-                links: await vidzeeDecrypt(resp.url ?? []).catch(() => []),
+                links: await Promise.all((resp.url ?? []).map((u) => vidzeeDecryptLink(u.link, decKey))),
             }))
         );
 
@@ -842,7 +873,7 @@ async function fetchVidZee(media) {
 
         for (const { resp, links } of decryptResults) {
             for (const link of links) {
-                if (!link.startsWith("http")) continue;
+                if (!link || !link.startsWith("http")) continue;
                 allLinks.add(link);
             }
 
@@ -862,7 +893,6 @@ async function fetchVidZee(media) {
         }
 
         for (const link of allLinks) {
-
             if (link.includes("phim1280.tv")) continue;
 
             const srcHeaders = link.includes("fast33lane")
@@ -1062,6 +1092,7 @@ export async function scrape(mediaType, tmdbId, season = "1", episode = "1") {
 
     return { sources: finalSources, subtitles: finalSubtitles };
 }
+
 export {
     fetchVidLink,
     fetchMovieDownloader,
