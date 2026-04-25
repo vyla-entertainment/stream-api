@@ -1,5 +1,5 @@
 export async function onRequestGet() {
-    const body = `{
+  const body = `{
   "status": "ok",
   "service": "vyla-api",
   "endpoints": {
@@ -13,10 +13,11 @@ export async function onRequestGet() {
     "download_info": "/api/download?url=<encoded_url>&info=1",
     "download_movie": "/api/download/movie?id=<tmdb_id>",
     "download_tv": "/api/download/tv?id=<tmdb_id>&season=<s>&episode=<e>",
+    "player": "/api/player?id=<tmdb_id>"
   }
 }`;
 
-    return new Response(body, {
-        headers: { "Content-Type": "application/json" },
-    });
+  return new Response(body, {
+    headers: { "Content-Type": "application/json" },
+  });
 }

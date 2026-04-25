@@ -37,8 +37,7 @@ const PROVIDERS = {
     },
 
     vidzee: {
-        BASE: "https://core.vidzee.wtf",
-        PLAYER: "https://player.vidzee.wtf",
+        API: "https://vidzee-scraper.pages.dev",
     },
 
     embed02: {
@@ -766,152 +765,41 @@ async function fetchRgShows(media) {
     }
 }
 
-async function vidzeeDerive(raw) {
-    try {
-        const base64ToBytes = (s) => {
-            const t = atob(s.replace(/\s+/g, ""));
-            const r = new Uint8Array(t.length);
-            for (let i = 0; i < t.length; i++) r[i] = t.charCodeAt(i);
-            return r;
-        };
-
-        let t = base64ToBytes(raw);
-        if (t.length <= 28) return null;
-
-        const n = t.slice(0, 12);
-        const r = t.slice(12, 28);
-        const a = t.slice(28);
-
-        const i = new Uint8Array(a.length + r.length);
-        i.set(a, 0);
-        i.set(r, a.length);
-
-        const enc = new TextEncoder();
-        const l = await crypto.subtle.digest("SHA-256", enc.encode("4f2a9c7d1e8b3a6f0d5c2e9a7b1f4d8c"));
-        const o = await crypto.subtle.importKey("raw", l, { name: "AES-GCM" }, false, ["decrypt"]);
-        const c = await crypto.subtle.decrypt({ name: "AES-GCM", iv: n, tagLength: 128 }, o, i);
-        return new TextDecoder().decode(c);
-    } catch {
-        return null;
-    }
-}
-
-async function vidzeeDecryptLink(encryptedData, decryptionKey) {
-    try {
-        if (!encryptedData || !decryptionKey) return "";
-
-        const decoded = atob(encryptedData);
-        const [ivBase64, cipherBase64] = decoded.split(":");
-        if (!ivBase64 || !cipherBase64) return "";
-
-        const iv = Uint8Array.from(atob(ivBase64), (c) => c.charCodeAt(0));
-        const cipherBytes = Uint8Array.from(atob(cipherBase64), (c) => c.charCodeAt(0));
-
-        const encoded = new TextEncoder().encode(decryptionKey);
-        const keyBytes = new Uint8Array(32);
-        keyBytes.set(encoded.slice(0, 32));
-
-        const cryptoKey = await crypto.subtle.importKey("raw", keyBytes, { name: "AES-CBC" }, false, ["decrypt"]);
-        const decrypted = await crypto.subtle.decrypt({ name: "AES-CBC", iv }, cryptoKey, cipherBytes);
-        return new TextDecoder().decode(decrypted);
-    } catch {
-        return "";
-    }
-}
-
 async function fetchVidZee(media) {
-    const { BASE, PLAYER } = PROVIDERS.vidzee;
-    const headers = {
-        "User-Agent": UA,
-        Accept: "application/json, text/javascript, */*; q=0.01",
-        "Accept-Language": "en-US,en;q=0.9",
-        Referer: PLAYER,
-        Origin: PLAYER,
-    };
-
+    const { API } = PROVIDERS.vidzee;
     const sources = [];
     const subtitles = [];
 
     try {
-        const keyRes = await safeFetch(`${BASE}/api-key`, { headers });
-        if (!keyRes.ok) return { sources, subtitles };
-        const rawKey = await keyRes.text();
-        if (!rawKey) return { sources, subtitles };
+        const params = new URLSearchParams({ id: media.tmdbId });
+        if (media.type === "tv") {
+            params.append("type", "tv");
+            params.append("season", media.season);
+            params.append("episode", media.episode);
+        }
 
-        const decKey = await vidzeeDerive(rawKey);
-        if (!decKey) return { sources, subtitles };
-
-        const serverPromises = Array.from({ length: 14 }, async (_, id) => {
-            let url = `${PLAYER}/api/server?id=${media.tmdbId}&sr=${id}`;
-            if (media.type === "tv") {
-                url += `&ss=${media.season}&ep=${media.episode}`;
-            }
-            try {
-                const res = await safeFetch(url, { headers }, 8000);
-                if (!res.ok) return null;
-                return await res.json();
-            } catch {
-                return null;
-            }
+        const res = await safeFetch(`${API}/api/stream?${params.toString()}`, {
+            headers: { "User-Agent": UA }
         });
 
-        const serverResults = (await Promise.allSettled(serverPromises))
-            .filter((r) => r.status === "fulfilled" && r.value)
-            .map((r) => r.value);
+        if (!res.ok) return { sources, subtitles };
 
-        if (!serverResults.length) return { sources, subtitles };
+        const text = await res.text();
 
-        const decryptResults = await Promise.all(
-            serverResults.map(async (resp) => ({
-                resp,
-                links: await Promise.all((resp.url ?? []).map((u) => vidzeeDecryptLink(u.link, decKey))),
-            }))
-        );
-
-        const allLinks = new Set();
-        const allSubtitles = new Map();
-
-        for (const { resp, links } of decryptResults) {
-            for (const link of links) {
-                if (!link || !link.startsWith("http")) continue;
-                allLinks.add(link);
-            }
-
-            for (const track of resp.tracks ?? []) {
-                if (!track.url || !track.lang) continue;
-                const lang = track.lang.replace(/\d+/g, "").trim().toLowerCase();
-                if (!lang.includes("en") && lang !== "english") continue;
-                const key = `${track.lang}_${resp.serverInfo?.number ?? 0}`;
-                if (!allSubtitles.has(key)) {
-                    allSubtitles.set(key, {
-                        url: track.url,
-                        label: track.lang.replace(/\d+/g, "").trim(),
-                        format: "vtt",
-                    });
-                }
-            }
-        }
-
-        for (const link of allLinks) {
-            if (link.includes("phim1280.tv")) continue;
-
-            const srcHeaders = link.includes("fast33lane")
-                ? { referer: "https://rapidairmax.site/", origin: "https://rapidairmax.site" }
-                : link.includes("serversicuro.cc")
-                    ? {}
-                    : { ...headers, Referer: `${BASE}/` };
-
+        if (text && text.includes("#EXT")) {
             sources.push({
-                url: unwrapThirdPartyProxy(link),
+                url: `${API}/api/stream?${params.toString()}`,
                 type: "hls",
-                quality: extractQualityFromUrl(link),
+                quality: "1080p",
                 provider: "VidZee",
                 audioTracks: [{ language: "eng", label: "English" }],
-                headers: srcHeaders,
+                headers: {
+                    "User-Agent": UA,
+                    "Referer": "https://player.vidzee.wtf",
+                    "Origin": "https://player.vidzee.wtf"
+                }
             });
         }
-
-        subtitles.push(...allSubtitles.values());
     } catch { }
 
     return { sources, subtitles };

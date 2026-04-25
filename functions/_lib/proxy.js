@@ -25,12 +25,17 @@ function isBlockedHost(hostname) {
 function buildUpstreamHeaders(url, rawHeaders) {
     const origin = (() => { try { return new URL(url).origin; } catch { return ""; } })();
     const isTripplestream = url.includes("tripplestream.online") || url.includes("hlmv-files");
+    const isWorkersStream = /\.workers\.dev\//.test(url) && url.includes("/movie/") || url.includes("/tv/");
     const base = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.6884.98 Safari/537.36",
         Accept: "*/*",
         "Accept-Language": "en-US,en;q=0.9",
         Origin: isTripplestream ? "https://www.rgshows.ru" : origin,
-        Referer: isTripplestream ? "https://www.rgshows.ru" : origin + "/",
+        Referer: isTripplestream
+            ? "https://www.rgshows.ru"
+            : isWorkersStream
+                ? "https://player.vidzee.wtf/"
+                : origin + "/",
     };
     if (!rawHeaders) return base;
     try {
