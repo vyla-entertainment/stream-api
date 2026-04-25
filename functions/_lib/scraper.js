@@ -778,7 +778,7 @@ async function fetchVidZee(media) {
             params.append("episode", media.episode);
         }
 
-        const res = await safeFetch(`${API}/api/stream?${params.toString()}`, {
+        const res = await safeFetch(`${API}?${params.toString()}`, {
             headers: { "User-Agent": UA }
         });
 
@@ -788,7 +788,7 @@ async function fetchVidZee(media) {
 
         if (text && text.includes("#EXT")) {
             sources.push({
-                url: `${API}/api/stream?${params.toString()}`,
+                url: `${API}?${params.toString()}`,
                 type: "hls",
                 quality: "1080p",
                 provider: "VidZee",
