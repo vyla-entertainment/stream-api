@@ -778,28 +778,20 @@ async function fetchVidZee(media) {
             params.append("episode", media.episode);
         }
 
-        const res = await safeFetch(`${API}?${params.toString()}`, {
-            headers: { "User-Agent": UA }
+        const url = `${API}?${params.toString()}`;
+
+        sources.push({
+            url: url,
+            type: "hls",
+            quality: "1080p",
+            provider: "VidZee",
+            audioTracks: [{ language: "eng", label: "English" }],
+            headers: {
+                "User-Agent": UA,
+                "Referer": "https://player.vidzee.wtf",
+                "Origin": "https://player.vidzee.wtf"
+            }
         });
-
-        if (!res.ok) return { sources, subtitles };
-
-        const text = await res.text();
-
-        if (text && text.includes("#EXT")) {
-            sources.push({
-                url: `${API}?${params.toString()}`,
-                type: "hls",
-                quality: "1080p",
-                provider: "VidZee",
-                audioTracks: [{ language: "eng", label: "English" }],
-                headers: {
-                    "User-Agent": UA,
-                    "Referer": "https://player.vidzee.wtf",
-                    "Origin": "https://player.vidzee.wtf"
-                }
-            });
-        }
     } catch { }
 
     return { sources, subtitles };
