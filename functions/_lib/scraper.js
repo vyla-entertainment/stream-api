@@ -3,20 +3,16 @@ const PROVIDERS = {
         API: "https://jonathangalindo-vyla-player.hf.space/api/?id=",
         PROXY_API: "https://jonathangalindo-vyla-player.hf.space/api/?url=",
     },
-
     moviedownloader: {
         BASE: "https://02moviedownloader.site",
         VERIFY: "/api/verify-robot",
     },
-
     vixsrc: {
         BASE: "https://vixsrc.to",
     },
-
     vidsrc: {
         BASE: "https://vsembed.ru/",
     },
-
     uembed: {
         UEMBED: "https://uembed.xyz/api/video/tmdb",
         VXR: "https://cdn.madplay.site/vxr",
@@ -24,39 +20,52 @@ const PROVIDERS = {
         ROGFLIX: "https://api.madplay.site/api/rogflix",
         BASE: "https://madplay.site",
     },
-
     vidrock: {
         BASE: "https://vidrock.net/",
         SUB_BASE: "https://sub.vdrk.site",
         PROXY_PREFIX: "https://proxy.vidrock.store/",
     },
-
     rgshows: {
         BASE: "https://api.rgshows.ru/main",
         FRONTEND: "https://www.rgshows.ru",
     },
-
     vidzee: {
         BASE: "https://core.vidzee.wtf",
         PLAYER: "https://player.vidzee.wtf",
     },
-
     embed02: {
         BASE: "https://02pcembed.site",
     },
-
     streammafia: {
-        BASE: "https://embedmafia.in",
-        EMBED: "https://nhd.streammafia.to",
+        BASE: "https://solve.streammafia.to",
+        EMBED: "https://solve.streammafia.to",
     },
-
     icefy: {
         BASE: "https://streams.icefy.top",
     },
+    cinesu: {
+        BASE: "https://cine.su",
+    },
+    peachify: {
+        BASE: "https://peachify.top",
+        MOVIEBOX_URL: "https://uwu.peachify.top",
+        API_URL: "https://usa.eat-peach.sbs",
+    },
+    vidnest: {
+        BASE: "https://vidnest.fun",
+        API_BASE: "https://new.vidnest.fun",
+    },
+    videasy: {
+        BASE: "https://api.videasy.net",
+        PLAYER: "https://player.videasy.net",
+        DEC_API: "https://enc-dec.app/api/dec-videasy",
+    },
+    popr: {
+        BASE: "https://popr.ink",
+    },
 };
 
-const UA =
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.6884.98 Safari/537.36";
+const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.6884.98 Safari/537.36";
 
 const THIRD_PARTY_PROXY_PATTERNS = {
     "https://hls1.vid1.site": [/\/proxy\/(.+)$/],
@@ -83,12 +92,10 @@ function unwrapThirdPartyProxy(url) {
             ...(THIRD_PARTY_PROXY_PATTERNS[origin] ?? []),
             ...THIRD_PARTY_PROXY_PATTERNS["*"],
         ];
-
         for (const pattern of patternsToTry) {
             const match = url.match(pattern);
             if (match?.[1]) {
                 let decoded = match[1];
-
                 for (let i = 0; i < 3; i++) {
                     try {
                         const next = decodeURIComponent(decoded);
@@ -98,13 +105,8 @@ function unwrapThirdPartyProxy(url) {
                         break;
                     }
                 }
-
-                if (decoded.startsWith("http://") || decoded.startsWith("https://")) {
-                    return decoded;
-                }
-                if (decoded.includes("://")) {
-                    return decoded;
-                }
+                if (decoded.startsWith("http://") || decoded.startsWith("https://")) return decoded;
+                if (decoded.includes("://")) return decoded;
                 return "https://" + decoded;
             }
         }
@@ -112,20 +114,11 @@ function unwrapThirdPartyProxy(url) {
     return url;
 }
 
-const ENGLISH_LANG_CODES = new Set([
-    "eng",
-    "en",
-    "en-us",
-    "en-gb",
-    "english",
-]);
+const ENGLISH_LANG_CODES = new Set(["eng", "en", "en-us", "en-gb", "english"]);
 
 function isEnglishAudio(audioTracks) {
     if (!audioTracks?.length) return true;
-
-    return audioTracks.some((t) =>
-        ENGLISH_LANG_CODES.has((t.language ?? t.lang ?? "").toLowerCase())
-    );
+    return audioTracks.some((t) => ENGLISH_LANG_CODES.has((t.language ?? t.lang ?? "").toLowerCase()));
 }
 
 function filterEnglishSubtitles(subtitles) {
@@ -133,27 +126,13 @@ function filterEnglishSubtitles(subtitles) {
     return subtitles.filter((s) => {
         const label = (s.label ?? "").toLowerCase();
         const lang = (s.language ?? s.lang ?? "").toLowerCase();
-        return (
-            label.includes("english") ||
-            label.includes("en") ||
-            ENGLISH_LANG_CODES.has(lang) ||
-            label === "unknown"
-        );
+        return label.includes("english") || label.includes("en") || ENGLISH_LANG_CODES.has(lang) || label === "unknown";
     });
 }
 
 const QUALITY_PRIORITY = {
-    "4k": 9,
-    "2160p": 9,
-    "1440p": 8,
-    "1080p": 7,
-    "720p": 6,
-    "480p": 5,
-    "360p": 4,
-    "240p": 3,
-    hd: 2,
-    auto: 1,
-    unknown: 0,
+    "4k": 9, "2160p": 9, "1440p": 8, "1080p": 7, "720p": 6,
+    "480p": 5, "360p": 4, "240p": 3, hd: 2, auto: 1, unknown: 0,
 };
 
 function qualityRank(q) {
@@ -177,15 +156,21 @@ async function safeFetch(url, options = {}, timeoutMs = 10000) {
     }
 }
 
+function sortAndDeduplicate(sources) {
+    return [...sources]
+        .sort((a, b) => qualityRank(b.quality) - qualityRank(a.quality))
+        .filter((s, i, arr) =>
+            i === arr.findIndex(
+                (x) => x.quality === s.quality && (x.audioTracks?.[0]?.language ?? "") === (s.audioTracks?.[0]?.language ?? "")
+            )
+        );
+}
+
 async function fetchMovieDownloaderToken(media) {
     const { BASE, VERIFY } = PROVIDERS.moviedownloader;
-    const referer =
-        BASE +
-        "/api/download" +
-        (media.type === "movie"
-            ? "/movie/" + media.tmdbId
-            : "/tv/" + media.tmdbId + (media.season ?? 1) + (media.episode ?? 1));
-
+    const referer = BASE + "/api/download" + (media.type === "movie"
+        ? "/movie/" + media.tmdbId
+        : "/tv/" + media.tmdbId + (media.season ?? 1) + (media.episode ?? 1));
     try {
         const res = await safeFetch(BASE + VERIFY, {
             method: "POST",
@@ -213,22 +198,14 @@ async function fetchMovieDownloader(media) {
     const { BASE } = PROVIDERS.moviedownloader;
     const sources = [];
     const subtitles = [];
-
     const token = await fetchMovieDownloaderToken(media);
     if (!token) return { sources, subtitles };
-
-    const apiUrl =
-        media.type === "movie"
-            ? `${BASE}/api/download/movie/${media.tmdbId}`
-            : `${BASE}/api/download/tv/${media.tmdbId}/${media.season}/${media.episode}`;
-
-    const referer =
-        BASE +
-        "/api/download" +
-        (media.type === "movie"
-            ? "/movie/" + media.tmdbId
-            : "/tv/" + media.tmdbId + (media.season ?? 1) + (media.episode ?? 1));
-
+    const apiUrl = media.type === "movie"
+        ? `${BASE}/api/download/movie/${media.tmdbId}`
+        : `${BASE}/api/download/tv/${media.tmdbId}/${media.season}/${media.episode}`;
+    const referer = BASE + "/api/download" + (media.type === "movie"
+        ? "/movie/" + media.tmdbId
+        : "/tv/" + media.tmdbId + (media.season ?? 1) + (media.episode ?? 1));
     try {
         const res = await safeFetch(apiUrl, {
             headers: {
@@ -243,7 +220,6 @@ async function fetchMovieDownloader(media) {
         });
         if (!res.ok) return { sources, subtitles };
         const data = await res.json();
-
         for (const dl of data?.data?.downloadData?.data?.downloads ?? []) {
             if (!dl.url) continue;
             const realUrl = unwrapThirdPartyProxy(dl.url);
@@ -258,11 +234,9 @@ async function fetchMovieDownloader(media) {
                     : { "User-Agent": UA },
             });
         }
-
         for (const stream of data?.externalStreams ?? []) {
             if (!stream.url) continue;
             if (stream.url.includes("111477.xyz")) continue;
-
             const realUrl = unwrapThirdPartyProxy(stream.url);
             const qMatch = stream.quality?.match(/(\d+)p/);
             sources.push({
@@ -274,7 +248,6 @@ async function fetchMovieDownloader(media) {
                 headers: stream.url.includes("pixeldra") ? {} : { "User-Agent": UA },
             });
         }
-
         for (const cap of data?.data?.downloadData?.data?.captions ?? []) {
             if (!cap.url) continue;
             const label = (cap.lanName || cap.lan || "").toLowerCase();
@@ -285,10 +258,7 @@ async function fetchMovieDownloader(media) {
                 format: cap.url.includes(".srt") ? "srt" : "vtt",
             });
         }
-    } catch {
-
-    }
-
+    } catch { }
     return { sources: sources.filter((s) => isEnglishAudio(s.audioTracks)), subtitles };
 }
 
@@ -296,7 +266,6 @@ async function fetchVixSrc(media) {
     const { BASE } = PROVIDERS.vixsrc;
     const sources = [];
     const subtitles = [];
-
     const headers = {
         "User-Agent": UA,
         Accept: "application/json, text/javascript, */*; q=0.01",
@@ -304,39 +273,27 @@ async function fetchVixSrc(media) {
         Referer: BASE,
         Origin: BASE,
     };
-
     try {
-        const apiUrl =
-            media.type === "movie"
-                ? `${BASE}/api/movie/${media.tmdbId}`
-                : `${BASE}/api/tv/${media.tmdbId}/${media.season}/${media.episode}`;
-
+        const apiUrl = media.type === "movie"
+            ? `${BASE}/api/movie/${media.tmdbId}`
+            : `${BASE}/api/tv/${media.tmdbId}/${media.season}/${media.episode}`;
         const apiRes = await safeFetch(apiUrl, { headers });
         if (!apiRes.ok) return { sources, subtitles };
         const apiData = await apiRes.json();
-
         if (!apiData?.src) return { sources, subtitles };
-
         const embedRes = await safeFetch(BASE + apiData.src, { headers });
         if (!embedRes.ok) return { sources, subtitles };
         const html = await embedRes.text();
-
         const token = html.match(/token[\"']\s*:\s*[\"']([^\"']+)/)?.[1];
         const expires = html.match(/expires[\"']\s*:\s*[\"']([^\"']+)/)?.[1];
         const playlist = html.match(/url\s*:\s*[\"']([^\"']+)/)?.[1];
-
         if (!token || !expires || !playlist) return { sources, subtitles };
         if (parseInt(expires, 10) * 1000 - 60000 < Date.now()) return { sources, subtitles };
-
         const sep = playlist.includes("?") ? "&" : "?";
         const masterUrl = `${playlist}${sep}token=${token}&expires=${expires}&h=1`;
-
-        const plRes = await safeFetch(masterUrl, {
-            headers: { ...headers, Referer: apiUrl },
-        });
+        const plRes = await safeFetch(masterUrl, { headers: { ...headers, Referer: apiUrl } });
         if (!plRes.ok) return { sources, subtitles };
         const content = await plRes.text();
-
         const variantRx = /#EXT-X-STREAM-INF:[^\n]*RESOLUTION=\d+x(\d+)[^\n]*\n([^\n]+)/g;
         let match;
         let bestRes = 0;
@@ -344,7 +301,6 @@ async function fetchVixSrc(media) {
             const res = parseInt(match[1], 10);
             if (res > bestRes) bestRes = res;
         }
-
         const audioTracks = [];
         const audioRx = /#EXT-X-MEDIA:TYPE=AUDIO[^\n]*/g;
         let am;
@@ -353,14 +309,10 @@ async function fetchVixSrc(media) {
             const label = am[0].match(/NAME="([^"]+)"/)?.[1] ?? "Audio";
             audioTracks.push({ language: lang, label });
         }
-
-        const finalAudio =
-            audioTracks.length > 0
-                ? audioTracks.filter((t) => ENGLISH_LANG_CODES.has(t.language.toLowerCase()))
-                : [{ language: "en", label: "English" }];
-
+        const finalAudio = audioTracks.length > 0
+            ? audioTracks.filter((t) => ENGLISH_LANG_CODES.has(t.language.toLowerCase()))
+            : [{ language: "en", label: "English" }];
         if (finalAudio.length === 0) return { sources, subtitles };
-
         sources.push({
             url: masterUrl,
             type: "hls",
@@ -369,7 +321,6 @@ async function fetchVixSrc(media) {
             audioTracks: finalAudio,
             headers: { ...headers, Referer: apiUrl },
         });
-
         const subRx = /#EXT-X-MEDIA:TYPE=SUBTITLES[^\n]*/g;
         let sm;
         while ((sm = subRx.exec(content)) !== null) {
@@ -380,24 +331,17 @@ async function fetchVixSrc(media) {
                 subtitles.push({ url: subUrl, label: subLabel, format: "vtt" });
             }
         }
-    } catch {
-
-    }
-
+    } catch { }
     return { sources, subtitles };
 }
 
 async function fetchVidSrc(media) {
     const { BASE } = PROVIDERS.vidsrc;
     const sources = [];
-
-    const pageUrl =
-        media.type === "movie"
-            ? `${BASE}/embed/movie?tmdb=${media.tmdbId}`
-            : `${BASE}/embed/tv?tmdb=${media.tmdbId}&season=${media.season}&episode=${media.episode}`;
-
+    const pageUrl = media.type === "movie"
+        ? `${BASE}/embed/movie?tmdb=${media.tmdbId}`
+        : `${BASE}/embed/tv?tmdb=${media.tmdbId}&season=${media.season}&episode=${media.episode}`;
     const headers = { "User-Agent": UA, Referer: BASE };
-
     async function fetchText(url) {
         try {
             if (url.startsWith("//")) url = "https:" + url;
@@ -408,36 +352,27 @@ async function fetchVidSrc(media) {
             return null;
         }
     }
-
     try {
         const html = await fetchText(pageUrl);
         if (!html) return { sources, subtitles: [] };
-
         const iframeSrc = html.match(/<iframe[^>]*\s+src=["']([^"']+)["'][^>]*>/i)?.[1];
         if (!iframeSrc) return { sources, subtitles: [] };
-
         const html2 = await fetchText(iframeSrc);
         if (!html2) return { sources, subtitles: [] };
-
         const relSrc = html2.match(/src:\s*['"]([^'"]+)['"]/i)?.[1];
         if (!relSrc) return { sources, subtitles: [] };
-
         const base = iframeSrc.startsWith("//") ? "https:" + iframeSrc : iframeSrc;
         const thirdUrl = new URL(relSrc, base).href;
-
         const html3 = await fetchText(thirdUrl);
         if (!html3) return { sources, subtitles: [] };
-
         const fileField = html3.match(/file\s*:\s*["']([^"']+)["']/i)?.[1];
         if (!fileField) return { sources, subtitles: [] };
-
         const domainMap = {
             "{v1}": "neonhorizonworkshops.com",
             "{v2}": "wanderlynest.com",
             "{v3}": "orchidpixelgardens.com",
             "{v4}": "cloudnestra.com",
         };
-
         const rawUrls = fileField.split(/\s+or\s+/i);
         for (const tmpl of rawUrls) {
             let url = tmpl;
@@ -454,28 +389,18 @@ async function fetchVidSrc(media) {
                 headers: { Referer: "https://cloudnestra.com/", Origin: "https://cloudnestra.com" },
             });
         }
-    } catch {
-
-    }
-
+    } catch { }
     return { sources, subtitles: [] };
 }
 
 async function resolveM3u8(url, headers) {
     try {
         const res = await safeFetch(url, {
-            headers: {
-                ...headers,
-                Accept: "application/vnd.apple.mpegurl,application/x-mpegURL,*/*",
-            },
+            headers: { ...headers, Accept: "application/vnd.apple.mpegurl,application/x-mpegURL,*/*" },
         });
         if (!res.ok) return { variants: [{ url, quality: "unknown" }] };
         const text = await res.text();
-
-        if (!text.includes("#EXT-X-STREAM-INF")) {
-            return { variants: [{ url, quality: "unknown" }] };
-        }
-
+        if (!text.includes("#EXT-X-STREAM-INF")) return { variants: [{ url, quality: "unknown" }] };
         const variants = [];
         const lines = text.split("\n");
         let current = null;
@@ -491,12 +416,9 @@ async function resolveM3u8(url, headers) {
             } else if (current && !t.startsWith("#")) {
                 let varUrl = t;
                 if (!varUrl.startsWith("http")) {
-                    try {
-                        varUrl = new URL(varUrl, url).toString();
-                    } catch { }
+                    try { varUrl = new URL(varUrl, url).toString(); } catch { }
                 }
                 current.url = varUrl;
-
                 let quality = "unknown";
                 if (current.resolution) {
                     const h = parseInt(current.resolution.split("x")[1]);
@@ -519,57 +441,43 @@ async function resolveM3u8(url, headers) {
 async function fetchUembed(media) {
     const { UEMBED, VXR, HOLLY, ROGFLIX, BASE } = PROVIDERS.uembed;
     const headers = { Origin: BASE, Referer: BASE, "User-Agent": UA };
-
     const apis = [
         `${UEMBED}?id=${media.tmdbId}`,
         ...(media.type === "movie" ? [`${VXR}?id=${media.tmdbId}&type=movie`] : []),
         buildMadplayUrl(HOLLY, media),
         buildMadplayUrl(ROGFLIX, media),
     ];
-
     let streams = null;
     for (const url of apis) {
         try {
             const res = await safeFetch(url, { headers });
             if (!res.ok) continue;
             const data = await res.json();
-            if (Array.isArray(data) && data.length > 0) {
-                streams = data;
-                break;
-            }
+            if (Array.isArray(data) && data.length > 0) { streams = data; break; }
         } catch { }
     }
-
     if (!streams) return { sources: [], subtitles: [] };
-
     const sources = [];
     const validStreams = streams.filter((s) => s?.file && typeof s.file === "string");
-
-    await Promise.all(
-        validStreams.map(async (stream) => {
-            const urlOrigin = (() => { try { return new URL(stream.file).origin; } catch { return BASE; } })();
-            const streamHeaders =
-                stream.file.includes("xpass.top")
-                    ? {}
-                    : stream.file.includes("goodstream.cc")
-                        ? { ...headers, Referer: "https://flashstream.cc/", Origin: "https://flashstream.cc" }
-                        : { ...headers, Referer: `${urlOrigin}/`, Origin: urlOrigin };
-
-            const { variants } = await resolveM3u8(stream.file, streamHeaders);
-
-            for (const v of variants) {
-                sources.push({
-                    url: unwrapThirdPartyProxy(v.url),
-                    type: "hls",
-                    quality: v.quality,
-                    provider: "Uembed",
-                    audioTracks: [{ language: "eng", label: "English" }],
-                    headers: streamHeaders,
-                });
-            }
-        })
-    );
-
+    await Promise.all(validStreams.map(async (stream) => {
+        const urlOrigin = (() => { try { return new URL(stream.file).origin; } catch { return BASE; } })();
+        const streamHeaders = stream.file.includes("xpass.top")
+            ? {}
+            : stream.file.includes("goodstream.cc")
+                ? { ...headers, Referer: "https://flashstream.cc/", Origin: "https://flashstream.cc" }
+                : { ...headers, Referer: `${urlOrigin}/`, Origin: urlOrigin };
+        const { variants } = await resolveM3u8(stream.file, streamHeaders);
+        for (const v of variants) {
+            sources.push({
+                url: unwrapThirdPartyProxy(v.url),
+                type: "hls",
+                quality: v.quality,
+                provider: "Uembed",
+                audioTracks: [{ language: "eng", label: "English" }],
+                headers: streamHeaders,
+            });
+        }
+    }));
     return {
         sources: sortAndDeduplicate(sources).filter((s) => isEnglishAudio(s.audioTracks)),
         subtitles: [],
@@ -586,19 +494,6 @@ function buildMadplayUrl(base, media) {
         p.append("episode", String(media.episode ?? 1));
     }
     return `${base}?${p.toString()}`;
-}
-
-function sortAndDeduplicate(sources) {
-    return [...sources]
-        .sort((a, b) => qualityRank(b.quality) - qualityRank(a.quality))
-        .filter(
-            (s, i, arr) =>
-                i === arr.findIndex(
-                    (x) =>
-                        x.quality === s.quality &&
-                        (x.audioTracks?.[0]?.language ?? "") === (s.audioTracks?.[0]?.language ?? "")
-                )
-        );
 }
 
 const VIDROCK_PASSPHRASE = "x7k9mPqT2rWvY8zA5bC3nF6hJ2lK4mN9";
@@ -624,35 +519,25 @@ async function fetchVidRock(media) {
         Referer: BASE,
         Origin: BASE,
     };
-
     const sources = [];
     const subtitles = [];
-
     try {
-        const itemId =
-            media.type === "tv"
-                ? `${media.tmdbId}_${media.season}_${media.episode}`
-                : String(media.tmdbId);
-
+        const itemId = media.type === "tv"
+            ? `${media.tmdbId}_${media.season}_${media.episode}`
+            : String(media.tmdbId);
         const encrypted = await encryptVidRockId(itemId);
         const pageUrl = `${BASE}api/${media.type}/${encrypted}`;
-
         const res = await safeFetch(pageUrl, { headers });
         if (!res.ok) return { sources, subtitles };
         const data = await res.json();
-
         for (const [, stream] of Object.entries(data)) {
             if (!stream?.url) continue;
-
             const lang = (stream.language ?? "").toLowerCase();
-
             if (lang && !ENGLISH_LANG_CODES.has(lang) && !lang.includes("english")) continue;
-
             const audioTrack = {
                 language: lang === "english" || lang === "" ? "eng" : lang,
                 label: stream.language ?? "English",
             };
-
             if (stream.url.includes("hls2.vdrk.site")) {
                 try {
                     const cdnRes = await safeFetch(stream.url, { headers });
@@ -677,7 +562,6 @@ async function fetchVidRock(media) {
                 const streamHeaders = stream.url.includes("67streams")
                     ? { referrer: BASE, origin: BASE.replace("net/", "net") }
                     : { ...headers, Referer: pageUrl };
-
                 sources.push({
                     url: unwrapThirdPartyProxy(stream.url),
                     type: "hls",
@@ -688,13 +572,10 @@ async function fetchVidRock(media) {
                 });
             }
         }
-
         try {
-            const subUrl =
-                media.type === "tv"
-                    ? `${SUB_BASE}/v2/tv/${media.tmdbId}/${media.season}/${media.episode}`
-                    : `${SUB_BASE}/v2/movie/${media.tmdbId}`;
-
+            const subUrl = media.type === "tv"
+                ? `${SUB_BASE}/v2/tv/${media.tmdbId}/${media.season}/${media.episode}`
+                : `${SUB_BASE}/v2/movie/${media.tmdbId}`;
             const subRes = await safeFetch(subUrl, { headers: { ...headers, Referer: BASE } });
             if (subRes.ok) {
                 const subsData = await subRes.json();
@@ -707,7 +588,6 @@ async function fetchVidRock(media) {
             }
         } catch { }
     } catch { }
-
     return { sources: sources.filter((s) => isEnglishAudio(s.audioTracks)), subtitles };
 }
 
@@ -720,21 +600,16 @@ async function fetchRgShows(media) {
         Referer: FRONTEND,
         Origin: FRONTEND,
     };
-
-    const pageUrl =
-        media.type === "movie"
-            ? `${BASE}/movie/${media.tmdbId}`
-            : `${BASE}/tv/${media.tmdbId}/${media.season}/${media.episode}`;
-
+    const pageUrl = media.type === "movie"
+        ? `${BASE}/movie/${media.tmdbId}`
+        : `${BASE}/tv/${media.tmdbId}/${media.season}/${media.episode}`;
     try {
         const res = await safeFetch(pageUrl, { headers });
         if (!res.ok) return { sources: [], subtitles: [] };
         const data = await res.json();
         if (!data?.stream?.url) return { sources: [], subtitles: [] };
-
         let finalUrl = data.stream.url;
         let sourceHeaders = headers;
-
         if (finalUrl.includes("02pcembed.site/v1/proxy")) {
             try {
                 const proxyUrl = new URL(finalUrl);
@@ -756,18 +631,15 @@ async function fetchRgShows(media) {
                 return { sources: [], subtitles: [] };
             }
         }
-
         return {
-            sources: [
-                {
-                    url: finalUrl,
-                    quality: "1080p",
-                    type: finalUrl.includes(".m3u8") ? "hls" : "mp4",
-                    provider: "RgShows",
-                    audioTracks: [{ language: "eng", label: "English" }],
-                    headers: sourceHeaders,
-                },
-            ],
+            sources: [{
+                url: finalUrl,
+                quality: "1080p",
+                type: finalUrl.includes(".m3u8") ? "hls" : "mp4",
+                provider: "RgShows",
+                audioTracks: [{ language: "eng", label: "English" }],
+                headers: sourceHeaders,
+            }],
             subtitles: [],
         };
     } catch {
@@ -778,33 +650,16 @@ async function fetchRgShows(media) {
 async function vidzeeDecrypt(encryptedData, decryptionKey) {
     try {
         if (!encryptedData || !decryptionKey) return "";
-
         const decoded = atob(encryptedData);
         const [ivBase64, cipherBase64] = decoded.split(":");
-
         if (!ivBase64 || !cipherBase64) return "";
-
         const iv = Uint8Array.from(atob(ivBase64), (c) => c.charCodeAt(0));
         const cipherBytes = Uint8Array.from(atob(cipherBase64), (c) => c.charCodeAt(0));
-
         const encoded = new TextEncoder().encode(decryptionKey);
         const keyBytes = new Uint8Array(32);
         keyBytes.set(encoded.slice(0, 32));
-
-        const cryptoKey = await crypto.subtle.importKey(
-            "raw",
-            keyBytes,
-            { name: "AES-CBC" },
-            false,
-            ["decrypt"]
-        );
-
-        const decrypted = await crypto.subtle.decrypt(
-            { name: "AES-CBC", iv },
-            cryptoKey,
-            cipherBytes
-        );
-
+        const cryptoKey = await crypto.subtle.importKey("raw", keyBytes, { name: "AES-CBC" }, false, ["decrypt"]);
+        const decrypted = await crypto.subtle.decrypt({ name: "AES-CBC", iv }, cryptoKey, cipherBytes);
         return new TextDecoder().decode(decrypted);
     } catch {
         return "";
@@ -814,48 +669,25 @@ async function vidzeeDecrypt(encryptedData, decryptionKey) {
 async function vidzeesDeriveKey(e) {
     try {
         if (!e) return "";
-
         const base64ToBytes = (e) => {
             const t = atob(e.replace(/\s+/g, ""));
             const n = t.length;
             const r = new Uint8Array(n);
-            for (let i = 0; i < n; i++) {
-                r[i] = t.charCodeAt(i);
-            }
+            for (let i = 0; i < n; i++) r[i] = t.charCodeAt(i);
             return r;
         };
-
         let t = base64ToBytes(e);
         if (t.length <= 28) return "";
-
         let n = t.slice(0, 12);
         let r = t.slice(12, 28);
         let a = t.slice(28);
-
         let i = new Uint8Array(a.length + r.length);
         i.set(a, 0);
         i.set(r, a.length);
-
         let encoder = new TextEncoder();
-        let l = await crypto.subtle.digest(
-            "SHA-256",
-            encoder.encode("4f2a9c7d1e8b3a6f0d5c2e9a7b1f4d8c")
-        );
-
-        let o = await crypto.subtle.importKey(
-            "raw",
-            l,
-            { name: "AES-GCM" },
-            false,
-            ["decrypt"]
-        );
-
-        let c = await crypto.subtle.decrypt(
-            { name: "AES-GCM", iv: n, tagLength: 128 },
-            o,
-            i
-        );
-
+        let l = await crypto.subtle.digest("SHA-256", encoder.encode("4f2a9c7d1e8b3a6f0d5c2e9a7b1f4d8c"));
+        let o = await crypto.subtle.importKey("raw", l, { name: "AES-GCM" }, false, ["decrypt"]);
+        let c = await crypto.subtle.decrypt({ name: "AES-GCM", iv: n, tagLength: 128 }, o, i);
         return new TextDecoder().decode(c);
     } catch {
         return "";
@@ -878,7 +710,6 @@ async function fetchVidZee(media) {
     const { BASE, PLAYER } = PROVIDERS.vidzee;
     const sources = [];
     const subtitles = [];
-
     const headers = {
         "User-Agent": UA,
         Accept: "application/json, text/javascript, */*; q=0.01",
@@ -886,47 +717,33 @@ async function fetchVidZee(media) {
         Referer: PLAYER,
         Origin: PLAYER,
     };
-
     try {
         const decKeyRes = await safeFetch(`${BASE}/api-key`, { headers });
         if (!decKeyRes.ok) return { sources, subtitles };
         const decKeyRaw = await decKeyRes.text();
         if (!decKeyRaw) return { sources, subtitles };
-
         const decryptionKey = await vidzeesDeriveKey(decKeyRaw);
         if (!decryptionKey) return { sources, subtitles };
-
         const serverPromises = Array.from({ length: 14 }, (_, serverId) => {
             let url = `${PLAYER}/api/server?id=${media.tmdbId}&sr=${serverId}`;
-            if (media.type === "tv") {
-                url += `&ss=${media.season}&ep=${media.episode}`;
-            }
-            return safeFetch(url, { headers })
-                .then((r) => (r.ok ? r.json() : null))
-                .catch(() => null);
+            if (media.type === "tv") url += `&ss=${media.season}&ep=${media.episode}`;
+            return safeFetch(url, { headers }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
         });
-
         const serverResults = await Promise.allSettled(serverPromises);
         const successfulResponses = serverResults
             .filter((r) => r.status === "fulfilled" && r.value)
             .map((r) => r.value);
-
         if (successfulResponses.length === 0) return { sources, subtitles };
-
         const decryptPromises = successfulResponses.map((response) =>
             Promise.all(response.url.map((u) => vidzeeDecrypt(u.link, decryptionKey))).then(
                 (decryptedLinks) => ({ response, decryptedLinks })
             )
         );
-
         const decryptionResults = await Promise.all(decryptPromises);
-
         const allDecryptedLinks = [];
         const allSubtitles = new Map();
-
         for (const { response, decryptedLinks } of decryptionResults) {
             allDecryptedLinks.push(...decryptedLinks);
-
             for (const track of response.tracks) {
                 if (track.url && track.lang) {
                     const subKey = `${track.lang}_${response.serverInfo.number}`;
@@ -940,15 +757,9 @@ async function fetchVidZee(media) {
                 }
             }
         }
-
-        const uniqueLinks = [...new Set(allDecryptedLinks)].filter(
-            (link) => link && link.startsWith("http")
-        );
-
+        const uniqueLinks = [...new Set(allDecryptedLinks)].filter((link) => link && link.startsWith("http"));
         for (const link of uniqueLinks) {
-            const isVietnamese = link.includes("phim1280.tv");
-            if (isVietnamese) continue;
-
+            if (link.includes("phim1280.tv")) continue;
             let linkHeaders;
             if (link.includes("fast33lane")) {
                 linkHeaders = { Referer: "https://rapidairmax.site/", Origin: "https://rapidairmax.site" };
@@ -957,7 +768,6 @@ async function fetchVidZee(media) {
             } else {
                 linkHeaders = { ...headers, Referer: `${BASE}/` };
             }
-
             sources.push({
                 url: link,
                 type: "hls",
@@ -967,12 +777,8 @@ async function fetchVidZee(media) {
                 headers: linkHeaders,
             });
         }
-
-        for (const sub of allSubtitles.values()) {
-            subtitles.push(sub);
-        }
+        for (const sub of allSubtitles.values()) subtitles.push(sub);
     } catch { }
-
     return { sources: sources.filter((s) => isEnglishAudio(s.audioTracks)), subtitles };
 }
 
@@ -981,9 +787,7 @@ const EMBED02_HLS_PROXY = "https://madvid3.xyz/api/hls-proxy?url=";
 function rewrite02Url(url) {
     if (!url) return null;
     if (url.startsWith("/")) url = PROVIDERS.embed02.BASE + url;
-    if (url.includes("02pcembed.site/v1/proxy")) {
-        return EMBED02_HLS_PROXY + encodeURIComponent(url);
-    }
+    if (url.includes("02pcembed.site/v1/proxy")) return EMBED02_HLS_PROXY + encodeURIComponent(url);
     return url;
 }
 
@@ -1005,11 +809,9 @@ function isErrorEmbed02(url) {
 
 async function fetchEmbed02(media) {
     const { BASE } = PROVIDERS.embed02;
-    const endpoint =
-        media.type === "movie"
-            ? `/v1/movies/${media.tmdbId}`
-            : `/v1/tv/${media.tmdbId}/seasons/${media.season}/episodes/${media.episode}`;
-
+    const endpoint = media.type === "movie"
+        ? `/v1/movies/${media.tmdbId}`
+        : `/v1/tv/${media.tmdbId}/seasons/${media.season}/episodes/${media.episode}`;
     try {
         const res = await safeFetch(`${BASE}${endpoint}`, {
             headers: {
@@ -1022,10 +824,8 @@ async function fetchEmbed02(media) {
         });
         if (!res.ok) return { sources: [], subtitles: [] };
         const data = await res.json();
-
         const seen = new Set();
         const sources = [];
-
         for (const source of data.sources ?? []) {
             const url = rewrite02Url(source.url);
             if (!url || seen.has(url) || isErrorEmbed02(url)) continue;
@@ -1039,15 +839,9 @@ async function fetchEmbed02(media) {
                 headers: { Referer: "https://madvid3.xyz/", Origin: "https://madvid3.xyz" },
             });
         }
-
         const subtitles = (data.subtitles ?? [])
-            .map((s) => ({
-                url: rewrite02Url(s.url),
-                label: s.label,
-                format: s.format ?? "vtt",
-            }))
+            .map((s) => ({ url: rewrite02Url(s.url), label: s.label, format: s.format ?? "vtt" }))
             .filter((s) => s.url && ((s.label ?? "").toLowerCase().includes("en") || !s.label));
-
         return { sources, subtitles };
     } catch {
         return { sources: [], subtitles: [] };
@@ -1058,173 +852,192 @@ async function fetchVidLink(media) {
     const { API, PROXY_API } = PROVIDERS.vidlink;
     const sources = [];
     const subtitles = [];
-
     try {
-        const res = await safeFetch(`${API}${media.tmdbId}`, {
-            headers: { "User-Agent": "Mozilla/5.0" }
-        });
-
+        const res = await safeFetch(`${API}${media.tmdbId}`, { headers: { "User-Agent": "Mozilla/5.0" } });
         if (!res.ok) return { sources, subtitles };
-
         const data = await res.json().catch(() => null);
         if (!data?.url) return { sources, subtitles };
-
         const playable = `${PROXY_API}${encodeURIComponent(data.url.split("?")[0])}`;
-
         sources.push({
             url: playable,
             type: "hls",
             quality: "1080p",
             provider: "VidLink",
             audioTracks: [{ language: "eng", label: "English" }],
-            headers: { "User-Agent": "Mozilla/5.0" }
+            headers: { "User-Agent": "Mozilla/5.0" },
         });
-    } catch {
-    }
-
+    } catch { }
     return { sources, subtitles };
 }
 
+async function streamMafiaGetSessionCookie(headers, BASE) {
+    try {
+        const res = await safeFetch(BASE + "/api/session", { method: "POST", headers, body: null });
+        return res.headers.get("Set-Cookie") || "";
+    } catch {
+        return "";
+    }
+}
+
+async function streamMafiaGetToken(headers, BASE) {
+    try {
+        const res = await safeFetch(`${BASE}/api/token`, { headers });
+        if (res.status !== 200) return "";
+        const data = await res.json();
+        return data.token || "";
+    } catch {
+        return "";
+    }
+}
+
+async function streamMafiaDecrypt(payload) {
+    try {
+        if (!payload?.iv || !payload?.tag || !payload?.data) return null;
+        const base64ToBuffer = (b64) => {
+            const binary = atob(b64);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            return bytes;
+        };
+        const iv = base64ToBuffer(payload.iv);
+        const tag = base64ToBuffer(payload.tag);
+        const data = base64ToBuffer(payload.data);
+        const secret = "Z9#rL!v2K*5qP&7mXw";
+        const enc = new TextEncoder();
+        const rawKey = await crypto.subtle.digest("SHA-256", enc.encode(secret));
+        const key = await crypto.subtle.importKey("raw", rawKey, { name: "AES-GCM" }, false, ["decrypt"]);
+        const combined = new Uint8Array(tag.length + data.length);
+        combined.set(tag, 0);
+        combined.set(data, tag.length);
+        const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv, tagLength: 128 }, key, combined);
+        return JSON.parse(new TextDecoder().decode(decrypted));
+    } catch {
+        return null;
+    }
+}
+
 async function fetchStreamMafia(media) {
-    const { BASE, EMBED } = PROVIDERS.streammafia;
+    const { BASE } = PROVIDERS.streammafia;
     const headers = {
         "User-Agent": UA,
         Accept: "application/json, text/javascript, */*; q=0.01",
         "Accept-Language": "en-US,en;q=0.9",
-        Referer: EMBED + "/",
-        Origin: EMBED,
+        Referer: BASE + "/",
+        Origin: BASE,
+        Cookie: "",
+        "x-api-token": "",
+        "x-content-id": String(media.tmdbId),
     };
-
-    const apiUrl =
-        media.type === "movie"
+    try {
+        const cookie = await streamMafiaGetSessionCookie(headers, BASE);
+        if (!cookie) return { sources: [], subtitles: [] };
+        headers.Cookie = cookie.split(";")[0] || "";
+        await new Promise((r) => setTimeout(r, 100));
+        const token = await streamMafiaGetToken(headers, BASE);
+        if (!token) return { sources: [], subtitles: [] };
+        headers["x-api-token"] = token;
+        const apiUrl = media.type === "movie"
             ? `${BASE}/api/movie/?id=${media.tmdbId}`
             : `${BASE}/api/?tv=${media.tmdbId}&season=${media.season}&episode=${media.episode}`;
-
-    try {
         const res = await safeFetch(apiUrl, { headers });
         if (!res.ok) return { sources: [], subtitles: [] };
-
         const encrypted = await res.json();
-        if (!encrypted?.iv || !encrypted?.tag || !encrypted?.data) {
-            return { sources: [], subtitles: [] };
-        }
-
-        const { createHash, createDecipheriv } = await import("crypto");
-
-        function base64ToBuffer(b64) {
-            return Buffer.from(b64, "base64");
-        }
-
-        const iv = base64ToBuffer(encrypted.iv);
-        const tag = base64ToBuffer(encrypted.tag);
-        const data = base64ToBuffer(encrypted.data);
-
-        const key = createHash("sha256").update("Z9#rL!v2K*5qP&7mXw").digest();
-        const decipher = createDecipheriv("aes-256-gcm", key, iv);
-        decipher.setAuthTag(tag);
-
-        const decrypted = Buffer.concat([decipher.update(data), decipher.final()]);
-        const api = JSON.parse(decrypted.toString("utf-8"));
-
+        const api = await streamMafiaDecrypt(encrypted);
+        if (!api) return { sources: [], subtitles: [] };
         const sources = [];
         const subtitles = [];
-
         const fallbackLang = (api.selected?.lang_code ?? api.selected?.lang ?? "unknown").trim().toLowerCase();
         const fallbackLabel = (api.selected?.lang ?? api.selected?.lang_code ?? "Unknown").trim();
-
-        if (!ENGLISH_LANG_CODES.has(fallbackLang) && fallbackLang !== "unknown") {
-            return { sources, subtitles };
-        }
-
+        if (!ENGLISH_LANG_CODES.has(fallbackLang) && fallbackLang !== "unknown") return { sources, subtitles };
         const audioTrack = { language: fallbackLang, label: fallbackLabel };
 
-        if (api.stream?.hls_streaming) {
-            const hlsUrl = api.stream.hls_streaming;
-            let quality = "auto";
-
-            try {
-                const plRes = await safeFetch(hlsUrl, {
-                    headers: { ...headers, Referer: EMBED + "/" },
-                });
-                if (plRes.ok) {
-                    const content = await plRes.text();
-                    const variantRx = /RESOLUTION=\d+x(\d+)[^\n]*\n([^\n]+)/g;
-                    let best = 0;
-                    let m;
-                    while ((m = variantRx.exec(content)) !== null) {
-                        const h = parseInt(m[1], 10);
-                        if (h > best) best = h;
-                    }
-                    if (best > 0) quality = best + "p";
-
-                    const audioRx = /TYPE=AUDIO[^\n]*/g;
-                    const parsedAudio = [];
-                    let am;
-                    while ((am = audioRx.exec(content)) !== null) {
-                        const lang = (am[0].match(/LANGUAGE="([^"]+)"/)?.[1] ?? "unknown").toLowerCase();
-                        const label = am[0].match(/NAME="([^"]+)"/)?.[1] ?? "Audio";
-                        parsedAudio.push({ language: lang, label });
-                    }
-                    if (parsedAudio.length > 0) {
-                        const engAudio = parsedAudio.filter((t) => ENGLISH_LANG_CODES.has(t.language));
-                        if (engAudio.length > 0) {
-                            sources.push({
-                                url: hlsUrl,
-                                type: "hls",
-                                quality,
-                                provider: "StreamMafia",
-                                audioTracks: engAudio,
-                                headers: { ...headers, Referer: EMBED + "/" },
-                            });
+        async function extractSourcesFromApi(apiData, fallback) {
+            const out = [];
+            if (apiData.stream?.hls_streaming) {
+                const hlsUrl = apiData.stream.hls_streaming;
+                let quality = "auto";
+                try {
+                    const plRes = await safeFetch(hlsUrl, { headers: { ...headers, Referer: BASE + "/" } });
+                    if (plRes.ok) {
+                        const content = await plRes.text();
+                        const variantRx = /RESOLUTION=\d+x(\d+)[^\n]*\n([^\n]+)/g;
+                        let best = 0;
+                        let m;
+                        while ((m = variantRx.exec(content)) !== null) {
+                            const h = parseInt(m[1], 10);
+                            if (h > best) best = h;
+                        }
+                        if (best > 0) quality = best + "p";
+                        const audioRx = /TYPE=AUDIO[^\n]*/g;
+                        const parsedAudio = [];
+                        let am;
+                        while ((am = audioRx.exec(content)) !== null) {
+                            const lang = (am[0].match(/LANGUAGE="([^"]+)"/)?.[1] ?? "unknown").toLowerCase();
+                            const label = am[0].match(/NAME="([^"]+)"/)?.[1] ?? "Audio";
+                            parsedAudio.push({ language: lang, label });
+                        }
+                        if (parsedAudio.length > 0) {
+                            const engAudio = parsedAudio.filter((t) => ENGLISH_LANG_CODES.has(t.language));
+                            if (engAudio.length > 0) {
+                                out.push({ url: hlsUrl, type: "hls", quality, provider: "StreamMafia", audioTracks: engAudio, headers: { ...headers, Referer: BASE + "/" } });
+                            }
                         } else {
-                            return { sources: [], subtitles: [] };
+                            out.push({ url: hlsUrl, type: "hls", quality, provider: "StreamMafia", audioTracks: [fallback], headers: { ...headers, Referer: BASE + "/" } });
                         }
                     } else {
-                        sources.push({
-                            url: hlsUrl,
-                            type: "hls",
-                            quality,
-                            provider: "StreamMafia",
-                            audioTracks: [audioTrack],
-                            headers: { ...headers, Referer: EMBED + "/" },
-                        });
+                        out.push({ url: hlsUrl, type: "hls", quality, provider: "StreamMafia", audioTracks: [fallback], headers: { ...headers, Referer: BASE + "/" } });
                     }
-                } else {
-                    sources.push({
-                        url: hlsUrl,
-                        type: "hls",
-                        quality,
-                        provider: "StreamMafia",
-                        audioTracks: [audioTrack],
-                        headers: { ...headers, Referer: EMBED + "/" },
-                    });
+                } catch {
+                    out.push({ url: hlsUrl, type: "hls", quality, provider: "StreamMafia", audioTracks: [fallback], headers: { ...headers, Referer: BASE + "/" } });
                 }
-            } catch {
-                sources.push({
-                    url: hlsUrl,
-                    type: "hls",
-                    quality,
+            }
+            for (const download of apiData.stream?.download ?? []) {
+                if (!download.url) continue;
+                const qMatch = download.quality?.match(/(\d+)/);
+                out.push({
+                    url: download.url,
+                    type: download.url.endsWith(".mp4") ? "mp4" : "hls",
+                    quality: qMatch ? qMatch[1] + "p" : download.quality ?? "unknown",
                     provider: "StreamMafia",
-                    audioTracks: [audioTrack],
-                    headers: { ...headers, Referer: EMBED + "/" },
+                    audioTracks: [fallback],
+                    headers: { ...headers, Referer: BASE + "/" },
                 });
             }
+            return out;
         }
 
-        for (const download of api.stream?.download ?? []) {
-            if (!download.url) continue;
-            const qMatch = download.quality?.match(/(\d+)/);
-            sources.push({
-                url: download.url,
-                type: download.url.endsWith(".mp4") ? "mp4" : "hls",
-                quality: qMatch ? qMatch[1] + "p" : download.quality ?? "unknown",
-                provider: "StreamMafia",
-                audioTracks: [audioTrack],
-                headers: { ...headers, Referer: EMBED + "/" },
-            });
+        const mainSources = await extractSourcesFromApi(api, audioTrack);
+        sources.push(...mainSources);
+
+        if (api.switches?.length > 0) {
+            const switchResults = await Promise.all(api.switches.map(async (sw) => {
+                try {
+                    const swUrl = `${BASE}/api/source/${sw.file_code}`;
+                    const swRes = await safeFetch(swUrl, { headers });
+                    if (!swRes.ok) return [];
+                    const swEncrypted = await swRes.json();
+                    const swApi = await streamMafiaDecrypt(swEncrypted);
+                    if (!swApi) return [];
+                    const swFallback = {
+                        language: sw.lang_code?.toLowerCase() || "unknown",
+                        label: sw.lang || sw.lang_code || "Unknown",
+                    };
+                    return extractSourcesFromApi(swApi, swFallback);
+                } catch {
+                    return [];
+                }
+            }));
+            for (const result of switchResults) sources.push(...result);
         }
 
-        return { sources: sources.filter((s) => isEnglishAudio(s.audioTracks)), subtitles };
+        const seen = new Set();
+        const deduped = [];
+        for (const s of sources) {
+            if (seen.has(s.url)) continue;
+            seen.add(s.url);
+            deduped.push(s);
+        }
+        return { sources: deduped.filter((s) => isEnglishAudio(s.audioTracks)), subtitles };
     } catch {
         return { sources: [], subtitles: [] };
     }
@@ -1239,32 +1052,23 @@ async function fetchIcefy(media) {
         Referer: BASE,
         Origin: BASE,
     };
-
     try {
-        let apiUrl;
-        if (media.type === "movie") {
-            apiUrl = `${BASE}/movie/${media.tmdbId}`;
-        } else {
-            apiUrl = `${BASE}/tv/${media.tmdbId}/${media.season}/${media.episode}`;
-        }
-
+        const apiUrl = media.type === "movie"
+            ? `${BASE}/movie/${media.tmdbId}`
+            : `${BASE}/tv/${media.tmdbId}/${media.season}/${media.episode}`;
         const res = await safeFetch(apiUrl, { headers });
         if (!res.ok) return { sources: [], subtitles: [] };
-
         const data = await res.json();
         if (!data?.stream) return { sources: [], subtitles: [] };
-
         return {
-            sources: [
-                {
-                    url: data.stream,
-                    quality: "1080p",
-                    type: "hls",
-                    provider: "Icefy",
-                    audioTracks: [{ language: "eng", label: "English" }],
-                    headers,
-                },
-            ],
+            sources: [{
+                url: data.stream,
+                quality: "1080p",
+                type: "hls",
+                provider: "Icefy",
+                audioTracks: [{ language: "eng", label: "English" }],
+                headers,
+            }],
             subtitles: [],
         };
     } catch {
@@ -1272,12 +1076,537 @@ async function fetchIcefy(media) {
     }
 }
 
-export async function scrape(mediaType, tmdbId, season = "1", episode = "1") {
+async function fetchCineSu(media) {
+    const { BASE } = PROVIDERS.cinesu;
+    const headers = {
+        "User-Agent": UA,
+        Accept: "application/json, text/javascript, */*; q=0.01",
+        "Accept-Language": "en-US,en;q=0.9",
+        Referer: BASE + "/en/watch",
+        Origin: BASE,
+    };
+    try {
+        let streamUrl;
+        if (media.type === "movie") {
+            streamUrl = `${BASE}/v1/stream/master/movie/${media.tmdbId}.m3u8`;
+        } else {
+            streamUrl = `${BASE}/v1/stream/master/tv/${media.tmdbId}/${media.season}/${media.episode}.m3u8`;
+        }
+        const verify = await safeFetch(streamUrl, { method: "HEAD", headers });
+        if (verify.status !== 200) return { sources: [], subtitles: [] };
+        return {
+            sources: [{
+                url: streamUrl,
+                quality: "1080p",
+                type: "hls",
+                provider: "CineSu",
+                audioTracks: [{ language: "eng", label: "English" }],
+                headers,
+            }],
+            subtitles: [],
+        };
+    } catch {
+        return { sources: [], subtitles: [] };
+    }
+}
+
+const PEACHIFY_KEY = "ZDhmMmExYjVlOWM0NzA4MTRmNmIyYzNhNWQ4ZTdmOTAxYTJiM2M0ZDVlM2Y3YThiOWMwZDFlMmYzYTRiNWM2ZA==";
+
+async function peachifyDecrypt(payload) {
+    try {
+        const decode = (b64url) => {
+            const padded = b64url.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - (b64url.length % 4)) % 4);
+            const binary = atob(padded);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            return bytes;
+        };
+        const hexStr = Buffer.from(PEACHIFY_KEY, "base64").toString();
+        const raw = new Uint8Array(hexStr.match(/.{1,2}/g).map((b) => parseInt(b, 16)));
+        const [ivPart, tagPart, cipherPart] = payload.split(".");
+        const iv = decode(ivPart);
+        const tag = decode(tagPart);
+        const cipher = decode(cipherPart);
+        const combined = new Uint8Array(tag.length + cipher.length);
+        combined.set(tag, 0);
+        combined.set(cipher, tag.length);
+        const key = await crypto.subtle.importKey("raw", raw, { name: "AES-GCM" }, false, ["decrypt"]);
+        const plaintext = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, combined);
+        return JSON.parse(new TextDecoder().decode(plaintext));
+    } catch {
+        return null;
+    }
+}
+
+async function fetchPeachify(media) {
+    const { BASE, MOVIEBOX_URL, API_URL } = PROVIDERS.peachify;
+    const servers = [
+        `${MOVIEBOX_URL}/moviebox`,
+        `${API_URL}/holly`,
+        `${API_URL}/air`,
+        `${API_URL}/multi`,
+        `${API_URL}/ice`,
+        `${API_URL}/net`,
+    ];
+    const headers = {
+        "User-Agent": UA,
+        Accept: "application/json, text/javascript, */*; q=0.01",
+        "Accept-Language": "en-US,en;q=0.9",
+        Referer: BASE,
+        Origin: BASE,
+    };
+
+    const buildUrl = (serverBase) => media.type === "movie"
+        ? `${serverBase}/movie/${media.tmdbId}`
+        : `${serverBase}/tv/${media.tmdbId}/${media.season}/${media.episode}`;
+
+    const results = await Promise.allSettled(servers.map(async (server) => {
+        const res = await safeFetch(buildUrl(server), { headers });
+        if (!res.ok) return null;
+        let body = await res.json();
+        if (body.isEncrypted && body.data) {
+            body = await peachifyDecrypt(body.data);
+            if (!body) return null;
+        }
+        const rawSources = Array.isArray(body.sources) ? body.sources : [];
+        if (rawSources.length === 0) return null;
+        const rawSubtitles = Array.isArray(body.subtitles) ? body.subtitles : [];
+
+        const sources = [];
+        for (const s of rawSources) {
+            const url = s.url || s.src || s.file || s.stream || s.streamUrl || s.playbackUrl;
+            if (!url) continue;
+            const rawType = (s.type || s.format || s.container || "").toLowerCase();
+            const type = rawType.includes("hls") || rawType.includes("m3u8") || url.toLowerCase().includes(".m3u8") ? "hls" : "mp4";
+            const rawDub = s.dub || s.audio || s.audioName || s.audioLang || s.language || s.lang || s.label || s.name || s.title || "";
+            const dub = rawDub.trim().toLowerCase() === "dubbed" ? "Dub" : rawDub.trim().toLowerCase() === "subbed" ? "Sub" : rawDub.trim() || "Original";
+            const rawQ = s.quality ?? s.resolution ?? s.height ?? s.res;
+            let quality = "unknown";
+            if (rawQ !== undefined && rawQ !== null) {
+                const qStr = String(rawQ);
+                const match = qStr.match(/\d{3,4}/);
+                if (match) quality = match[0] + "p";
+                else if (Number.isFinite(Number(qStr))) quality = Number(qStr) + "p";
+            }
+            const rawHeaders = s.headers ?? s.header ?? s.requestHeaders ?? s.httpHeaders;
+            sources.push({
+                url,
+                type,
+                quality,
+                provider: "Peachify",
+                audioTracks: [{ language: dub.toLowerCase().substring(0, 2), label: dub }],
+                headers: rawHeaders && typeof rawHeaders === "object" ? rawHeaders : headers,
+            });
+        }
+
+        const subtitles = rawSubtitles.map((s) => {
+            const url = s.url ?? s.file ?? s.src;
+            if (!url) return null;
+            return { url, label: s.label ?? s.name ?? s.language ?? "Auto", format: "vtt" };
+        }).filter(Boolean);
+
+        if (sources.length === 0) return null;
+        return { sources, subtitles };
+    }));
+
+    const allSources = [];
+    const allSubtitles = [];
+    for (const r of results) {
+        if (r.status !== "fulfilled" || !r.value) continue;
+        allSources.push(...r.value.sources);
+        allSubtitles.push(...r.value.subtitles);
+    }
+    if (allSources.length === 0) return { sources: [], subtitles: [] };
+    return {
+        sources: allSources.filter((s) => isEnglishAudio(s.audioTracks)),
+        subtitles: allSubtitles,
+    };
+}
+
+const VIDNEST_ALPHABET = "RB0fpH8ZEyVLkv7c2i6MAJ5u3IKFDxlS1NTsnGaqmXYdUrtzjwObCgQP94hoeW+/=";
+const VIDNEST_REVERSE_MAP = (() => {
+    const map = {};
+    for (let i = 0; i < VIDNEST_ALPHABET.length; i++) map[VIDNEST_ALPHABET[i]] = i;
+    return map;
+})();
+
+function decodeVidnestBase64(input) {
+    if (!input || typeof input !== "string") throw new Error("VidNest: invalid payload");
+    let padded = input;
+    const mod = padded.length % 4;
+    if (mod !== 0) padded += "=".repeat(4 - mod);
+    const bytes = [];
+    for (let i = 0; i < padded.length; i += 4) {
+        const chunk = padded.slice(i, i + 4);
+        const c0 = VIDNEST_REVERSE_MAP[chunk[0]] ?? 64;
+        const c1 = VIDNEST_REVERSE_MAP[chunk[1]] ?? 64;
+        const c2 = chunk[2] === "=" ? 64 : (VIDNEST_REVERSE_MAP[chunk[2]] ?? 64);
+        const c3 = chunk[3] === "=" ? 64 : (VIDNEST_REVERSE_MAP[chunk[3]] ?? 64);
+        bytes.push(((c0 << 2) | (c1 >> 4)) & 0xff);
+        if (c2 !== 64) bytes.push((((c1 & 0x0f) << 4) | (c2 >> 2)) & 0xff);
+        if (c3 !== 64) bytes.push((((c2 & 0x03) << 6) | c3) & 0xff);
+    }
+    return new TextDecoder().decode(new Uint8Array(bytes));
+}
+
+function vidnestDecrypt(payload) {
+    try {
+        return JSON.parse(decodeVidnestBase64(payload));
+    } catch {
+        return null;
+    }
+}
+
+function inferSourceType(type, url) {
+    const t = (type ?? "").toLowerCase();
+    if (t === "hls" || url.includes(".m3u8")) return "hls";
+    if (t === "dash" || url.includes(".mpd")) return "dash";
+    if (t === "mp4" || url.includes(".mp4")) return "mp4";
+    if (t === "mkv" || url.includes(".mkv")) return "mkv";
+    if (t === "webm" || url.includes(".webm")) return "webm";
+    return "hls";
+}
+
+function inferSubtitleFormat(url) {
+    const u = url.toLowerCase();
+    if (u.includes(".vtt")) return "vtt";
+    if (u.includes(".srt")) return "srt";
+    if (u.includes(".ass")) return "ass";
+    if (u.includes(".ssa")) return "ssa";
+    if (u.includes(".ttml")) return "ttml";
+    return "vtt";
+}
+
+async function fetchVidNest(media) {
+    const { BASE, API_BASE } = PROVIDERS.vidnest;
+    const headers = {
+        "User-Agent": UA,
+        Accept: "application/json, text/javascript, */*; q=0.01",
+        "Accept-Language": "en-US,en;q=0.9",
+        Referer: `${BASE}/`,
+        Origin: BASE,
+    };
+
+    const SERVERS = [
+        { path: "moviebox", query: "" },
+        { path: "allmovies", query: "" },
+        { path: "catflix", query: "" },
+        { path: "purstream", query: "" },
+        { path: "hollymoviehd", query: "" },
+        { path: "lamda", query: "" },
+        { path: "flixhq", query: "" },
+        { path: "vidlink", query: "" },
+        { path: "onehd", query: "?server=upcloud" },
+        { path: "klikxxi", query: "" },
+    ];
+
+    const handlers = {
+        klikxxi: {
+            mapSources: (root) => (root.sources ?? []).map((s) => ({
+                url: s.url,
+                type: inferSourceType(s.type, s.url),
+                quality: s.quality ?? "auto",
+                provider: "VidNest",
+                audioTracks: [],
+                headers,
+            })),
+            mapSubtitles: () => [],
+        },
+        allmovies: {
+            mapSources: (root) => (root.streams ?? []).map((s) => ({
+                url: s.url,
+                type: inferSourceType(s.type, s.url),
+                quality: "Auto",
+                provider: "VidNest",
+                audioTracks: [{ language: s.language, label: s.language }],
+                headers: s.headers ?? headers,
+            })),
+            mapSubtitles: () => [],
+        },
+        onehd: {
+            mapSources: (root) => [{
+                url: root.url,
+                type: inferSourceType("", root.url),
+                quality: "Auto",
+                provider: "VidNest",
+                audioTracks: [{ language: "eng", label: "English" }],
+                headers: root.headers ?? headers,
+            }],
+            mapSubtitles: (root) => (root.subtitles ?? []).map((s) => ({
+                url: s.url,
+                label: s.lang,
+                format: inferSubtitleFormat(s.url),
+            })),
+        },
+        hollymoviehd: {
+            mapSources: (root) => (root.sources ?? []).map((s) => ({
+                url: s.file,
+                type: inferSourceType(s.type, s.file),
+                quality: s.label ?? "auto",
+                provider: "VidNest",
+                audioTracks: [{ language: "eng", label: "English" }],
+                headers,
+            })),
+            mapSubtitles: () => [],
+        },
+        vidlink: {
+            mapSources: (root) => [{
+                url: root.data?.stream?.playlist,
+                type: inferSourceType(root.data?.stream?.type, root.data?.stream?.playlist ?? ""),
+                quality: "auto",
+                provider: "VidNest",
+                audioTracks: [{ language: "eng", label: "English" }],
+                headers: root.headers ?? headers,
+            }].filter((s) => s.url),
+            mapSubtitles: (root) => (root.data?.stream?.captions ?? []).map((c) => ({
+                url: c.url,
+                label: c.language,
+                format: inferSubtitleFormat(c.url),
+            })),
+        },
+        purstream: {
+            mapSources: (root) => (root.sources ?? []).map((s) => ({
+                url: s.url,
+                type: inferSourceType(s.format, s.url),
+                quality: s.name ?? "auto",
+                provider: "VidNest",
+                audioTracks: [{ language: "fr", label: "French" }],
+                headers,
+            })),
+            mapSubtitles: () => [],
+        },
+    };
+
+    const promises = SERVERS.map((server) => {
+        const url = media.type === "movie"
+            ? `${API_BASE}/${server.path}/movie/${media.tmdbId}${server.query}`
+            : `${API_BASE}/${server.path}/tv/${media.tmdbId}/${media.season}/${media.episode}${server.query}`;
+        return safeFetch(url, { headers })
+            .then((res) => {
+                if (!res.ok) return null;
+                return res.json();
+            })
+            .then((data) => {
+                if (!data) return null;
+                return { server: server.path, data };
+            })
+            .catch(() => null);
+    });
+
+    const results = await Promise.allSettled(promises);
+    const sources = [];
+    const subtitles = [];
+
+    for (const result of results) {
+        if (result.status !== "fulfilled" || !result.value) continue;
+        const { server, data } = result.value;
+        const handler = handlers[server];
+        if (!handler) continue;
+        try {
+            const parsed = vidnestDecrypt(data.data);
+            if (!parsed) continue;
+            sources.push(...handler.mapSources(parsed).filter((s) => s.url));
+            subtitles.push(...handler.mapSubtitles(parsed));
+        } catch { }
+    }
+
+    return {
+        sources: sources.filter((s) => isEnglishAudio(s.audioTracks)),
+        subtitles,
+    };
+}
+
+const videasyDecryptCache = new Map();
+
+async function videasyDecryptBlob(blob, tmdbId) {
+    if (!blob || blob.length < 10) return null;
+    const cacheKey = `${tmdbId}:${blob.slice(0, 32)}`;
+    if (videasyDecryptCache.has(cacheKey)) return videasyDecryptCache.get(cacheKey);
+    try {
+        const res = await safeFetch(PROVIDERS.videasy.DEC_API, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: blob, id: tmdbId }),
+        });
+        if (!res.ok) return null;
+        const json = await res.json();
+        if (json.status !== 200 || !json.result?.sources) return null;
+        const payload = { sources: json.result.sources ?? [], subtitles: json.result.subtitles ?? [] };
+        videasyDecryptCache.set(cacheKey, payload);
+        return payload;
+    } catch {
+        return null;
+    }
+}
+
+async function fetchVideasy(media) {
+    const { BASE, PLAYER } = PROVIDERS.videasy;
+    const headers = {
+        "User-Agent": UA,
+        Accept: "application/json, */*; q=0.01",
+        Referer: PLAYER + "/",
+        Origin: PLAYER,
+    };
+
+    const SERVERS = [
+        { name: "cuevana", url: "https://api2.videasy.net/cuevana/sources-with-title", language: "english" },
+        { name: "mb-flix", url: "https://api.videasy.net/mb-flix/sources-with-title", language: "english" },
+        { name: "1movies", url: "https://api.videasy.net/1movies/sources-with-title", language: "english" },
+        { name: "cdn", url: "https://api.videasy.net/cdn/sources-with-title", language: "english" },
+        { name: "superflix", url: "https://api.videasy.net/superflix/sources-with-title", language: "english" },
+        { name: "lamovie", url: "https://api.videasy.net/lamovie/sources-with-title", language: "english" },
+    ];
+
+    const buildParams = (server) => {
+        const p = {
+            title: media.title ?? "",
+            mediaType: media.type === "movie" ? "movie" : "tv",
+            tmdbId: String(media.tmdbId),
+            imdbId: media.imdbId ?? "",
+            episodeId: String(media.type === "tv" ? (media.episode ?? 1) : 1),
+            seasonId: String(media.type === "tv" ? (media.season ?? 1) : 1),
+        };
+        if (media.type === "movie") p.year = String(media.releaseYear ?? "");
+        if (server.language) p.language = server.language;
+        return p;
+    };
+
+    const detectType = (url, hint) => {
+        const lower = (hint ?? "").toLowerCase();
+        if (lower.includes("hls") || lower.includes("m3u8") || url.toLowerCase().includes(".m3u8")) return "hls";
+        return "mp4";
+    };
+
+    const normalizeQuality = (raw) => {
+        if (!raw) return "unknown";
+        return /^\d{3,4}p$|^4K$|^8K$|^HD$|^SD$/i.test(raw.trim()) ? raw.trim() : "unknown";
+    };
+
+    const resolveLanguage = (server) => {
+        if (!server.language) return "en";
+        const map = { german: "de", italian: "it", french: "fr" };
+        return map[server.language] ?? "en";
+    };
+
+    const resolveLanguageLabel = (server) => {
+        if (!server.language) return "English";
+        const map = { german: "German", italian: "Italian", french: "French" };
+        return map[server.language] ?? "English";
+    };
+
+    const results = await Promise.allSettled(SERVERS.map(async (server) => {
+        const params = buildParams(server);
+        const url = `${server.url}?${new URLSearchParams(params)}`;
+        const res = await safeFetch(url, { headers });
+        if (!res.ok) return null;
+        const blob = await res.text();
+        if (!blob || blob.length < 10) return null;
+        const decrypted = await videasyDecryptBlob(blob, String(media.tmdbId));
+        if (!decrypted || decrypted.sources.length === 0) return null;
+        const sources = decrypted.sources
+            .filter((s) => !!s?.url)
+            .map((s) => ({
+                url: s.url,
+                type: detectType(s.url, s.type),
+                quality: normalizeQuality(s.quality),
+                provider: "Videasy",
+                audioTracks: [{ language: resolveLanguage(server), label: resolveLanguageLabel(server) }],
+                headers,
+            }));
+        const subtitles = decrypted.subtitles
+            .filter((s) => !!s?.url)
+            .map((s) => ({ url: s.url, label: s.lang ?? s.language ?? "Unknown", format: "vtt" }));
+        return { sources, subtitles };
+    }));
+
+    const allSources = [];
+    const allSubtitles = [];
+    for (const r of results) {
+        if (r.status !== "fulfilled" || !r.value) continue;
+        allSources.push(...r.value.sources);
+        allSubtitles.push(...r.value.subtitles);
+    }
+    if (allSources.length === 0) return { sources: [], subtitles: [] };
+    return {
+        sources: allSources.filter((s) => isEnglishAudio(s.audioTracks)),
+        subtitles: allSubtitles,
+    };
+}
+
+async function fetchPopr(media) {
+    const { BASE } = PROVIDERS.popr;
+    const headers = { "User-Agent": UA, Referer: `${BASE}/` };
+    const servers = ["default", "catflix", "hexa", "Gama", "Liligoon", "Sigma", "Prime", "Alfa", "Lamda", "ynx_vidsrc"];
+    const ep = media.episode ?? 1;
+    const season = media.season ?? 1;
+
+    const buildUrl = (server) => {
+        if (media.type === "tv") {
+            return `${BASE}/api/vidnest?id=${media.tmdbId}&type=tv&server=${server}&season=${season}&episode=${ep}`;
+        }
+        return `${BASE}/api/vidnest?id=${media.tmdbId}&type=movie` + (server !== "default" ? `&server=${server}` : "");
+    };
+
+    const requests = servers.map((server) =>
+        safeFetch(buildUrl(server), { headers })
+            .then(async (res) => {
+                if (res.status !== 200) return null;
+                const data = await res.json();
+                const stream = data?.results?.[0]?.streams?.[0];
+                if (!stream?.url) return null;
+                const ext = (new URL(stream.url).pathname.match(/\.[^./]+$/) || [""])[0];
+                const quality = stream.quality;
+                const INVALID_QUALITIES = ["Hindi", "English", "MAIN"];
+                const LANGUAGE_QUALITIES = ["Hindi", "English"];
+                const isLang = LANGUAGE_QUALITIES.includes(quality);
+                return {
+                    source: {
+                        url: stream.url,
+                        type: ext === ".m3u8" ? "hls" : "mp4",
+                        quality: INVALID_QUALITIES.includes(quality) ? "auto" : quality || "auto",
+                        provider: "Popr",
+                        audioTracks: [{
+                            language: isLang ? quality.toLowerCase().slice(0, 3) : "eng",
+                            label: isLang ? quality : "English",
+                        }],
+                        headers: stream.headers ?? headers,
+                    },
+                    subtitles: data.results?.[0]?.subtitles || [],
+                };
+            })
+            .catch(() => null)
+    );
+
+    const results = await Promise.allSettled(requests);
+    const sources = [];
+    const subtitlesMap = new Map();
+
+    for (const res of results) {
+        if (res.status !== "fulfilled" || !res.value) continue;
+        sources.push(res.value.source);
+        for (const sub of res.value.subtitles) {
+            if (!sub?.url) continue;
+            if (!subtitlesMap.has(sub.url)) {
+                subtitlesMap.set(sub.url, { url: sub.url, format: "vtt", label: sub.lang || "Unknown" });
+            }
+        }
+    }
+
+    return {
+        sources: sources.filter((s) => isEnglishAudio(s.audioTracks)),
+        subtitles: Array.from(subtitlesMap.values()),
+    };
+}
+
+export async function scrape(mediaType, tmdbId, season = "1", episode = "1", options = {}) {
     const media = {
         type: mediaType === "tv" ? "tv" : "movie",
         tmdbId: String(tmdbId),
         season: String(season),
         episode: String(episode),
+        title: options.title ?? "",
+        imdbId: options.imdbId ?? "",
+        releaseYear: options.releaseYear ?? "",
     };
 
     const providerFns = [
@@ -1292,6 +1621,11 @@ export async function scrape(mediaType, tmdbId, season = "1", episode = "1") {
         fetchEmbed02,
         fetchStreamMafia,
         fetchIcefy,
+        fetchCineSu,
+        fetchPeachify,
+        fetchVidNest,
+        fetchVideasy,
+        fetchPopr,
     ];
 
     const results = await Promise.allSettled(providerFns.map((fn) => fn(media)));
@@ -1304,13 +1638,11 @@ export async function scrape(mediaType, tmdbId, season = "1", episode = "1") {
     for (const result of results) {
         if (result.status !== "fulfilled") continue;
         const { sources = [], subtitles = [] } = result.value;
-
         for (const s of sources) {
             if (!s.url || seenSourceUrls.has(s.url)) continue;
             seenSourceUrls.add(s.url);
             allSources.push(s);
         }
-
         for (const s of subtitles) {
             if (!s.url || seenSubUrls.has(s.url)) continue;
             seenSubUrls.add(s.url);
@@ -1318,12 +1650,7 @@ export async function scrape(mediaType, tmdbId, season = "1", episode = "1") {
         }
     }
 
-    const finalSources = sortSources(
-        allSources.filter(
-            (s) => s.url && isEnglishAudio(s.audioTracks)
-        )
-    );
-
+    const finalSources = sortSources(allSources.filter((s) => s.url && isEnglishAudio(s.audioTracks)));
     const finalSubtitles = filterEnglishSubtitles(allSubtitles);
 
     return { sources: finalSources, subtitles: finalSubtitles };
@@ -1341,6 +1668,11 @@ export {
     fetchEmbed02,
     fetchStreamMafia,
     fetchIcefy,
+    fetchCineSu,
+    fetchPeachify,
+    fetchVidNest,
+    fetchVideasy,
+    fetchPopr,
     sortSources,
     filterEnglishSubtitles,
     isEnglishAudio,

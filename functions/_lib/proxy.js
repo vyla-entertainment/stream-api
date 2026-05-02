@@ -25,18 +25,55 @@ function isBlockedHost(hostname) {
 function buildUpstreamHeaders(url, rawHeaders) {
     const origin = (() => { try { return new URL(url).origin; } catch { return ""; } })();
     const isTripplestream = url.includes("tripplestream.online") || url.includes("hlmv-files");
-    const isWorkersStream = /\.workers\.dev\//.test(url) && url.includes("/movie/") || url.includes("/tv/");
+    const isWorkersStream = /\.workers\.dev\//.test(url) && (url.includes("/movie/") || url.includes("/tv/"));
+    const isLokLok = url.includes("hakunaymatata") || url.includes("lok-lok.cc") || url.includes("hls2.vdrk.site");
+    const isCloudnestra = url.includes("cloudnestra.com") || url.includes("neonhorizonworkshops.com") || url.includes("wanderlynest.com") || url.includes("orchidpixelgardens.com");
+    const isMadvid = url.includes("madvid3.xyz") || url.includes("02pcembed.site");
+    const isVidzee = url.includes("vidzee.wtf") || url.includes("rapidairmax.site") || url.includes("fast33lane") || url.includes("serversicuro.cc");
+    const isCineSu = url.includes("cine.su");
+    const isPeachify = url.includes("peachify.top") || url.includes("eat-peach.sbs");
+    const isStreamMafia = url.includes("streammafia.to") || url.includes("embedmafia.in") || url.includes("solve.streammafia.to");
+
+    let referer = origin + "/";
+    let originHeader = origin;
+
+    if (isTripplestream) {
+        referer = "https://www.rgshows.ru";
+        originHeader = "https://www.rgshows.ru";
+    } else if (isWorkersStream) {
+        referer = "https://player.vidzee.wtf/";
+        originHeader = "https://player.vidzee.wtf";
+    } else if (isLokLok) {
+        referer = "https://lok-lok.cc/";
+        originHeader = "https://lok-lok.cc";
+    } else if (isCloudnestra) {
+        referer = "https://cloudnestra.com/";
+        originHeader = "https://cloudnestra.com";
+    } else if (isMadvid) {
+        referer = "https://madvid3.xyz/";
+        originHeader = "https://madvid3.xyz";
+    } else if (url.includes("rapidairmax.site") || url.includes("fast33lane")) {
+        referer = "https://rapidairmax.site/";
+        originHeader = "https://rapidairmax.site";
+    } else if (isStreamMafia) {
+        referer = "https://solve.streammafia.to/";
+        originHeader = "https://solve.streammafia.to";
+    } else if (isCineSu) {
+        referer = "https://cine.su/en/watch";
+        originHeader = "https://cine.su";
+    } else if (isPeachify) {
+        referer = "https://peachify.top";
+        originHeader = "https://peachify.top";
+    }
+
     const base = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.6884.98 Safari/537.36",
         Accept: "*/*",
         "Accept-Language": "en-US,en;q=0.9",
-        Origin: isTripplestream ? "https://www.rgshows.ru" : origin,
-        Referer: isTripplestream
-            ? "https://www.rgshows.ru"
-            : isWorkersStream
-                ? "https://player.vidzee.wtf/"
-                : origin + "/",
+        Origin: originHeader,
+        Referer: referer,
     };
+
     if (!rawHeaders) return base;
     try {
         const extra = JSON.parse(atob(rawHeaders));
@@ -74,7 +111,7 @@ export async function onRequestHead({ request }) {
     let upstream;
     try {
         upstream = await fetch(url, { method: "HEAD", headers: upstreamHeaders });
-    } catch (e) {
+    } catch {
         return new Response(null, { status: 502, headers: CORS });
     }
 
@@ -121,10 +158,7 @@ export async function onRequestGet({ request }) {
     }
 
     if (!upstream.ok) {
-        return Response.json(
-            { error: "Upstream error " + upstream.status },
-            { status: upstream.status, headers: CORS }
-        );
+        return Response.json({ error: "Upstream error " + upstream.status }, { status: upstream.status, headers: CORS });
     }
 
     const contentType = upstream.headers.get("content-type") || "application/octet-stream";
