@@ -62,6 +62,28 @@ async function fetchPlaylist(masterUrl) {
     return res.text();
 }
 
+function absolutizeM3u8(body, baseUrl) {
+    const base = new URL(baseUrl);
+    const baseDir = base.origin + base.pathname.replace(/\/[^/]*$/, '/');
+
+    return body.split('\n').map(line => {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) return line;
+        if (/^https?:\/\//i.test(trimmed)) return line;
+        if (trimmed.startsWith('/')) return base.origin + trimmed;
+        return baseDir + trimmed;
+    }).join('\n');
+}
+
+function isSegmentUrl(url) {
+    try {
+        const u = new URL(url);
+        return /\.(ts|aac|mp4|m4s|vtt|webvtt)(\?|$)/i.test(u.pathname);
+    } catch {
+        return false;
+    }
+}
+
 async function getStream(id, s, e) {
     try {
         const apiUrl = buildApiUrl(id, s, e);
@@ -86,17 +108,27 @@ async function getStream(id, s, e) {
 }
 
 async function proxyStream(url, res, { fetchUpstream, rewriteM3u8, reqBase }) {
+    if (isSegmentUrl(url)) {
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Location', url);
+        res.statusCode = 302;
+        return res.end();
+    }
+
     const upstream = await fetchUpstream(url, 0, PLAYLIST_HEADERS);
     const ct = (upstream.headers['content-type'] || '').toLowerCase();
     const isM3u8 = ct.includes('mpegurl') || ct.includes('m3u8') || /\.m3u8?(\?|$)/i.test(url);
+
     if (isM3u8) {
         const chunks = [];
         for await (const c of upstream) chunks.push(c);
-        const body = Buffer.concat(chunks).toString('utf8');
+        const raw = Buffer.concat(chunks).toString('utf8');
+        const absolutized = absolutizeM3u8(raw, url);
         res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
         res.setHeader('Access-Control-Allow-Origin', '*');
-        return res.end(rewriteM3u8(body, url, '&vl=1', reqBase));
+        return res.end(rewriteM3u8(absolutized, url, '&vl=1', reqBase));
     }
+
     res.setHeader('Content-Type', ct || 'application/octet-stream');
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Cache-Control', 'public, max-age=3600');

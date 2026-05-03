@@ -31,8 +31,6 @@ export async function onRequest() {
             tv_sample: '/api/tv?id=1396&season=1&episode=1',
             test_vixsrc_movie: '/api/test/550?source=vixsrc',
             test_vixsrc_tv: '/api/test/1396?season=1&episode=1&source=vixsrc',
-            test_icefy_movie: '/api/test/550?source=icefy',
-            test_icefy_tv: '/api/test/1396?season=1&episode=1&source=icefy',
             test_vidzee_movie: '/api/test/550?source=vidzee',
             test_vidzee_tv: '/api/test/1396?season=1&episode=1&source=vidzee',
             test_vidnest_movie: '/api/test/550?source=vidnest',

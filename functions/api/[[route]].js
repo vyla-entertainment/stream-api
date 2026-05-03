@@ -1,13 +1,12 @@
 import { SOURCES, SOURCE_MAP, ALLOWED_ORIGINS, HEALTH_PROBE_ID, CACHE_TTL } from '../../config.js';
 import * as vixsrc from '../../sources/vixsrc.js';
-import * as icefy from '../../sources/icefy.js';
 import * as vidzee from '../../sources/vidzee.js';
 import * as vidnest from '../../sources/vidnest.js';
 import * as vidsrc from '../../sources/vidsrc.js';
 import * as vidrock from '../../sources/vidrock.js';
 import * as videasy from '../../sources/videasy.js';
 
-const SOURCE_MODULES = { vixsrc, icefy, vidzee, vidnest, vidsrc, vidrock, videasy };
+const SOURCE_MODULES = { vixsrc, vidzee, vidnest, vidsrc, vidrock, videasy };
 
 const UA_LIST = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
@@ -328,17 +327,6 @@ export async function onRequest({ request, env }) {
                     return new Response(rewriteM3u8(text, rawUrl), { headers: { 'Content-Type': 'application/vnd.apple.mpegurl', 'Access-Control-Allow-Origin': '*' } });
                 }
                 return new Response(upstream.body, { headers: { 'Content-Type': ct || 'video/MP2T', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'public, max-age=3600' } });
-            } catch (e) {
-                return new Response(e.message, { status: 502, headers: corsHeaders });
-            }
-        }
-
-        if (q.icefy_key) {
-            try {
-                const keyUrl = decodeURIComponent(q.icefy_key);
-                const upstream = await fetchUpstream(keyUrl, 0, icefy.KEY_HEADERS);
-                const buf = await upstream.arrayBuffer();
-                return new Response(buf, { headers: { 'Content-Type': 'application/octet-stream', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'public, max-age=3600' } });
             } catch (e) {
                 return new Response(e.message, { status: 502, headers: corsHeaders });
             }

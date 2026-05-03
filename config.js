@@ -8,16 +8,6 @@ export const SOURCES = [
         retries: 3,
     },
     {
-        key: 'icefy',
-        label: 'Icefy',
-        proxyParam: 'icefy',
-        timeout: 8000,
-        jitter: 200,
-        retries: 2,
-        skipProxy: true,
-        multiBase: true,
-    },
-    {
         key: 'vidzee',
         label: 'VidZee',
         proxyParam: 'vz',

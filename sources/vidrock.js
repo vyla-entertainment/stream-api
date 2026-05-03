@@ -38,50 +38,12 @@ async function fetchPage(url) {
     }
 }
 
-async function fetchSubtitles(tmdbId, type, s, e) {
-    try {
-        const subUrl = type === 'tv'
-            ? `${SUB_BASE_URL}/v2/tv/${tmdbId}/${s}/${e}`
-            : `${SUB_BASE_URL}/v2/movie/${tmdbId}`;
-        const response = await fetch(subUrl, { headers: { ...HEADERS, Referer: BASE_URL } });
-        if (response.status !== 200) return [];
-        const subsData = await response.json();
-        return subsData.map(sub => ({ label: sub.label, url: sub.file, format: 'vtt' }));
-    } catch {
-        return [];
-    }
-}
-
-async function getStream(id, s, e) {
-    try {
-        const type = s ? 'tv' : 'movie';
-        const itemId = s ? `${id}_${s}_${e || 1}` : `${id}`;
-        const encrypted = await encryptItemId(itemId);
-        const pageUrl = `${BASE_URL}api/${type}/${encrypted}`;
-        const data = await fetchPage(pageUrl);
-        if (!data || typeof data !== 'object') return null;
-
-        const candidates = Object.values(data).filter(s => s && s.url);
-
-        for (const stream of candidates) {
-            const resolved = await resolveUrl(stream.url);
-            if (!resolved) continue;
-            const ok = await testUrl(resolved);
-            if (ok) return resolved;
-        }
-
-        return null;
-    } catch {
-        return null;
-    }
-}
-
 async function resolveUrl(url) {
     if (!url.includes('hls2.vdrk.site')) return url;
     try {
-        const secondData = await fetchPage(url);
-        if (!secondData || !Array.isArray(secondData)) return null;
-        for (const obj of secondData) {
+        const data = await fetchPage(url);
+        if (!data || !Array.isArray(data)) return null;
+        for (const obj of data) {
             if (!obj.url) continue;
             if (obj.url.startsWith(PROXY_PREFIX)) {
                 const encodedPath = obj.url.slice(PROXY_PREFIX.length);
@@ -95,25 +57,63 @@ async function resolveUrl(url) {
     }
 }
 
-async function testUrl(url) {
+async function getStream(id, s, e) {
+    console.log('[vidrock] getStream called', id, s, e);
+    try {
+        const type = s ? 'tv' : 'movie';
+        const itemId = s ? `${id}_${s}_${e || 1}` : `${id}`;
+        const encrypted = await encryptItemId(itemId);
+        const pageUrl = `${BASE_URL}api/${type}/${encrypted}`;
+        const data = await fetchPage(pageUrl);
+        if (!data || typeof data !== 'object') return null;
+
+        for (const stream of Object.values(data)) {
+            if (!stream?.url) continue;
+            const resolved = await resolveUrl(stream.url);
+            if (!resolved) continue;
+            if (await isBlocked(resolved)) continue;
+            return resolved;
+        }
+
+        return null;
+    } catch {
+        return null;
+    }
+}
+
+async function isBlocked(url) {
     try {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 5000);
         const res = await fetch(url, {
-            method: 'HEAD',
-            headers: { ...HEADERS, 'Referer': 'https://lok-lok.cc/', 'Origin': 'https://lok-lok.cc/' },
+            headers: HEADERS,
             signal: controller.signal
         });
         clearTimeout(timeout);
-        return res.ok;
-    } catch {
+        if (!res.ok) return true;
+        const ct = res.headers.get('content-type') ?? '';
+        if (ct.includes('text/html')) return true;
+        const text = await res.text();
+        if (text.includes('<!DOCTYPE') || text.includes('<html') || text.includes('blocked')) return true;
         return false;
+    } catch {
+        return true;
     }
 }
 
 async function getSubtitles(id, s, e) {
-    const type = s ? 'tv' : 'movie';
-    return fetchSubtitles(id, type, s, e);
+    try {
+        const type = s ? 'tv' : 'movie';
+        const subUrl = type === 'tv'
+            ? `${SUB_BASE_URL}/v2/tv/${id}/${s}/${e}`
+            : `${SUB_BASE_URL}/v2/movie/${id}`;
+        const response = await fetch(subUrl, { headers: { ...HEADERS, Referer: BASE_URL } });
+        if (response.status !== 200) return [];
+        const subsData = await response.json();
+        return subsData.map(sub => ({ label: sub.label, url: sub.file, format: 'vtt' }));
+    } catch {
+        return [];
+    }
 }
 
 const PROXY_HEADERS = {
@@ -130,17 +130,48 @@ const PROXY_HEADERS = {
     'sec-ch-ua-platform': '"Windows"',
 };
 
+function absolutizeM3u8(body, baseUrl) {
+    const base = new URL(baseUrl);
+    const baseDir = base.origin + base.pathname.replace(/\/[^/]*$/, '/');
+
+    return body.split('\n').map(line => {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) return line;
+        if (/^https?:\/\//i.test(trimmed)) return line;
+        if (trimmed.startsWith('/')) return base.origin + trimmed;
+        return baseDir + trimmed;
+    }).join('\n');
+}
+
+function isSegmentUrl(url) {
+    try {
+        const u = new URL(url);
+        return /\.(ts|aac|mp4|m4s|vtt|webvtt)(\?|$)/i.test(u.pathname) ||
+            (!u.pathname.endsWith('.m3u8') && !u.pathname.endsWith('.m3u') && u.hostname !== 'storrrrrrm.site');
+    } catch {
+        return false;
+    }
+}
+
 async function proxyStream(url, res, { fetchUpstream, rewriteM3u8 }) {
+    if (isSegmentUrl(url)) {
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Location', url);
+        res.statusCode = 302;
+        return res.end();
+    }
+
     const upstream = await fetchUpstream(url, 0, PROXY_HEADERS);
     const ct = (upstream.headers['content-type'] || '').toLowerCase();
     const isM3u8 = ct.includes('mpegurl') || ct.includes('m3u8') || /\.m3u8?(\?|$)/i.test(url);
     if (isM3u8) {
         const chunks = [];
         for await (const c of upstream) chunks.push(c);
-        const body = Buffer.concat(chunks).toString('utf8');
+        const raw = Buffer.concat(chunks).toString('utf8');
+        const absolutized = absolutizeM3u8(raw, url);
         res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
         res.setHeader('Access-Control-Allow-Origin', '*');
-        return res.end(rewriteM3u8(body, url, '&vr=1'));
+        return res.end(rewriteM3u8(absolutized, url, '&vr=1'));
     }
     res.setHeader('Content-Type', ct || 'application/octet-stream');
     res.setHeader('Access-Control-Allow-Origin', '*');
