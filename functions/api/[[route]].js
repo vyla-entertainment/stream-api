@@ -88,14 +88,14 @@ function rewriteM3u8(body, url, extraParam = '', absoluteBase = '') {
     }).join('\n');
 }
 
-function fetchSource(cfg, cacheKey, id, s, e) {
+function fetchSource(cfg, cacheKey, id, s, e, clientIP = null) {
     const mod = SOURCE_MODULES[cfg.key];
     if (cfg.multiBase) {
         return withTimeout(
             jitter(cfg.jitter).then(async () => {
                 for (const base of mod.BASES) {
                     const key = `${cfg.key}-${base}-${cacheKey}`;
-                    const result = await getCached(key, () => withRetry(() => mod.getStream(id, s, e, base), cfg.retries, 500)).catch(() => null);
+                    const result = await getCached(key, () => withRetry(() => mod.getStream(id, s, e, base, clientIP), cfg.retries, 500)).catch(() => null);
                     if (result) return result;
                 }
                 return null;
@@ -105,7 +105,7 @@ function fetchSource(cfg, cacheKey, id, s, e) {
     }
     return withTimeout(
         jitter(cfg.jitter).then(() =>
-            getCached(`${cfg.key}-${cacheKey}`, () => withRetry(() => mod.getStream(id, s, e), cfg.retries, 1000)).catch(() => null)
+            getCached(`${cfg.key}-${cacheKey}`, () => withRetry(() => mod.getStream(id, s, e, null, clientIP), cfg.retries, 1000)).catch(() => null)
         ),
         cfg.timeout
     );
@@ -135,11 +135,13 @@ async function verifyStream(rawUrl, sourceKey) {
     }
 }
 
-async function getAllWorkingSources(id, s, e) {
+async function getAllWorkingSources(id, s, e, clientIP = null) {
     const cacheKey = `${id}-${s || ''}-${e || ''}`;
     const fetched = await Promise.all(
         SOURCES.map(cfg =>
-            fetchSource(cfg, cacheKey, id, s, e).then(r => ({ raw: r, source: cfg.key })).catch(() => ({ raw: null, source: cfg.key }))
+            fetchSource(cfg, cacheKey, id, s, e, clientIP)
+                .then(r => ({ raw: r, source: cfg.key }))
+                .catch(() => ({ raw: null, source: cfg.key }))
         )
     );
     const candidates = fetched.filter(c => c.raw);
@@ -222,14 +224,14 @@ async function handleHealth(env) {
     });
 }
 
-async function handleTestSource(sourceKey, id, s, e) {
+async function handleTestSource(sourceKey, id, s, e, clientIP = null) {
     const start = Date.now();
     const cacheKey = `${id}-${s || ''}-${e || ''}`;
     const cfg = SOURCE_MAP[sourceKey];
     let rawUrl = null;
     let error = null;
     try {
-        rawUrl = await fetchSource(cfg, cacheKey, id, s, e);
+        rawUrl = await fetchSource(cfg, cacheKey, id, s, e, clientIP);
     } catch (err) {
         error = err.message;
     }
@@ -249,6 +251,7 @@ async function handleTestSource(sourceKey, id, s, e) {
 }
 
 export async function onRequest({ request, env }) {
+    const clientIP = request.headers.get('CF-Connecting-IP') || request.headers.get('X-Forwarded-For') || null;
     const origin = request.headers.get('origin') || '';
     const corsHeaders = ALLOWED_ORIGINS.includes(origin)
         ? { 'Access-Control-Allow-Origin': origin, 'Access-Control-Allow-Credentials': 'true' }
@@ -272,7 +275,7 @@ export async function onRequest({ request, env }) {
         if (!id) return new Response(JSON.stringify({ error: 'missing id' }), { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
         try {
             const [sources, meta, subtitles] = await Promise.all([
-                getAllWorkingSources(id, null, null),
+                getAllWorkingSources(id, null, null, clientIP),
                 getMetadata(id, null, null, env),
                 fetchSubtitles(`${SUBTITLE_BASE}/movie/${id}`),
             ]);
@@ -288,7 +291,7 @@ export async function onRequest({ request, env }) {
         if (!id || !s || !e) return new Response(JSON.stringify({ error: 'missing id, season, or episode' }), { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
         try {
             const [sources, meta, subtitles] = await Promise.all([
-                getAllWorkingSources(id, s, e),
+                getAllWorkingSources(id, s, e, clientIP),
                 getMetadata(id, s, e, env),
                 fetchSubtitles(`${SUBTITLE_BASE}/tv/${id}/${s}/${e}`),
             ]);
@@ -332,7 +335,7 @@ export async function onRequest({ request, env }) {
         if (!source || !SOURCE_MAP[source]) {
             return new Response(JSON.stringify({ error: 'invalid or missing source' }), { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
         }
-        return handleTestSource(source, id, s, e);
+        return handleTestSource(source, id, s, e, clientIP);
     }
 
     if (pathname === '/api' || pathname === '/api/') {
@@ -362,7 +365,6 @@ export async function onRequest({ request, env }) {
                         const ct2 = (upstream.headers.get('content-type') || 'application/octet-stream').toLowerCase();
                         return new Response(text, { headers: { 'Content-Type': ct2, 'Access-Control-Allow-Origin': '*' } });
                     }
-
                     const upstream = await fetch(rawUrl, {
                         headers: { 'User-Agent': getUA(), ...extraHeaders },
                         redirect: 'follow',

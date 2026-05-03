@@ -8,23 +8,26 @@ export const HEADERS = {
     Origin: BASE,
 };
 
-export async function getStream(id, s = null, e = null) {
+export async function getStream(id, s = null, e = null, base = null, clientIP = null) {
     const isTV = s != null && e != null;
-
     const apiUrl = isTV
         ? `${BASE}/api/tv/${id}/${s}/${e}`
         : `${BASE}/api/movie/${id}`;
 
+    const headers = {
+        ...HEADERS,
+        ...(clientIP && { "X-Forwarded-For": clientIP, "X-Real-IP": clientIP }),
+    };
+
     try {
-        const apiRes = await fetch(apiUrl, { headers: HEADERS });
+        const apiRes = await fetch(apiUrl, { headers });
         if (!apiRes.ok) return null;
 
         const data = await apiRes.json();
         if (!data?.src) return null;
 
         const embedUrl = BASE + data.src.replace(/\\\//g, "/");
-
-        const embedRes = await fetch(embedUrl, { headers: HEADERS });
+        const embedRes = await fetch(embedUrl, { headers });
         if (!embedRes.ok) return null;
 
         const html = await embedRes.text();
@@ -38,7 +41,7 @@ export async function getStream(id, s = null, e = null) {
         const masterUrl = `${playlist}?token=${token}&expires=${expires}&h=1`;
 
         const playlistRes = await fetch(masterUrl, {
-            headers: { ...HEADERS, Referer: apiUrl },
+            headers: { ...headers, Referer: apiUrl },
         });
 
         if (!playlistRes.ok) return null;
