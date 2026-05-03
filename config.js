@@ -48,6 +48,14 @@ export const SOURCES = [
         jitter: 900,
         retries: 3,
     },
+    {
+        key: 'cinesu',
+        label: 'CineSu',
+        proxyParam: 'cs',
+        timeout: 15000,
+        jitter: 500,
+        retries: 2,
+    },
 ];
 
 export const SOURCE_MAP = Object.fromEntries(SOURCES.map(s => [s.key, s]));

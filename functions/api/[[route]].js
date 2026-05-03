@@ -5,8 +5,9 @@ import * as vidnest from '../../sources/vidnest.js';
 import * as vidsrc from '../../sources/vidsrc.js';
 import * as vidrock from '../../sources/vidrock.js';
 import * as videasy from '../../sources/videasy.js';
+import * as cinesu from '../../sources/cinesu.js';
 
-const SOURCE_MODULES = { vixsrc, vidzee, vidnest, vidsrc, vidrock, videasy };
+const SOURCE_MODULES = { vixsrc, vidzee, vidnest, vidsrc, vidrock, videasy, cinesu };
 
 const SUBTITLE_BASE = 'https://sub.vdrk.site/v1';
 

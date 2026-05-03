@@ -69,6 +69,8 @@ export async function onRequest() {
             test_vidrock_tv: '/api/test/1396?season=1&episode=1&source=vidrock',
             test_videasy_movie: '/api/test/550?source=videasy',
             test_videasy_tv: '/api/test/1396?season=1&episode=1&source=videasy',
+            test_cinesu_movie: '/api/test/550?source=cinesu',
+            test_cinesu_tv: '/api/test/1396?season=1&episode=1&source=cinesu',
         },
     };
 
