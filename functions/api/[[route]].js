@@ -86,98 +86,25 @@ function rewriteM3u8(body, url, extraParam = '', absoluteBase = '') {
 
 function fetchSource(cfg, cacheKey, id, s, e) {
     const mod = SOURCE_MODULES[cfg.key];
-    const debugInfo = {
-        source: cfg.key,
-        cacheKey,
-        id,
-        s,
-        e,
-        config: {
-            timeout: cfg.timeout,
-            retries: cfg.retries,
-            jitter: cfg.jitter,
-            multiBase: cfg.multiBase
-        },
-        timestamp: Date.now()
-    };
-
-    console.log(`[FETCH_SOURCE] Starting fetch for ${cfg.key} with cacheKey: ${cacheKey}`);
-
     if (cfg.multiBase) {
-        debugInfo.multiBaseFlow = true;
-        console.log(`[FETCH_SOURCE] Using multi-base flow for ${cfg.key}`);
-
         return withTimeout(
             jitter(cfg.jitter).then(async () => {
-                debugInfo.jitterComplete = true;
-
-                for (let i = 0; i < mod.BASES.length; i++) {
-                    const base = mod.BASES[i];
+                for (const base of mod.BASES) {
                     const key = `${cfg.key}-${base}-${cacheKey}`;
-                    debugInfo.currentBase = base;
-                    debugInfo.currentBaseIndex = i;
-                    debugInfo.cacheKey = key;
-
-                    console.log(`[FETCH_SOURCE] Trying base ${i + 1}/${mod.BASES.length}: ${base}`);
-
-                    try {
-                        const result = await getCached(key, () => {
-                            console.log(`[FETCH_SOURCE] Cache miss for ${key}, fetching fresh data`);
-                            return withRetry(() => mod.getStream(id, s, e, base), cfg.retries, 500);
-                        });
-
-                        debugInfo.baseResult = !!result;
-
-                        if (result) {
-                            debugInfo.successBase = base;
-                            debugInfo.success = true;
-                            console.log(`[FETCH_SOURCE] Success with base ${base} for ${cfg.key}`);
-                            return result;
-                        } else {
-                            console.log(`[FETCH_SOURCE] No result from base ${base} for ${cfg.key}`);
-                        }
-                    } catch (err) {
-                        debugInfo.baseError = err.message;
-                        console.error(`[FETCH_SOURCE] Error with base ${base} for ${cfg.key}:`, err);
-                    }
+                    const result = await getCached(key, () => withRetry(() => mod.getStream(id, s, e, base), cfg.retries, 500)).catch(() => null);
+                    if (result) return result;
                 }
-
-                debugInfo.error = 'All bases failed';
-                console.error(`[FETCH_SOURCE] All ${mod.BASES.length} bases failed for ${cfg.key}`);
                 return null;
             }),
             cfg.timeout
-        ).catch(err => {
-            debugInfo.timeoutError = err.message;
-            console.error(`[FETCH_SOURCE] Timeout for ${cfg.key}:`, err);
-            return null;
-        });
+        );
     }
-
-    debugInfo.singleBaseFlow = true;
-    console.log(`[FETCH_SOURCE] Using single-base flow for ${cfg.key}`);
-
     return withTimeout(
-        jitter(cfg.jitter).then(() => {
-            debugInfo.jitterComplete = true;
-            const key = `${cfg.key}-${cacheKey}`;
-            debugInfo.cacheKey = key;
-
-            return getCached(key, () => {
-                console.log(`[FETCH_SOURCE] Cache miss for ${key}, fetching fresh data`);
-                return withRetry(() => mod.getStream(id, s, e), cfg.retries, 1000);
-            }).catch(err => {
-                debugInfo.cacheError = err.message;
-                console.error(`[FETCH_SOURCE] Cache error for ${cfg.key}:`, err);
-                return null;
-            });
-        }),
+        jitter(cfg.jitter).then(() =>
+            getCached(`${cfg.key}-${cacheKey}`, () => withRetry(() => mod.getStream(id, s, e), cfg.retries, 1000)).catch(() => null)
+        ),
         cfg.timeout
-    ).catch(err => {
-        debugInfo.timeoutError = err.message;
-        console.error(`[FETCH_SOURCE] Timeout for ${cfg.key}:`, err);
-        return null;
-    });
+    );
 }
 
 function wrapUrl(rawUrl, sourceKey) {
@@ -287,43 +214,14 @@ async function handleTestSource(sourceKey, id, s, e) {
     const cfg = SOURCE_MAP[sourceKey];
     let rawUrl = null;
     let error = null;
-    let debugInfo = {
-        cacheKey,
-        sourceConfig: {
-            timeout: cfg.timeout,
-            retries: cfg.retries,
-            jitter: cfg.jitter,
-            multiBase: cfg.multiBase
-        }
-    };
-
     try {
-        console.log(`[DEBUG] Testing source ${sourceKey} for ID ${id}, S:${s}, E:${e}`);
         rawUrl = await fetchSource(cfg, cacheKey, id, s, e);
-        debugInfo.fetchSuccess = true;
     } catch (err) {
         error = err.message;
-        debugInfo.fetchError = err.message;
-        debugInfo.fetchStack = err.stack;
-        console.error(`[ERROR] Source ${sourceKey} failed:`, err);
     }
-
     const elapsed = Date.now() - start;
     const raw = rawUrl ? (typeof rawUrl === 'object' ? rawUrl.url : rawUrl) : null;
-
-    if (!raw && !error) {
-        debugInfo.diagnosis = 'fetchSource returned null without error';
-        const mod = SOURCE_MODULES[sourceKey];
-        if (mod && mod.getLastDebugInfo) {
-            try {
-                debugInfo.sourceDebug = await mod.getLastDebugInfo();
-            } catch (e) {
-                debugInfo.sourceDebugError = e.message;
-            }
-        }
-    }
-
-    const response = {
+    return new Response(JSON.stringify({
         source: sourceKey,
         id,
         s: s || null,
@@ -333,14 +231,7 @@ async function handleTestSource(sourceKey, id, s, e) {
         raw_url: raw,
         elapsed_ms: elapsed,
         error: error || (raw ? null : 'no stream returned'),
-        debug: debugInfo
-    };
-
-    console.log(`[DEBUG] Test response for ${sourceKey}:`, JSON.stringify(response, null, 2));
-
-    return new Response(JSON.stringify(response, null, 2), {
-        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
-    });
+    }, null, 2), { headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
 }
 
 export async function onRequest({ request, env }) {
