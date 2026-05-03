@@ -1,6 +1,6 @@
 # vyla-stream-api
 
-A Cloudflare Pages API for streaming movies & TV shows via TMDB ID. Fetches sources concurrently, verifies streams, and proxies content to handle CORS.
+A Cloudflare Pages API for streaming and downloading movies & TV shows via TMDB ID. Fetches sources concurrently, verifies streams, proxies content to handle CORS, and provides direct download links.
 
 ---
 
@@ -16,12 +16,14 @@ https://vyla-api.pages.dev
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/movie?id=<tmdb_id>` | All working sources for a movie |
-| GET | `/api/tv?id=<tmdb_id>&season=<s>&episode=<e>` | All working sources for a TV episode |
+| GET | `/api/movie?id=<tmdb_id>` | All working stream sources for a movie |
+| GET | `/api/tv?id=<tmdb_id>&season=<s>&episode=<e>` | All working stream sources for a TV episode |
+| GET | `/api/downloads/movie/<tmdb_id>` | Download links for a movie |
+| GET | `/api/downloads/tv/<tmdb_id>/<season>/<episode>` | Download links for a TV episode |
+| GET | `/api/subtitles/movie/<tmdb_id>` | Subtitles for a movie |
+| GET | `/api/subtitles/tv/<tmdb_id>/<season>/<episode>` | Subtitles for a TV episode |
 | GET | `/api/health` | Service health check |
-| GET | `/api/subtitles/movie/<id>` | Subtitles for a movie |
-| GET | `/api/subtitles/tv/<id>/<season>/<episode>` | Subtitles for a TV episode |
-| GET | `/api/test/<id>?source=<source>` | Test a specific source |
+| GET | `/api/test/<id>?source=<source>` | Test a specific stream source |
 | GET | `/api?url=<encoded_url>` | Proxy endpoint for streams |
 
 ---
@@ -29,17 +31,23 @@ https://vyla-api.pages.dev
 ## Quick Start
 
 ```bash
-# Fetch all working movie sources
-curl https://vyla-api.pages.dev/api/movie?id=27205
+# Fetch all working movie stream sources
+curl "https://vyla-api.pages.dev/api/movie?id=27205"
 
-# Fetch all working TV episode sources
+# Fetch all working TV episode stream sources
 curl "https://vyla-api.pages.dev/api/tv?id=1396&season=1&episode=1"
 
+# Download links for a movie
+curl "https://vyla-api.pages.dev/api/downloads/movie/27205"
+
+# Download links for a TV episode
+curl "https://vyla-api.pages.dev/api/downloads/tv/1396/1/1"
+
 # Health check
-curl https://vyla-api.pages.dev/api/health
+curl "https://vyla-api.pages.dev/api/health"
 
 # Movie subtitles
-curl https://vyla-api.pages.dev/api/subtitles/movie/27205
+curl "https://vyla-api.pages.dev/api/subtitles/movie/27205"
 
 # TV episode subtitles
 curl "https://vyla-api.pages.dev/api/subtitles/tv/1396/1/1"
@@ -47,7 +55,7 @@ curl "https://vyla-api.pages.dev/api/subtitles/tv/1396/1/1"
 
 ---
 
-## Response Shape
+## Response Shapes
 
 ### `/api/movie` and `/api/tv`
 
@@ -61,11 +69,40 @@ curl "https://vyla-api.pages.dev/api/subtitles/tv/1396/1/1"
     }
   ],
   "subtitles": [],
-  "meta": { ... }
+  "meta": {}
 }
 ```
 
-All sources are fetched concurrently, verified live, and proxied. Only working sources are returned. Subtitles are included when available.
+All sources are fetched concurrently, verified live, and proxied. Only working sources are returned.
+
+### `/api/downloads/movie/<id>` and `/api/downloads/tv/<id>/<season>/<episode>`
+
+```json
+{
+  "downloads": [
+    {
+      "url": "https://02movie.com/api/download?url=<encoded>",
+      "quality": "360p",
+      "size": "347.12 MB",
+      "format": "MP4"
+    },
+    {
+      "url": "https://02movie.com/api/download?url=<encoded>",
+      "quality": "480p",
+      "size": "370.31 MB",
+      "format": "MP4"
+    },
+    {
+      "url": "https://02movie.com/api/download?url=<encoded>",
+      "quality": "720p",
+      "size": "831.69 MB",
+      "format": "MP4"
+    }
+  ]
+}
+```
+
+Download URLs are signed and time-limited. Fetch them fresh before use.
 
 ### `/api/health`
 
@@ -84,35 +121,28 @@ All sources are fetched concurrently, verified live, and proxied. Only working s
 
 ---
 
-Sources are fetched concurrently. Each result is verified with a live stream check before being included in the response.
-
----
-
-## Test a Single Source
+## Test a Single Stream Source
 
 ```bash
-# Test a specific source for a movie
-curl "https://vyla-api.pages.dev/api/test/550?source=source_key"
-
-# Test a specific source for a TV episode
-curl "https://vyla-api.pages.dev/api/test/1396?season=1&episode=1&source=source_key"
+curl "https://vyla-api.pages.dev/api/test/550?source=vidzee"
+curl "https://vyla-api.pages.dev/api/test/1396?season=1&episode=1&source=vidnest"
 ```
-
-Response:
 
 ```json
 {
-  "source": "source_key",
+  "source": "vidzee",
   "id": "550",
   "s": null,
   "e": null,
   "ok": true,
-  "url": "/api?url=<encoded>&param=1",
+  "url": "/api?url=<encoded>&vz=1",
   "raw_url": "https://...",
   "elapsed_ms": 923,
   "error": null
 }
 ```
+
+Available source keys: `vidzee`, `vidnest`, `vidsrc`, `vidrock`, `videasy`, `cinesu`
 
 ---
 
@@ -126,7 +156,7 @@ wrangler pages dev
 wrangler pages deploy
 ```
 
-Set your TMDB API key as a secret (never commit it in `wrangler.toml`):
+Set your TMDB API key as a secret:
 
 ```bash
 wrangler pages secret put TMDB_API_KEY
@@ -139,12 +169,18 @@ wrangler pages secret put TMDB_API_KEY
 ```
 /
 ├── functions/
-│   ├── index.js           # Root endpoint — lists all endpoints
+│   ├── index.js            # Root endpoint — lists all available endpoints
 │   └── api/
-│       └── [[route]].js   # All /api/* routes
+│       └── [[route]].js    # All /api/* route handlers
 ├── sources/
-│   ├── *.js              # Source implementations
-├── config.js              # Configuration and source definitions
+│   ├── vidzee.js
+│   ├── vidnest.js
+│   ├── vidsrc.js
+│   ├── vidrock.js
+│   ├── videasy.js
+│   ├── cinesu.js
+│   └── 02movie.js          # Download links source (decrypts AES-GCM response)
+├── config.js               # SOURCES array and SOURCE_MAP
 ├── wrangler.toml
 └── public/
 ```

@@ -5,6 +5,7 @@ import * as vidsrc from '../../sources/vidsrc.js';
 import * as vidrock from '../../sources/vidrock.js';
 import * as videasy from '../../sources/videasy.js';
 import * as cinesu from '../../sources/cinesu.js';
+import { getDownloads as get02movieDownloads } from '../../sources/02movie.js';
 
 const SOURCE_MODULES = { vidzee, vidnest, vidsrc, vidrock, videasy, cinesu };
 
@@ -410,6 +411,30 @@ export async function onRequest({ request, env }) {
         }
 
         return new Response(JSON.stringify({ error: 'missing parameters' }), { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+    }
+
+    const downloadsMovieMatch = pathname.match(/^\/api\/downloads\/movie\/([^/]+)$/);
+    if (downloadsMovieMatch) {
+        const id = downloadsMovieMatch[1];
+        try {
+            const downloads = await get02movieDownloads(id, null, null);
+            if (!downloads) return new Response(JSON.stringify({ error: 'no downloads found' }), { status: 404, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+            return new Response(JSON.stringify({ downloads }, null, 2), { headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+        } catch (e) {
+            return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+        }
+    }
+
+    const downloadsTvMatch = pathname.match(/^\/api\/downloads\/tv\/([^/]+)\/([^/]+)\/([^/]+)$/);
+    if (downloadsTvMatch) {
+        const [, id, season, episode] = downloadsTvMatch;
+        try {
+            const downloads = await get02movieDownloads(id, season, episode);
+            if (!downloads) return new Response(JSON.stringify({ error: 'no downloads found' }), { status: 404, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+            return new Response(JSON.stringify({ downloads }, null, 2), { headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+        } catch (e) {
+            return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+        }
     }
 
     return new Response(JSON.stringify({ error: 'not found' }), { status: 404, headers: { 'Content-Type': 'application/json', ...corsHeaders } });

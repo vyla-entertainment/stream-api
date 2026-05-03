@@ -49,15 +49,11 @@ export const SOURCES = [
         retries: 2,
     },
 ];
-
 export const SOURCE_MAP = Object.fromEntries(SOURCES.map(s => [s.key, s]));
-
 export const ALLOWED_ORIGINS = [
     'https://vyla.pages.dev',
     'http://localhost:7860',
     'http://169.254.162.163:7860',
 ];
-
 export const HEALTH_PROBE_ID = '550';
-
 export const CACHE_TTL = 5 * 60 * 1000;
