@@ -44,21 +44,50 @@ async function fetchPage(url) {
         }
 
         const contentType = response.headers.get('content-type') ?? '';
+        const text = await response.text();
+        debugInfo.responseSize = text.length;
+        debugInfo.fullResponse = text;
+
+        console.log(`[VIDROCK] Raw response from ${url}:`, text);
+
         if (contentType.includes('application/json')) {
-            const data = await response.json();
-            debugInfo.responseType = 'json';
-            debugInfo.responseSize = JSON.stringify(data).length;
-            lastDebugInfo = debugInfo;
-            console.log(`[VIDROCK] Successfully fetched JSON from: ${url}`);
-            return data;
+            try {
+                const data = JSON.parse(text);
+                debugInfo.responseType = 'json';
+                debugInfo.parseSuccess = true;
+                lastDebugInfo = debugInfo;
+                console.log(`[VIDROCK] Successfully parsed JSON from: ${url}`);
+                return data;
+            } catch (parseErr) {
+                debugInfo.responseType = 'json-parse-failed';
+                debugInfo.parseError = parseErr.message;
+                lastDebugInfo = debugInfo;
+                console.error(`[VIDROCK] Failed to parse JSON from ${url}:`, parseErr);
+                console.error(`[VIDROCK] Response content:`, text);
+                return null;
+            }
         }
 
-        const text = await response.text();
+        if (text.trim().startsWith('{') || text.trim().startsWith('[')) {
+            try {
+                const data = JSON.parse(text);
+                debugInfo.responseType = 'json-inferred';
+                debugInfo.parseSuccess = true;
+                lastDebugInfo = debugInfo;
+                console.log(`[VIDROCK] Successfully inferred and parsed JSON from: ${url}`);
+                return data;
+            } catch (parseErr) {
+                debugInfo.responseType = 'json-inferred-failed';
+                debugInfo.parseError = parseErr.message;
+                console.log(`[VIDROCK] Text looked like JSON but failed to parse from ${url}:`, parseErr);
+            }
+        }
+
         debugInfo.responseType = 'text';
-        debugInfo.responseSize = text.length;
-        debugInfo.preview = text.substring(0, 200);
+        debugInfo.preview = text.substring(0, 500);
         lastDebugInfo = debugInfo;
-        console.log(`[VIDROCK] Successfully fetched text from: ${url}`);
+        console.log(`[VIDROCK] Returning text from: ${url}`);
+        console.log(`[VIDROCK] Text preview:`, text.substring(0, 500));
         return text;
     } catch (err) {
         debugInfo.error = err.message;
