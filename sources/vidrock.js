@@ -169,6 +169,11 @@ async function getStream(id, s, e) {
             const ok = await testUrl(resolved);
             debugInfo.testResult = ok;
 
+            const testUrlDebug = getLastDebugInfo();
+            if (testUrlDebug && testUrlDebug.url === resolved) {
+                debugInfo.testUrlDebug = testUrlDebug;
+            }
+
             if (ok) {
                 debugInfo.success = true;
                 debugInfo.finalUrl = resolved;
