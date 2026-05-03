@@ -1,1 +1,0 @@
-export { onRequestOptions, onRequestHead, onRequestGet } from "../_lib/proxy.js";

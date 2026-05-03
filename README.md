@@ -2,7 +2,7 @@
 
 # vyla-stream-api
 
-A Cloudflare Pages API for scraping and streaming movies & TV shows via TMDB ID. Aggregates sources from 8 providers, proxies streams to handle CORS, and serves a zero-UI embedded player.
+A Cloudflare Pages API for scraping and streaming movies & TV shows via TMDB ID. Aggregates sources from many providers, proxies streams to handle CORS, and returns all working sources in a single response.
 
 **[https://vyla.mintlify.app](https://vyla.mintlify.app)**
 
@@ -20,31 +20,99 @@ https://vyla-api.pages.dev
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/movie?id=<tmdb_id>` | Scrape sources for a movie |
-| GET | `/api/tv?id=<tmdb_id>&season=<s>&episode=<e>` | Scrape sources for a TV episode |
-| GET | `/api/proxy?url=<encoded_url>&headers=<b64>` | CORS proxy with m3u8 rewriting |
-| GET | `/api/download?url=<encoded_url>&filename=<name>` | Download a video file |
-| GET | `/api/download?url=<encoded_url>&info=1` | Get file metadata as JSON |
-| GET | `/api/stream/movie?id=<tmdb_id>` | Alias of `/api/movie` |
-| GET | `/api/stream/tv?id=<tmdb_id>&season=<s>&episode=<e>` | Alias of `/api/tv` |
+| GET | `/api/movie?id=<tmdb_id>` | All working sources for a movie |
+| GET | `/api/tv?id=<tmdb_id>&season=<s>&episode=<e>` | All working sources for a TV episode |
+| GET | `/api/health` | Service health check — status of every provider |
 
 ---
 
 ## Quick Start
 
 ```bash
-# Fetch movie sources
+# Fetch all working movie sources
 curl https://vyla-api.pages.dev/api/movie?id=27205
 
-# Fetch TV episode sources
+# Fetch all working TV episode sources
 curl "https://vyla-api.pages.dev/api/tv?id=1396&season=1&episode=1"
+
+# Health check
+curl https://vyla-api.pages.dev/api/health
 ```
 
 ---
 
-## Providers
+## Response Shape
 
-Sources are scraped concurrently, deduplicated, filtered to English audio, and sorted by quality.
+### `/api/movie` and `/api/tv`
+
+```json
+{
+  "sources": [
+    {
+      "source": "source1",
+      "label": "source1",
+      "url": "/api?url=<encoded>&vl=1"
+    },
+    {
+      "source": "source2",
+      "label": "VidZee",
+      "url": "/api?url=<encoded>&vz=1"
+    }
+  ],
+  "meta": { ... }
+}
+```
+
+All sources are fetched concurrently, verified live, and proxied. Only working sources are returned.
+
+### `/api/health`
+
+```json
+{
+  "status": "ok",
+  "timestamp": "2024-01-01T00:00:00.000Z",
+  "tmdb": true,
+  "cache": 4,
+  "probe_id": "550",
+  "sources": {
+    "source1": { "ok": true, "ms": 812 },
+    "source2":  { "ok": true, "ms": 340 },
+    "source3": { "ok": false, "ms": null }
+  }
+}
+```
+
+---
+
+Sources are fetched from all providers concurrently. Each result is verified with a live stream check before being included in the response.
+
+---
+
+## Test a Single Provider
+
+```bash
+# Test source1 for a movie
+curl "https://vyla-api.pages.dev/api/test/550?source=source1"
+
+# Test source2 for a TV episode
+curl "https://vyla-api.pages.dev/api/test/1396?season=1&episode=1&source=source2"
+```
+
+Response:
+
+```json
+{
+  "source": "source1",
+  "id": "550",
+  "s": null,
+  "e": null,
+  "ok": true,
+  "url": "/api?url=<encoded>&vl=1",
+  "raw_url": "https://...",
+  "elapsed_ms": 923,
+  "error": null
+}
+```
 
 ---
 
@@ -58,23 +126,25 @@ wrangler pages dev
 wrangler pages deploy
 ```
 
+Set your TMDB API key as a secret (never commit it in `wrangler.toml`):
+
+```bash
+wrangler pages secret put TMDB_API_KEY
+```
+
 ---
 
 ## File Structure
 
 ```
-functions/
-├── _lib/
-│   ├── proxy.js
-│   └── scraper.js
-└── api/
-    ├── stream/
-    │   ├── movie.js
-    │   ├── proxy.js
-    │   └── tv.js
-    ├── download.js
-    ├── index.js
-    ├── movie.js
-    ├── proxy.js
-    └── tv.js
+/
+├── functions/
+│   ├── index.js           # Root endpoint — lists all endpoints
+│   └── api/
+│       └── [[route]].js   # All /api/* routes
+├── sources/
+│   ├── source1.js         # This will be changed to the actual provider name
+├── config.js
+├── wrangler.toml
+└── public/
 ```
