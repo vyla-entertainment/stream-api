@@ -347,16 +347,31 @@ export async function onRequest({ request, env }) {
                 const matchedSource = SOURCES.find(cfg => q[cfg.proxyParam]);
                 if (matchedSource) {
                     const mod = SOURCE_MODULES[matchedSource.key];
-                    const upstream = await fetchUpstream(rawUrl, 0, mod.VERIFY_HEADERS || {});
-                    const ct = (upstream.headers.get('content-type') || '').toLowerCase();
-                    const isM3u8 = ct.includes('mpegurl') || ct.includes('m3u8') || /\.m3u8?(\?|$)/i.test(rawUrl);
-                    if (isM3u8) {
+                    const cfg = SOURCE_MAP[matchedSource.key];
+                    const extraHeaders = mod.VERIFY_HEADERS || {};
+                    const looksLikeM3u8 = /\.m3u8?(\?|$)/i.test(rawUrl) || rawUrl.includes('/playlist/');
+                    if (looksLikeM3u8) {
+                        const upstream = await fetchUpstream(rawUrl, 0, extraHeaders);
                         const text = await upstream.text();
-                        const cfg = SOURCE_MAP[matchedSource.key];
+                        if (text.trim().startsWith('#EXTM3U')) {
+                            const rewritten = rewriteM3u8(text, rawUrl, `&${cfg.proxyParam}=1`, reqUrl.origin);
+                            return new Response(rewritten, { headers: { 'Content-Type': 'application/vnd.apple.mpegurl', 'Access-Control-Allow-Origin': '*' } });
+                        }
+                        const ct2 = (upstream.headers.get('content-type') || 'application/octet-stream').toLowerCase();
+                        return new Response(text, { headers: { 'Content-Type': ct2, 'Access-Control-Allow-Origin': '*' } });
+                    }
+
+                    const upstream = await fetch(rawUrl, {
+                        headers: { 'User-Agent': getUA(), ...extraHeaders },
+                        redirect: 'follow',
+                    });
+                    const ct = (upstream.headers.get('content-type') || '').toLowerCase();
+                    if (ct.includes('mpegurl') || ct.includes('m3u8')) {
+                        const text = await upstream.text();
                         const rewritten = rewriteM3u8(text, rawUrl, `&${cfg.proxyParam}=1`, reqUrl.origin);
                         return new Response(rewritten, { headers: { 'Content-Type': 'application/vnd.apple.mpegurl', 'Access-Control-Allow-Origin': '*' } });
                     }
-                    return new Response(upstream.body, { headers: { 'Content-Type': ct || 'application/octet-stream', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'public, max-age=3600' } });
+                    return new Response(upstream.body, { headers: { 'Content-Type': ct || 'video/MP2T', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'public, max-age=3600' } });
                 }
                 const upstream = await fetchUpstream(rawUrl);
                 const ct = (upstream.headers.get('content-type') || '').toLowerCase();
