@@ -8,6 +8,8 @@ const BASE_URL = 'https://vidrock.net/';
 const SUB_BASE_URL = 'https://sub.vdrk.site';
 const PROXY_PREFIX = 'https://proxy.vidrock.store/';
 
+let lastDebugInfo = null;
+
 const HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150 Safari/537.36',
     'Accept': 'application/json, text/javascript, */*; q=0.01',
@@ -27,13 +29,42 @@ async function encryptItemId(itemId) {
 }
 
 async function fetchPage(url) {
+    const debugInfo = { url, timestamp: Date.now() };
     try {
+        console.log(`[VIDROCK] Fetching page: ${url}`);
         const response = await fetch(url, { headers: { ...HEADERS, Referer: BASE_URL }, referrer: BASE_URL });
-        if (response.status !== 200) return null;
+        debugInfo.status = response.status;
+        debugInfo.contentType = response.headers.get('content-type');
+
+        if (response.status !== 200) {
+            debugInfo.error = `HTTP ${response.status}`;
+            lastDebugInfo = debugInfo;
+            console.error(`[VIDROCK] Failed to fetch page: ${url} - HTTP ${response.status}`);
+            return null;
+        }
+
         const contentType = response.headers.get('content-type') ?? '';
-        if (contentType.includes('application/json')) return await response.json();
-        return await response.text();
-    } catch {
+        if (contentType.includes('application/json')) {
+            const data = await response.json();
+            debugInfo.responseType = 'json';
+            debugInfo.responseSize = JSON.stringify(data).length;
+            lastDebugInfo = debugInfo;
+            console.log(`[VIDROCK] Successfully fetched JSON from: ${url}`);
+            return data;
+        }
+
+        const text = await response.text();
+        debugInfo.responseType = 'text';
+        debugInfo.responseSize = text.length;
+        debugInfo.preview = text.substring(0, 200);
+        lastDebugInfo = debugInfo;
+        console.log(`[VIDROCK] Successfully fetched text from: ${url}`);
+        return text;
+    } catch (err) {
+        debugInfo.error = err.message;
+        debugInfo.stack = err.stack;
+        lastDebugInfo = debugInfo;
+        console.error(`[VIDROCK] Exception fetching page ${url}:`, err);
         return null;
     }
 }
@@ -53,60 +84,176 @@ async function fetchSubtitles(tmdbId, type, s, e) {
 }
 
 async function getStream(id, s, e) {
+    const debugInfo = { id, s, e, timestamp: Date.now() };
+
     try {
+        console.log(`[VIDROCK] Getting stream for ID: ${id}, S: ${s}, E: ${e}`);
+
         const type = s ? 'tv' : 'movie';
         const itemId = s ? `${id}_${s}_${e || 1}` : `${id}`;
+        debugInfo.type = type;
+        debugInfo.itemId = itemId;
+
         const encrypted = await encryptItemId(itemId);
+        debugInfo.encrypted = encrypted;
+
         const pageUrl = `${BASE_URL}api/${type}/${encrypted}`;
+        debugInfo.pageUrl = pageUrl;
+
         const data = await fetchPage(pageUrl);
-        if (!data || typeof data !== 'object') return null;
+        debugInfo.fetchResult = !!data;
 
-        const candidates = Object.values(data).filter(s => s && s.url);
-
-        for (const stream of candidates) {
-            const resolved = await resolveUrl(stream.url);
-            if (!resolved) continue;
-            const ok = await testUrl(resolved);
-            if (ok) return resolved;
+        if (!data || typeof data !== 'object') {
+            debugInfo.error = `Invalid response data: ${typeof data}`;
+            lastDebugInfo = debugInfo;
+            console.error(`[VIDROCK] Invalid response data from: ${pageUrl}`);
+            return null;
         }
 
+        const candidates = Object.values(data).filter(s => s && s.url);
+        debugInfo.candidatesFound = candidates.length;
+        debugInfo.candidates = candidates.map(c => ({ url: c.url, hasUrl: !!c.url }));
+
+        if (candidates.length === 0) {
+            debugInfo.error = 'No valid candidates found in response';
+            lastDebugInfo = debugInfo;
+            console.error(`[VIDROCK] No valid candidates found in response from: ${pageUrl}`);
+            return null;
+        }
+
+        for (let i = 0; i < candidates.length; i++) {
+            const stream = candidates[i];
+            debugInfo.currentAttempt = i;
+            debugInfo.currentStream = stream.url;
+
+            console.log(`[VIDROCK] Testing candidate ${i + 1}/${candidates.length}: ${stream.url}`);
+
+            const resolved = await resolveUrl(stream.url);
+            debugInfo.resolved = resolved;
+
+            if (!resolved) {
+                debugInfo.resolutionFailed = true;
+                console.log(`[VIDROCK] Failed to resolve URL: ${stream.url}`);
+                continue;
+            }
+
+            const ok = await testUrl(resolved);
+            debugInfo.testResult = ok;
+
+            if (ok) {
+                debugInfo.success = true;
+                debugInfo.finalUrl = resolved;
+                lastDebugInfo = debugInfo;
+                console.log(`[VIDROCK] Successfully found working stream: ${resolved}`);
+                return resolved;
+            } else {
+                debugInfo.testFailed = true;
+                console.log(`[VIDROCK] URL test failed: ${resolved}`);
+            }
+        }
+
+        debugInfo.error = 'All candidates failed verification';
+        lastDebugInfo = debugInfo;
+        console.error(`[VIDROCK] All ${candidates.length} candidates failed verification`);
         return null;
-    } catch {
+    } catch (err) {
+        debugInfo.error = err.message;
+        debugInfo.stack = err.stack;
+        lastDebugInfo = debugInfo;
+        console.error(`[VIDROCK] Exception in getStream:`, err);
         return null;
     }
 }
 
 async function resolveUrl(url) {
-    if (!url.includes('hls2.vdrk.site')) return url;
+    const debugInfo = { originalUrl: url, timestamp: Date.now() };
+
+    if (!url.includes('hls2.vdrk.site')) {
+        debugInfo.direct = true;
+        console.log(`[VIDROCK] URL does not need resolution: ${url}`);
+        return url;
+    }
+
     try {
+        console.log(`[VIDROCK] Resolving URL: ${url}`);
         const secondData = await fetchPage(url);
-        if (!secondData || !Array.isArray(secondData)) return null;
-        for (const obj of secondData) {
-            if (!obj.url) continue;
+        debugInfo.secondFetchResult = !!secondData;
+
+        if (!secondData || !Array.isArray(secondData)) {
+            debugInfo.error = `Invalid second response: ${typeof secondData}`;
+            lastDebugInfo = { ...lastDebugInfo, resolveDebug: debugInfo };
+            console.error(`[VIDROCK] Invalid second response from: ${url}`);
+            return null;
+        }
+
+        debugInfo.arrayLength = secondData.length;
+        debugInfo.items = secondData.map(obj => ({ hasUrl: !!obj.url, url: obj.url, startsWithProxy: obj.url?.startsWith(PROXY_PREFIX) }));
+
+        for (let i = 0; i < secondData.length; i++) {
+            const obj = secondData[i];
+            debugInfo.currentItem = i;
+
+            if (!obj.url) {
+                debugInfo.noUrl = true;
+                continue;
+            }
+
             if (obj.url.startsWith(PROXY_PREFIX)) {
                 const encodedPath = obj.url.slice(PROXY_PREFIX.length);
-                return decodeURIComponent(encodedPath.replace(/^\//, ''));
+                const decoded = decodeURIComponent(encodedPath.replace(/^\//, ''));
+                debugInfo.proxyDecoded = decoded;
+                debugInfo.success = true;
+                lastDebugInfo = { ...lastDebugInfo, resolveDebug: debugInfo };
+                console.log(`[VIDROCK] Successfully resolved proxy URL: ${decoded}`);
+                return decoded;
             }
+
+            debugInfo.directUrl = obj.url;
+            debugInfo.success = true;
+            lastDebugInfo = { ...lastDebugInfo, resolveDebug: debugInfo };
+            console.log(`[VIDROCK] Successfully resolved direct URL: ${obj.url}`);
             return obj.url;
         }
+
+        debugInfo.error = 'No valid URLs found in array';
+        lastDebugInfo = { ...lastDebugInfo, resolveDebug: debugInfo };
+        console.error(`[VIDROCK] No valid URLs found in response from: ${url}`);
         return null;
-    } catch {
+    } catch (err) {
+        debugInfo.error = err.message;
+        debugInfo.stack = err.stack;
+        lastDebugInfo = { ...lastDebugInfo, resolveDebug: debugInfo };
+        console.error(`[VIDROCK] Exception resolving URL ${url}:`, err);
         return null;
     }
 }
 
 async function testUrl(url) {
+    const debugInfo = { url, timestamp: Date.now() };
+
     try {
+        console.log(`[VIDROCK] Testing URL: ${url}`);
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 5000);
+
         const res = await fetch(url, {
             method: 'HEAD',
             headers: { ...HEADERS, 'Referer': 'https://lok-lok.cc/', 'Origin': 'https://lok-lok.cc/' },
             signal: controller.signal
         });
+
         clearTimeout(timeout);
+        debugInfo.status = res.status;
+        debugInfo.ok = res.ok;
+        debugInfo.success = res.ok;
+
+        console.log(`[VIDROCK] URL test result: ${res.ok} (status: ${res.status})`);
         return res.ok;
-    } catch {
+    } catch (err) {
+        debugInfo.error = err.message;
+        debugInfo.stack = err.stack;
+        debugInfo.success = false;
+        console.error(`[VIDROCK] URL test failed for ${url}:`, err);
         return false;
     }
 }
@@ -150,4 +297,8 @@ async function proxyStream(url, res, { fetchUpstream, rewriteM3u8 }) {
 
 const VERIFY_HEADERS = { ...PROXY_HEADERS };
 
-export { getStream, getSubtitles, proxyStream, VERIFY_HEADERS, HEADERS, BASE_URL };
+function getLastDebugInfo() {
+    return lastDebugInfo;
+}
+
+export { getStream, getSubtitles, proxyStream, VERIFY_HEADERS, HEADERS, BASE_URL, getLastDebugInfo };
