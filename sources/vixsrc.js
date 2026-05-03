@@ -8,6 +8,12 @@ export const HEADERS = {
     Origin: BASE,
 };
 
+export const VERIFY_HEADERS = {
+    "Referer": "https://vixsrc.to",
+    "Origin": "https://vixsrc.to",
+    "User-Agent": "Mozilla/5.0",
+};
+
 export async function getStream(id, s = null, e = null, base = null, clientIP = null) {
     const isTV = s != null && e != null;
     const apiUrl = isTV
