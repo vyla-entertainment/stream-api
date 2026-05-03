@@ -1,66 +1,57 @@
-const BASE = 'https://vixsrc.to';
+const BASE = "https://vixsrc.to";
 
 export const HEADERS = {
-    'User-Agent': 'Mozilla/5.0',
-    Accept: 'application/json, text/javascript, */*; q=0.01',
-    'Accept-Language': 'en-US,en;q=0.9',
+    "User-Agent": "Mozilla/5.0",
+    Accept: "application/json, text/javascript, */*; q=0.01",
+    "Accept-Language": "en-US,en;q=0.9",
     Referer: BASE,
     Origin: BASE,
 };
 
 export async function getStream(id, s = null, e = null) {
-    const mediaType = s && e ? 'tv' : 'movie';
-    const apiUrl =
-        mediaType === 'movie'
-            ? `${BASE}/api/movie/${id}`
-            : `${BASE}/api/tv/${id}/${s}/${e}`;
+    const isTV = s != null && e != null;
+
+    const apiUrl = isTV
+        ? `${BASE}/api/tv/${id}/${s}/${e}`
+        : `${BASE}/api/movie/${id}`;
 
     try {
-        const apiRes = await fetch(apiUrl, {
-            method: 'GET',
-            headers: HEADERS,
-        });
+        const apiRes = await fetch(apiUrl, { headers: HEADERS });
+        if (!apiRes.ok) return null;
 
         const data = await apiRes.json();
         if (!data?.src) return null;
 
-        const embedUrl = BASE + data.src.replace(/\\\//g, '/');
+        const embedUrl = BASE + data.src.replace(/\\\//g, "/");
 
-        const embedRes = await fetch(embedUrl, {
-            method: 'GET',
-            headers: HEADERS,
-        });
+        const embedRes = await fetch(embedUrl, { headers: HEADERS });
+        if (!embedRes.ok) return null;
 
         const html = await embedRes.text();
 
-        const tokenMatch = html.match(/token["']\s*:\s*["']([^"']+)/);
-        const expiresMatch = html.match(/expires["']\s*:\s*["']([^"']+)/);
-        const playlistMatch = html.match(/url\s*:\s*["']([^"']+)/);
+        const token = html.match(/token["']\s*:\s*["']([^"']+)/)?.[1];
+        const expires = html.match(/expires["']\s*:\s*["']([^"']+)/)?.[1];
+        const playlist = html.match(/url\s*:\s*["']([^"']+)/)?.[1];
 
-        if (!tokenMatch || !expiresMatch || !playlistMatch) return null;
-
-        const token = tokenMatch[1];
-        const expires = expiresMatch[1];
-        const playlist = playlistMatch[1];
+        if (!token || !expires || !playlist) return null;
 
         const masterUrl = `${playlist}?token=${token}&expires=${expires}&h=1`;
 
         const playlistRes = await fetch(masterUrl, {
-            method: 'GET',
-            headers: {
-                ...HEADERS,
-                Referer: apiUrl,
-            },
+            headers: { ...HEADERS, Referer: apiUrl },
         });
 
+        if (!playlistRes.ok) return null;
+
         const content = await playlistRes.text();
+        if (!content.includes("#EXTM3U")) return null;
 
-        const streams = content
-            .split('\n')
-            .filter(line => line.startsWith('http') && line.includes('type=video'))
-            .map(line => line.trim());
+        const bestUrl = content
+            .split("\n")
+            .find(l => l.trim().startsWith("http") && l.includes("type=video"));
 
-        return streams.length > 0 ? streams[0] : null;
+        return bestUrl?.trim() ?? null;
+
     } catch {
         return null;
     }
