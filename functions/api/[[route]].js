@@ -8,6 +8,8 @@ import * as videasy from '../../sources/videasy.js';
 
 const SOURCE_MODULES = { vixsrc, vidzee, vidnest, vidsrc, vidrock, videasy };
 
+const SUBTITLE_BASE = 'https://sub.vdrk.site/v1';
+
 const UA_LIST = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
@@ -169,6 +171,16 @@ async function getMetadata(id, s, e, env) {
     }
 }
 
+async function fetchSubtitles(subtitleUrl) {
+    try {
+        const res = await fetch(subtitleUrl, { headers: { 'User-Agent': getUA() } });
+        if (!res.ok) return null;
+        return await res.json();
+    } catch {
+        return null;
+    }
+}
+
 async function handleHealth(env) {
     const results = await Promise.allSettled(
         SOURCES.map(cfg => (async () => {
@@ -256,12 +268,13 @@ export async function onRequest({ request, env }) {
         const { id } = q;
         if (!id) return new Response(JSON.stringify({ error: 'missing id' }), { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
         try {
-            const [sources, meta] = await Promise.all([
+            const [sources, meta, subtitles] = await Promise.all([
                 getAllWorkingSources(id, null, null),
                 getMetadata(id, null, null, env),
+                fetchSubtitles(`${SUBTITLE_BASE}/movie/${id}`),
             ]);
             if (!sources.length) return new Response(JSON.stringify({ error: 'no working sources found' }), { status: 502, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
-            return new Response(JSON.stringify({ sources, meta }, null, 2), { headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+            return new Response(JSON.stringify({ sources, subtitles: subtitles || [], meta }, null, 2), { headers: { 'Content-Type': 'application/json', ...corsHeaders } });
         } catch (e) {
             return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
         }
@@ -271,12 +284,37 @@ export async function onRequest({ request, env }) {
         const { id, season: s, episode: e } = q;
         if (!id || !s || !e) return new Response(JSON.stringify({ error: 'missing id, season, or episode' }), { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
         try {
-            const [sources, meta] = await Promise.all([
+            const [sources, meta, subtitles] = await Promise.all([
                 getAllWorkingSources(id, s, e),
                 getMetadata(id, s, e, env),
+                fetchSubtitles(`${SUBTITLE_BASE}/tv/${id}/${s}/${e}`),
             ]);
             if (!sources.length) return new Response(JSON.stringify({ error: 'no working sources found' }), { status: 502, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
-            return new Response(JSON.stringify({ sources, meta }, null, 2), { headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+            return new Response(JSON.stringify({ sources, subtitles: subtitles || [], meta }, null, 2), { headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+        } catch (e) {
+            return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+        }
+    }
+
+    const subtitleMovieMatch = pathname.match(/^\/api\/subtitles\/movie\/([^/]+)$/);
+    if (subtitleMovieMatch) {
+        const id = subtitleMovieMatch[1];
+        try {
+            const subtitles = await fetchSubtitles(`${SUBTITLE_BASE}/movie/${id}`);
+            if (!subtitles) return new Response(JSON.stringify({ error: 'no subtitles found' }), { status: 404, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+            return new Response(JSON.stringify(subtitles, null, 2), { headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+        } catch (e) {
+            return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+        }
+    }
+
+    const subtitleTvMatch = pathname.match(/^\/api\/subtitles\/tv\/([^/]+)\/([^/]+)\/([^/]+)$/);
+    if (subtitleTvMatch) {
+        const [, id, season, episode] = subtitleTvMatch;
+        try {
+            const subtitles = await fetchSubtitles(`${SUBTITLE_BASE}/tv/${id}/${season}/${episode}`);
+            if (!subtitles) return new Response(JSON.stringify({ error: 'no subtitles found' }), { status: 404, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+            return new Response(JSON.stringify(subtitles, null, 2), { headers: { 'Content-Type': 'application/json', ...corsHeaders } });
         } catch (e) {
             return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
         }

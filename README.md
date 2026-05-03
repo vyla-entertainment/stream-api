@@ -1,10 +1,6 @@
-![Vyla API](https://github.com/EndOverdosing/Vyla-Player-API/blob/main/images/banner.png?raw=true)
-
 # vyla-stream-api
 
-A Cloudflare Pages API for scraping and streaming movies & TV shows via TMDB ID. Aggregates sources from many providers, proxies streams to handle CORS, and returns all working sources in a single response.
-
-**[https://vyla.mintlify.app](https://vyla.mintlify.app)**
+A Cloudflare Pages API for streaming movies & TV shows via TMDB ID. Fetches sources concurrently, verifies streams, and proxies content to handle CORS.
 
 ---
 
@@ -22,7 +18,11 @@ https://vyla-api.pages.dev
 |--------|------|-------------|
 | GET | `/api/movie?id=<tmdb_id>` | All working sources for a movie |
 | GET | `/api/tv?id=<tmdb_id>&season=<s>&episode=<e>` | All working sources for a TV episode |
-| GET | `/api/health` | Service health check — status of every provider |
+| GET | `/api/health` | Service health check |
+| GET | `/api/subtitles/movie/<id>` | Subtitles for a movie |
+| GET | `/api/subtitles/tv/<id>/<season>/<episode>` | Subtitles for a TV episode |
+| GET | `/api/test/<id>?source=<source>` | Test a specific source |
+| GET | `/api?url=<encoded_url>` | Proxy endpoint for streams |
 
 ---
 
@@ -37,6 +37,12 @@ curl "https://vyla-api.pages.dev/api/tv?id=1396&season=1&episode=1"
 
 # Health check
 curl https://vyla-api.pages.dev/api/health
+
+# Movie subtitles
+curl https://vyla-api.pages.dev/api/subtitles/movie/27205
+
+# TV episode subtitles
+curl "https://vyla-api.pages.dev/api/subtitles/tv/1396/1/1"
 ```
 
 ---
@@ -49,21 +55,17 @@ curl https://vyla-api.pages.dev/api/health
 {
   "sources": [
     {
-      "source": "source1",
-      "label": "source1",
-      "url": "/api?url=<encoded>&vl=1"
-    },
-    {
-      "source": "source2",
-      "label": "VidZee",
-      "url": "/api?url=<encoded>&vz=1"
+      "source": "source_key",
+      "label": "Source Label",
+      "url": "/api?url=<encoded>&param=1"
     }
   ],
+  "subtitles": [],
   "meta": { ... }
 }
 ```
 
-All sources are fetched concurrently, verified live, and proxied. Only working sources are returned.
+All sources are fetched concurrently, verified live, and proxied. Only working sources are returned. Subtitles are included when available.
 
 ### `/api/health`
 
@@ -75,39 +77,37 @@ All sources are fetched concurrently, verified live, and proxied. Only working s
   "cache": 4,
   "probe_id": "550",
   "sources": {
-    "source1": { "ok": true, "ms": 812 },
-    "source2":  { "ok": true, "ms": 340 },
-    "source3": { "ok": false, "ms": null }
+    "source_key": { "ok": true, "ms": 812 }
   }
 }
 ```
 
 ---
 
-Sources are fetched from all providers concurrently. Each result is verified with a live stream check before being included in the response.
+Sources are fetched concurrently. Each result is verified with a live stream check before being included in the response.
 
 ---
 
-## Test a Single Provider
+## Test a Single Source
 
 ```bash
-# Test source1 for a movie
-curl "https://vyla-api.pages.dev/api/test/550?source=source1"
+# Test a specific source for a movie
+curl "https://vyla-api.pages.dev/api/test/550?source=source_key"
 
-# Test source2 for a TV episode
-curl "https://vyla-api.pages.dev/api/test/1396?season=1&episode=1&source=source2"
+# Test a specific source for a TV episode
+curl "https://vyla-api.pages.dev/api/test/1396?season=1&episode=1&source=source_key"
 ```
 
 Response:
 
 ```json
 {
-  "source": "source1",
+  "source": "source_key",
   "id": "550",
   "s": null,
   "e": null,
   "ok": true,
-  "url": "/api?url=<encoded>&vl=1",
+  "url": "/api?url=<encoded>&param=1",
   "raw_url": "https://...",
   "elapsed_ms": 923,
   "error": null
@@ -143,8 +143,8 @@ wrangler pages secret put TMDB_API_KEY
 │   └── api/
 │       └── [[route]].js   # All /api/* routes
 ├── sources/
-│   ├── source1.js         # This will be changed to the actual provider name
-├── config.js
+│   ├── *.js              # Source implementations
+├── config.js              # Configuration and source definitions
 ├── wrangler.toml
 └── public/
 ```

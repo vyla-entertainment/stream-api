@@ -3,23 +3,49 @@ export async function onRequest() {
         endpoints: {
             movie: {
                 path: '/api/movie?id=<tmdb_id>',
-                description: 'Returns all working sources for a movie',
+                description: 'Returns all working sources and subtitles for a movie',
                 response: {
                     sources: [
                         { source: 'vixsrc', label: 'vixsrc', url: '<proxied_stream_url>' },
                         { source: 'vidzee', label: 'VidZee', url: '<proxied_stream_url>' },
                     ],
+                    subtitles: [
+                        { label: 'English', file: 'https://cache.vdrk.site/v1/vtt/movie/<id>/English.vtt' },
+                        { label: 'Spanish', file: 'https://cache.vdrk.site/v1/vtt/movie/<id>/Spanish.vtt' },
+                    ],
+                    meta: {},
                 },
             },
             tv: {
                 path: '/api/tv?id=<tmdb_id>&season=<s>&episode=<e>',
-                description: 'Returns all working sources for a TV episode',
+                description: 'Returns all working sources and subtitles for a TV episode',
                 response: {
                     sources: [
                         { source: 'vixsrc', label: 'vixsrc', url: '<proxied_stream_url>' },
                         { source: 'vidzee', label: 'VidZee', url: '<proxied_stream_url>' },
                     ],
+                    subtitles: [
+                        { label: 'English', file: 'https://cache.vdrk.site/v1/vtt/tv/<id>/<s>/<e>/English.vtt' },
+                        { label: 'Spanish', file: 'https://cache.vdrk.site/v1/vtt/tv/<id>/<s>/<e>/Spanish.vtt' },
+                    ],
+                    meta: {},
                 },
+            },
+            subtitles_movie: {
+                path: '/api/subtitles/movie/<tmdb_id>',
+                description: 'Returns all available subtitle tracks for a movie',
+                response: [
+                    { label: 'English', file: '<vtt_url>' },
+                    { label: 'Spanish', file: '<vtt_url>' },
+                ],
+            },
+            subtitles_tv: {
+                path: '/api/subtitles/tv/<tmdb_id>/<season>/<episode>',
+                description: 'Returns all available subtitle tracks for a TV episode',
+                response: [
+                    { label: 'English', file: '<vtt_url>' },
+                    { label: 'Spanish', file: '<vtt_url>' },
+                ],
             },
             health: {
                 path: '/api/health',
@@ -29,6 +55,8 @@ export async function onRequest() {
         test_endpoints: {
             movie_sample: '/api/movie?id=550',
             tv_sample: '/api/tv?id=1396&season=1&episode=1',
+            subtitles_movie_sample: '/api/subtitles/movie/550',
+            subtitles_tv_sample: '/api/subtitles/tv/76479/1/1',
             test_vixsrc_movie: '/api/test/550?source=vixsrc',
             test_vixsrc_tv: '/api/test/1396?season=1&episode=1&source=vixsrc',
             test_vidzee_movie: '/api/test/550?source=vidzee',
