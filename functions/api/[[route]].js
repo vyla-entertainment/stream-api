@@ -6,10 +6,11 @@ import * as vidrock from '../../sources/vidrock.js';
 import * as videasy from '../../sources/videasy.js';
 import * as cinesu from '../../sources/cinesu.js';
 import * as peachify from '../../sources/peachify.js';
+import * as lookmovie from '../../sources/lookmovie.js';
 
 import { getDownloads as get02movieDownloads } from '../../sources/02movie.js';
 
-const SOURCE_MODULES = { vidzee, vidnest, vidsrc, vidrock, videasy, cinesu, peachify };
+const SOURCE_MODULES = { vidzee, vidnest, vidsrc, vidrock, videasy, cinesu, peachify, lookmovie };
 
 const SUBTITLE_BASE = 'https://sub.vdrk.site/v1';
 
@@ -88,8 +89,9 @@ function rewriteM3u8(body, url, extraParam = '', absoluteBase = '') {
     }).join('\n');
 }
 
-function fetchSource(cfg, cacheKey, id, s, e, clientIP = null) {
+function fetchSource(cfg, cacheKey, id, s, e, clientIP = null, env = null) {
     const mod = SOURCE_MODULES[cfg.key];
+    const tmdbKey = cfg.key === 'lookmovie' ? env?.TMDB_API_KEY : null;
     if (cfg.multiBase) {
         return withTimeout(
             jitter(cfg.jitter).then(async () => {
@@ -105,7 +107,7 @@ function fetchSource(cfg, cacheKey, id, s, e, clientIP = null) {
     }
     return withTimeout(
         jitter(cfg.jitter).then(() =>
-            getCached(`${cfg.key}-${cacheKey}`, () => withRetry(() => mod.getStream(id, s, e, null, clientIP), cfg.retries, 1000)).catch(() => null)
+            getCached(`${cfg.key}-${cacheKey}`, () => withRetry(() => mod.getStream(id, s, e, tmdbKey, clientIP), cfg.retries, 1000)).catch(() => null)
         ),
         cfg.timeout
     );
@@ -135,11 +137,11 @@ async function verifyStream(rawUrl, sourceKey) {
     }
 }
 
-async function getAllWorkingSources(id, s, e, clientIP = null) {
+async function getAllWorkingSources(id, s, e, clientIP = null, env = null) {
     const cacheKey = `${id}-${s || ''}-${e || ''}`;
     const fetched = await Promise.all(
         SOURCES.map(cfg =>
-            fetchSource(cfg, cacheKey, id, s, e, clientIP)
+            fetchSource(cfg, cacheKey, id, s, e, clientIP, env)
                 .then(r => ({ raw: r, source: cfg.key }))
                 .catch(() => ({ raw: null, source: cfg.key }))
         )
@@ -224,14 +226,14 @@ async function handleHealth(env) {
     });
 }
 
-async function handleTestSource(sourceKey, id, s, e, clientIP = null) {
+async function handleTestSource(sourceKey, id, s, e, clientIP = null, env = null) {
     const start = Date.now();
     const cacheKey = `${id}-${s || ''}-${e || ''}`;
     const cfg = SOURCE_MAP[sourceKey];
     let rawUrl = null;
     let error = null;
     try {
-        rawUrl = await fetchSource(cfg, cacheKey, id, s, e, clientIP);
+        rawUrl = await fetchSource(cfg, cacheKey, id, s, e, clientIP, env);
     } catch (err) {
         error = err.message;
     }
@@ -275,7 +277,7 @@ export async function onRequest({ request, env }) {
         if (!id) return new Response(JSON.stringify({ error: 'missing id' }), { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
         try {
             const [sources, meta, subtitles] = await Promise.all([
-                getAllWorkingSources(id, null, null, clientIP),
+                getAllWorkingSources(id, null, null, clientIP, env),
                 getMetadata(id, null, null, env),
                 fetchSubtitles(`${SUBTITLE_BASE}/movie/${id}`),
             ]);
@@ -291,7 +293,7 @@ export async function onRequest({ request, env }) {
         if (!id || !s || !e) return new Response(JSON.stringify({ error: 'missing id, season, or episode' }), { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
         try {
             const [sources, meta, subtitles] = await Promise.all([
-                getAllWorkingSources(id, s, e, clientIP),
+                getAllWorkingSources(id, s, e, clientIP, env),
                 getMetadata(id, s, e, env),
                 fetchSubtitles(`${SUBTITLE_BASE}/tv/${id}/${s}/${e}`),
             ]);
@@ -335,7 +337,7 @@ export async function onRequest({ request, env }) {
         if (!source || !SOURCE_MAP[source]) {
             return new Response(JSON.stringify({ error: 'invalid or missing source' }), { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
         }
-        return handleTestSource(source, id, s, e, clientIP);
+        return handleTestSource(source, id, s, e, clientIP, env);
     }
 
     if (pathname === '/api' || pathname === '/api/') {

@@ -58,6 +58,9 @@ export async function onRequest() {
 
             test_peachify_movie: '/api/test/550?source=peachify',
             test_peachify_tv: '/api/test/1396?season=1&episode=1&source=peachify',
+            
+            test_lookmovie_movie: '/api/test/550?source=lookmovie',
+            test_lookmovie_tv: '/api/test/1396?season=1&episode=1&source=lookmovie',
         },
     };
 
