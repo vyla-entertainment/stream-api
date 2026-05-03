@@ -109,14 +109,23 @@ async function getStream(id, s, e) {
 
 async function proxyStream(url, res, { fetchUpstream, rewriteM3u8, reqBase }) {
     if (isSegmentUrl(url)) {
+        const upstream = await fetchUpstream(url, 0, VERIFY_HEADERS);
+        const ct = (upstream.headers.get('content-type') || 'video/MP2T').toLowerCase();
+        res.setHeader('Content-Type', ct);
         res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Location', url);
-        res.statusCode = 302;
-        return res.end();
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+        upstream.body.pipeTo(
+            new WritableStream({
+                write(chunk) { res.write(chunk); },
+                close() { res.end(); },
+                abort(err) { res.end(); },
+            })
+        );
+        return;
     }
 
     const upstream = await fetchUpstream(url, 0, PLAYLIST_HEADERS);
-    const ct = (upstream.headers['content-type'] || '').toLowerCase();
+    const ct = (upstream.headers.get('content-type') || '').toLowerCase();
     const isM3u8 = ct.includes('mpegurl') || ct.includes('m3u8') || /\.m3u8?(\?|$)/i.test(url);
 
     if (isM3u8) {
@@ -135,6 +144,11 @@ async function proxyStream(url, res, { fetchUpstream, rewriteM3u8, reqBase }) {
     upstream.pipe(res);
 }
 
-const VERIFY_HEADERS = { ...PLAYLIST_HEADERS };
+const VERIFY_HEADERS = {
+    ...PLAYLIST_HEADERS,
+    'Sec-Fetch-Dest': 'empty',
+    'Sec-Fetch-Mode': 'cors',
+    'Sec-Fetch-Site': 'cross-site',
+};
 
 export { getStream, proxyStream, VERIFY_HEADERS, REFERER, ORIGIN, HEADERS, PLAYLIST_HEADERS };
