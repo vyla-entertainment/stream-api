@@ -56,8 +56,8 @@ export async function onRequest() {
             test_cinesu_movie: '/api/test/550?source=cinesu',
             test_cinesu_tv: '/api/test/1396?season=1&episode=1&source=cinesu',
 
-            test_vixsrc_movie: '/api/test/550?source=vixsrc',
-            test_vixsrc_tv: '/api/test/1396?season=1&episode=1&source=vixsrc',
+            test_peachify_movie: '/api/test/550?source=peachify',
+            test_peachify_tv: '/api/test/1396?season=1&episode=1&source=peachify',
         },
     };
 

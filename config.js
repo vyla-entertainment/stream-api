@@ -49,12 +49,12 @@ export const SOURCES = [
         retries: 2,
     },
     {
-        key: 'vixsrc',
-        label: 'VixSrc',
-        proxyParam: 'vx',
+        key: 'peachify',
+        label: 'Peachify',
+        proxyParam: 'pc',
         timeout: 20000,
         jitter: 500,
-        retries: 3,
+        retries: 2,
     },
 ];
 export const SOURCE_MAP = Object.fromEntries(SOURCES.map(s => [s.key, s]));
