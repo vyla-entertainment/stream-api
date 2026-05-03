@@ -1,13 +1,5 @@
 export const SOURCES = [
     {
-        key: 'vixsrc',
-        label: 'vixsrc',
-        proxyParam: 'vl',
-        timeout: 12000,
-        jitter: 0,
-        retries: 3,
-    },
-    {
         key: 'vidzee',
         label: 'VidZee',
         proxyParam: 'vz',

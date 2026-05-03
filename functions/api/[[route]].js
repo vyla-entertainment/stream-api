@@ -1,5 +1,4 @@
 import { SOURCES, SOURCE_MAP, ALLOWED_ORIGINS, HEALTH_PROBE_ID, CACHE_TTL } from '../../config.js';
-import * as vixsrc from '../../sources/vixsrc.js';
 import * as vidzee from '../../sources/vidzee.js';
 import * as vidnest from '../../sources/vidnest.js';
 import * as vidsrc from '../../sources/vidsrc.js';
@@ -7,7 +6,7 @@ import * as vidrock from '../../sources/vidrock.js';
 import * as videasy from '../../sources/videasy.js';
 import * as cinesu from '../../sources/cinesu.js';
 
-const SOURCE_MODULES = { vixsrc, vidzee, vidnest, vidsrc, vidrock, videasy, cinesu };
+const SOURCE_MODULES = { vidzee, vidnest, vidsrc, vidrock, videasy, cinesu };
 
 const SUBTITLE_BASE = 'https://sub.vdrk.site/v1';
 
