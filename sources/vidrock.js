@@ -265,18 +265,72 @@ async function testUrl(url) {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 5000);
 
+        const testHeaders = { ...HEADERS, 'Referer': 'https://lok-lok.cc/', 'Origin': 'https://lok-lok.cc/' };
+        debugInfo.requestHeaders = testHeaders;
+        console.log(`[VIDROCK] Testing with headers:`, testHeaders);
+
         const res = await fetch(url, {
             method: 'HEAD',
-            headers: { ...HEADERS, 'Referer': 'https://lok-lok.cc/', 'Origin': 'https://lok-lok.cc/' },
+            headers: testHeaders,
             signal: controller.signal
         });
 
         clearTimeout(timeout);
         debugInfo.status = res.status;
         debugInfo.ok = res.ok;
-        debugInfo.success = res.ok;
+        debugInfo.responseHeaders = {};
+
+        for (const [key, value] of res.headers.entries()) {
+            debugInfo.responseHeaders[key] = value;
+        }
 
         console.log(`[VIDROCK] URL test result: ${res.ok} (status: ${res.status})`);
+        console.log(`[VIDROCK] Response headers:`, debugInfo.responseHeaders);
+
+        if (!res.ok) {
+            console.log(`[VIDROCK] HEAD failed, trying GET request as fallback`);
+            const getController = new AbortController();
+            const getTimeout = setTimeout(() => getController.abort(), 3000);
+
+            try {
+                const getRes = await fetch(url, {
+                    method: 'GET',
+                    headers: testHeaders,
+                    signal: getController.signal
+                });
+
+                clearTimeout(getTimeout);
+                debugInfo.getMethodStatus = getRes.status;
+                debugInfo.getMethodOk = getRes.ok;
+                debugInfo.getMethodHeaders = {};
+
+                for (const [key, value] of getRes.headers.entries()) {
+                    debugInfo.getMethodHeaders[key] = value;
+                }
+
+                console.log(`[VIDROCK] GET fallback result: ${getRes.ok} (status: ${getRes.status})`);
+                console.log(`[VIDROCK] GET response headers:`, debugInfo.getMethodHeaders);
+
+                if (getRes.ok) {
+                    const text = await getRes.text();
+                    debugInfo.getMethodResponse = text.substring(0, 200);
+                    debugInfo.isM3U8 = text.trim().startsWith('#EXTM3U');
+                    console.log(`[VIDROCK] GET response preview:`, text.substring(0, 200));
+                    console.log(`[VIDROCK] Is M3U8:`, debugInfo.isM3U8);
+
+                    if (debugInfo.isM3U8) {
+                        debugInfo.success = true;
+                        debugInfo.usedFallback = true;
+                        return true;
+                    }
+                }
+            } catch (getErr) {
+                debugInfo.getMethodError = getErr.message;
+                console.error(`[VIDROCK] GET fallback failed:`, getErr);
+            }
+        }
+
+        debugInfo.success = res.ok;
         return res.ok;
     } catch (err) {
         debugInfo.error = err.message;
