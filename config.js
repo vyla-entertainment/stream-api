@@ -55,7 +55,6 @@ export const SOURCES = [
         timeout: 20000,
         jitter: 500,
         retries: 3,
-        skipProxy: true,
     },
 ];
 export const SOURCE_MAP = Object.fromEntries(SOURCES.map(s => [s.key, s]));
