@@ -356,7 +356,18 @@ export async function onRequest({ request, env }) {
                 if (matchedSource) {
                     const mod = SOURCE_MODULES[matchedSource.key];
                     const cfg = SOURCE_MAP[matchedSource.key];
-                    const extraHeaders = mod.VERIFY_HEADERS || {};
+                    let extraHeaders = { ...(mod.VERIFY_HEADERS || {}) };
+
+                    const parsedRaw = new URL(rawUrl);
+                    const embeddedHeaders = parsedRaw.searchParams.get('headers');
+                    const hostOverride = parsedRaw.searchParams.get('host');
+                    if (embeddedHeaders) {
+                        try { Object.assign(extraHeaders, JSON.parse(embeddedHeaders)); } catch { }
+                    }
+                    if (hostOverride) {
+                        try { extraHeaders['Host'] = new URL(hostOverride).host; } catch { }
+                    }
+
                     const looksLikeM3u8 = /\.m3u8?(\?|$)/i.test(rawUrl) || rawUrl.includes('/playlist/');
                     if (looksLikeM3u8) {
                         const upstream = await fetchUpstream(rawUrl, 0, extraHeaders);
