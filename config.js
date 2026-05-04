@@ -72,6 +72,14 @@ export const SOURCES = [
         jitter: 500,
         retries: 2,
     },
+    {
+        key: 'vixsrc',
+        label: 'VixSrc',
+        proxyParam: 'vx',
+        timeout: 20000,
+        jitter: 500,
+        retries: 2,
+    },
 ];
 export const SOURCE_MAP = Object.fromEntries(SOURCES.map(s => [s.key, s]));
 export const ALLOWED_ORIGINS = [
