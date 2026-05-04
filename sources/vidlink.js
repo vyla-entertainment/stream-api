@@ -49,8 +49,18 @@ export async function getStream(id, season, episode) {
     const res = await fetch(apiUrl, { headers: { Referer: REFERER, Origin: ORIGIN, 'User-Agent': UA } });
     if (!res.ok) throw new Error(`vidlink API ${res.status}`);
     const data = await res.json();
-    const playlist = data?.stream?.playlist;
+    let playlist = data?.stream?.playlist;
     if (!playlist) throw new Error('no playlist in response');
+
+    const playlistUrl = new URL(playlist);
+    const embeddedHeaders = playlistUrl.searchParams.get('headers');
+    if (embeddedHeaders) {
+        try {
+            const parsed = JSON.parse(embeddedHeaders);
+            Object.assign(VERIFY_HEADERS, parsed);
+        } catch { }
+    }
+
     return playlist;
 }
 
