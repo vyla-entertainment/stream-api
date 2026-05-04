@@ -7,10 +7,11 @@ import * as videasy from '../../sources/videasy.js';
 import * as cinesu from '../../sources/cinesu.js';
 import * as peachify from '../../sources/peachify.js';
 import * as lookmovie from '../../sources/lookmovie.js';
+import * as vidlink from '../../sources/vidlink.js';
 
 import { getDownloads as get02movieDownloads } from '../../sources/02movie.js';
 
-const SOURCE_MODULES = { vidzee, vidnest, vidsrc, vidrock, videasy, cinesu, peachify, lookmovie };
+const SOURCE_MODULES = { vidzee, vidnest, vidsrc, vidrock, videasy, cinesu, peachify, lookmovie, vidlink };
 
 const SUBTITLE_BASE = 'https://sub.vdrk.site/v1';
 

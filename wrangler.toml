@@ -5,3 +5,8 @@ compatibility_flags = ["nodejs_compat"]
 
 [vars]
 TMDB_API_KEY = "338a47b75eab45d9e64e67088f910f93"
+
+[[rules]]
+type = "CompiledWasm"
+globs = ["**/*.wasm"]
+fallthrough = true

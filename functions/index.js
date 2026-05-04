@@ -61,6 +61,9 @@ export async function onRequest() {
 
             test_lookmovie_movie: '/api/test/550?source=lookmovie',
             test_lookmovie_tv: '/api/test/1396?season=1&episode=1&source=lookmovie',
+
+            test_vidlink_movie: '/api/test/550?source=vidlink',
+            test_vidlink_tv: '/api/test/1396?season=1&episode=1&source=vidlink',
         },
     };
 
