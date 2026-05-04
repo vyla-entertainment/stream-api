@@ -1,4 +1,5 @@
 import { SOURCES, SOURCE_MAP, ALLOWED_ORIGINS, HEALTH_PROBE_ID, CACHE_TTL } from '../../config.js';
+
 import * as vidzee from '../../sources/vidzee.js';
 import * as vidnest from '../../sources/vidnest.js';
 import * as vidsrc from '../../sources/vidsrc.js';
@@ -12,7 +13,13 @@ import * as vixsrc from '../../sources/vixsrc.js';
 
 import { getDownloads as get02movieDownloads } from '../../sources/02movie.js';
 
-const SOURCE_MODULES = { vidzee, vidnest, vidsrc, vidrock, videasy, cinesu, peachify, lookmovie, vidlink, vixsrc };
+const ALL_SOURCE_MODULES = { vidzee, vidnest, vidsrc, vidrock, videasy, cinesu, peachify, lookmovie, vidlink, vixsrc };
+const SOURCE_MODULES = Object.fromEntries(
+    Object.entries(ALL_SOURCE_MODULES).filter(([key]) => {
+        const sourceConfig = SOURCE_MAP[key];
+        return sourceConfig && !sourceConfig.disabled;
+    })
+);
 
 const SUBTITLE_BASE = 'https://sub.vdrk.site/v1';
 
@@ -142,7 +149,7 @@ async function verifyStream(rawUrl, sourceKey) {
 async function getAllWorkingSources(id, s, e, clientIP = null, env = null) {
     const cacheKey = `${id}-${s || ''}-${e || ''}`;
     const fetched = await Promise.all(
-        SOURCES.map(cfg =>
+        SOURCES.filter(cfg => !cfg.disabled).map(cfg =>
             fetchSource(cfg, cacheKey, id, s, e, clientIP, env)
                 .then(r => ({ raw: r, source: cfg.key }))
                 .catch(() => ({ raw: null, source: cfg.key }))
@@ -192,7 +199,7 @@ async function fetchSubtitles(subtitleUrl) {
 
 async function handleHealth(env) {
     const results = await Promise.allSettled(
-        SOURCES.map(cfg => (async () => {
+        SOURCES.filter(cfg => !cfg.disabled).map(cfg => (async () => {
             const t = Date.now();
             const mod = SOURCE_MODULES[cfg.key];
             let url = null;
@@ -212,7 +219,9 @@ async function handleHealth(env) {
         return r.status === 'fulfilled' ? r.value : { ok: false, ms: null, error: r.reason?.message };
     }
 
-    const byKey = Object.fromEntries(SOURCES.map((cfg, i) => [cfg.key, unwrap(results[i])]));
+    const enabledSources = SOURCES.filter(cfg => !cfg.disabled);
+    const byKey = Object.fromEntries(enabledSources.map((cfg, i) => [cfg.key, unwrap(results[i])]));
+
     const allOk = Object.values(byKey).every(v => v.ok);
 
     return new Response(JSON.stringify({
@@ -232,6 +241,20 @@ async function handleTestSource(sourceKey, id, s, e, clientIP = null, env = null
     const start = Date.now();
     const cacheKey = `${id}-${s || ''}-${e || ''}`;
     const cfg = SOURCE_MAP[sourceKey];
+
+    if (cfg.disabled) {
+        return new Response(JSON.stringify({
+            source: sourceKey,
+            id,
+            s: s || null,
+            e: e || null,
+            ok: false,
+            url: null,
+            raw_url: null,
+            elapsed_ms: Date.now() - start,
+            error: 'source disabled',
+        }, null, 2), { headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
+    }
     let rawUrl = null;
     let error = null;
     try {

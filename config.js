@@ -23,6 +23,7 @@ export const SOURCES = [
         timeout: 25000,
         jitter: 700,
         retries: 2,
+        disabled: true,
     },
     {
         key: 'vidrock',
@@ -31,6 +32,7 @@ export const SOURCES = [
         timeout: 20000,
         jitter: 800,
         retries: 3,
+        disabled: true,
     },
     {
         key: 'videasy',
@@ -55,6 +57,7 @@ export const SOURCES = [
         timeout: 20000,
         jitter: 500,
         retries: 2,
+        disabled: true,
     },
     {
         key: 'lookmovie',
@@ -63,6 +66,7 @@ export const SOURCES = [
         timeout: 20000,
         jitter: 500,
         retries: 2,
+        disabled: true,
     },
     {
         key: 'vidlink',
@@ -71,6 +75,7 @@ export const SOURCES = [
         timeout: 20000,
         jitter: 500,
         retries: 2,
+        disabled: true,
     },
     {
         key: 'vixsrc',
@@ -79,6 +84,7 @@ export const SOURCES = [
         timeout: 20000,
         jitter: 500,
         retries: 2,
+        disabled: true,
     },
 ];
 export const SOURCE_MAP = Object.fromEntries(SOURCES.map(s => [s.key, s]));
