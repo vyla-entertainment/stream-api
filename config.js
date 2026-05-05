@@ -75,7 +75,6 @@ export const SOURCES = [
         timeout: 20000,
         jitter: 500,
         retries: 2,
-        disabled: true,
     },
     {
         key: 'vixsrc',
@@ -86,11 +85,19 @@ export const SOURCES = [
         retries: 2,
         disabled: true,
     },
+    {
+        key: 'streammafia',
+        label: 'StreamMafia',
+        proxyParam: 'sm',
+        timeout: 20000,
+        jitter: 500,
+        retries: 2,
+    },
 ];
 export const SOURCE_MAP = Object.fromEntries(SOURCES.map(s => [s.key, s]));
 export const ALLOWED_ORIGINS = [
     'https://vyla.pages.dev',
-    'http://localhost:7860',
+    'http://127.0.0.1:8788',
     'http://169.254.162.163:7860',
 ];
 export const HEALTH_PROBE_ID = '550';

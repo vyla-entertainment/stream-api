@@ -58,7 +58,6 @@ async function resolveUrl(url) {
 }
 
 async function getStream(id, s, e) {
-    console.log('[vidrock] getStream called', id, s, e);
     try {
         const type = s ? 'tv' : 'movie';
         const itemId = s ? `${id}_${s}_${e || 1}` : `${id}`;

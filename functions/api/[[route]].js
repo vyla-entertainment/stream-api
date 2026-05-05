@@ -10,10 +10,11 @@ import * as peachify from '../../sources/peachify.js';
 import * as lookmovie from '../../sources/lookmovie.js';
 import * as vidlink from '../../sources/vidlink.js';
 import * as vixsrc from '../../sources/vixsrc.js';
+import * as streammafia from '../../sources/streammafia.js';
 
 import { getDownloads as get02movieDownloads } from '../../sources/02movie.js';
 
-const ALL_SOURCE_MODULES = { vidzee, vidnest, vidsrc, vidrock, videasy, cinesu, peachify, lookmovie, vidlink, vixsrc };
+const ALL_SOURCE_MODULES = { vidzee, vidnest, vidsrc, vidrock, videasy, cinesu, peachify, lookmovie, vidlink, vixsrc, streammafia };
 const SOURCE_MODULES = Object.fromEntries(
     Object.entries(ALL_SOURCE_MODULES).filter(([key]) => {
         const sourceConfig = SOURCE_MAP[key];
@@ -253,17 +254,25 @@ async function handleTestSource(sourceKey, id, s, e, clientIP = null, env = null
             raw_url: null,
             elapsed_ms: Date.now() - start,
             error: 'source disabled',
-        }, null, 2), { headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
+        }, null, 2), {
+            headers: {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            }
+        });
     }
-    let rawUrl = null;
-    let error = null;
+
+    let rawUrl;
     try {
         rawUrl = await fetchSource(cfg, cacheKey, id, s, e, clientIP, env);
     } catch (err) {
-        error = err.message;
+        console.error(err);
+        throw err;
     }
+
     const elapsed = Date.now() - start;
     const raw = rawUrl ? (typeof rawUrl === 'object' ? rawUrl.url : rawUrl) : null;
+
     return new Response(JSON.stringify({
         source: sourceKey,
         id,
@@ -273,8 +282,13 @@ async function handleTestSource(sourceKey, id, s, e, clientIP = null, env = null
         url: wrapUrl(raw, sourceKey),
         raw_url: raw,
         elapsed_ms: elapsed,
-        error: error || (raw ? null : 'no stream returned'),
-    }, null, 2), { headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
+        error: raw ? null : 'no stream returned',
+    }, null, 2), {
+        headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+        }
+    });
 }
 
 export async function onRequest({ request, env }) {
