@@ -71,6 +71,7 @@ async function fetchUpstream(url, redirects = 0, extraHeaders = {}) {
         redirect: 'manual',
     });
     if (res.status >= 300 && res.status < 400 && res.headers.get('location')) {
+        res.body?.cancel();
         const next = new URL(res.headers.get('location'), url).href;
         return fetchUpstream(next, redirects + 1, extraHeaders);
     }
@@ -137,7 +138,10 @@ async function verifyStream(rawUrl, sourceKey) {
             fetchUpstream(rawUrl, 0, { 'User-Agent': getUA(), ...mod.VERIFY_HEADERS }),
             new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 8000))
         ]);
-        if (res.status >= 400) return false;
+        if (res.status >= 400) {
+            res.body?.cancel();
+            return false;
+        }
         const text = await res.text();
         return text.trim().startsWith('#EXTM3U');
     } catch {
@@ -179,7 +183,10 @@ async function getMetadata(id, s, e, env) {
             ? `https://api.themoviedb.org/3/tv/${id}/season/${s}/episode/${e || 1}?api_key=${k}`
             : `https://api.themoviedb.org/3/movie/${id}?api_key=${k}`;
         const res = await fetch(url);
-        if (!res.ok) return null;
+        if (!res.ok) {
+            res.body?.cancel();
+            return null;
+        }
         return await res.json();
     } catch {
         return null;
@@ -189,7 +196,10 @@ async function getMetadata(id, s, e, env) {
 async function fetchSubtitles(subtitleUrl) {
     try {
         const res = await fetch(subtitleUrl, { headers: { 'User-Agent': getUA() } });
-        if (!res.ok) return null;
+        if (!res.ok) {
+            res.body?.cancel();
+            return null;
+        }
         return await res.json();
     } catch {
         return null;
