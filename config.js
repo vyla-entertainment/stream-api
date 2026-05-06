@@ -69,15 +69,6 @@ export const SOURCES = [
         disabled: true,
     },
     {
-        key: 'vidlink',
-        label: 'VidLink',
-        proxyParam: 'vl',
-        timeout: 20000,
-        jitter: 500,
-        retries: 2,
-        disabled: true,
-    },
-    {
         key: 'vixsrc',
         label: 'VixSrc',
         proxyParam: 'vx',
