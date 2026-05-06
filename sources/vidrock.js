@@ -1,6 +1,6 @@
 'use strict';
 
-import { webcrypto } from 'node:crypto';
+const { webcrypto } = require('crypto');
 const crypto = webcrypto;
 
 const PASSPHRASE = 'x7k9mPqT2rWvY8zA5bC3nF6hJ2lK4mN9';

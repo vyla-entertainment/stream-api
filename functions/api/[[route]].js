@@ -10,10 +10,11 @@ import * as peachify from '../../sources/peachify.js';
 import * as lookmovie from '../../sources/lookmovie.js';
 import * as vidlink from '../../sources/vidlink.js';
 import * as vixsrc from '../../sources/vixsrc.js';
+import * as streammafia from '../../sources/streammafia.js';
 
 import { getDownloads as get02movieDownloads } from '../../sources/02movie.js';
 
-const ALL_SOURCE_MODULES = { vidzee, vidnest, vidsrc, vidrock, videasy, cinesu, peachify, lookmovie, vidlink, vixsrc };
+const ALL_SOURCE_MODULES = { vidzee, vidnest, vidsrc, vidrock, videasy, cinesu, peachify, lookmovie, vidlink, vixsrc, streammafia };
 const SOURCE_MODULES = Object.fromEntries(
     Object.entries(ALL_SOURCE_MODULES).filter(([key]) => {
         const sourceConfig = SOURCE_MAP[key];
