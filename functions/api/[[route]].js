@@ -315,6 +315,31 @@ export async function onRequest({ request, env }) {
     const { pathname, searchParams } = reqUrl;
     const q = Object.fromEntries(searchParams);
 
+    const CACHEABLE = ['/api/movie', '/api/tv', '/api/health'];
+    const isSubtitle = pathname.startsWith('/api/subtitles/');
+    const isDownload = pathname.startsWith('/api/downloads/');
+    const isCacheable = CACHEABLE.includes(pathname) || isSubtitle || isDownload;
+    const isProxy = (pathname === '/api' || pathname === '/api/') && (q.url || q.proxy);
+    const isTest = pathname.startsWith('/api/test/');
+
+    if (isCacheable && !isProxy && !isTest) {
+        const cfCache = caches.default;
+        const cacheKey = new Request(reqUrl.toString());
+        const cached = await cfCache.match(cacheKey);
+        if (cached) return cached;
+
+        const response = await handleRequest({ request, env, clientIP, corsHeaders, reqUrl, pathname, q });
+        const ttl = isDownload ? 3600 : pathname === '/api/health' ? 60 : 300;
+        const toCache = new Response(response.body, response);
+        toCache.headers.set('Cache-Control', `public, max-age=${ttl}`);
+        event?.waitUntil?.(cfCache.put(cacheKey, toCache.clone()));
+        return toCache;
+    }
+
+    return handleRequest({ request, env, clientIP, corsHeaders, reqUrl, pathname, q });
+}
+
+async function handleRequest({ request, env, clientIP, corsHeaders, reqUrl, pathname, q }) {
     if (pathname === '/api/health') {
         return handleHealth(env);
     }
@@ -403,7 +428,6 @@ export async function onRequest({ request, env }) {
                     const mod = SOURCE_MODULES[matchedSource.key];
                     const cfg = SOURCE_MAP[matchedSource.key];
                     let extraHeaders = { ...(mod.VERIFY_HEADERS || {}) };
-
                     const parsedRaw = new URL(rawUrl);
                     const embeddedHeaders = parsedRaw.searchParams.get('headers');
                     const hostOverride = parsedRaw.searchParams.get('host');
@@ -413,7 +437,6 @@ export async function onRequest({ request, env }) {
                     if (hostOverride) {
                         try { extraHeaders['Host'] = new URL(hostOverride).host; } catch { }
                     }
-
                     const looksLikeM3u8 = /\.m3u8?(\?|$)/i.test(rawUrl) || rawUrl.includes('/playlist/');
                     if (looksLikeM3u8) {
                         const upstream = await fetchUpstream(rawUrl, 0, extraHeaders);
