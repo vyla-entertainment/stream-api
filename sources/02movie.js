@@ -30,10 +30,32 @@ async function decrypt(encoded) {
 }
 
 async function fetchDecrypted(path) {
-    const res = await fetch(`${BASE}${path}`, { headers: HEADERS, signal: AbortSignal.timeout(12000) });
-    if (!res.ok) throw new Error(`02movie ${res.status}`);
-    const json = await res.json();
-    return json._e && typeof json._e === 'string' ? decrypt(json._e) : json;
+    const url = `${BASE}${path}`;
+    let res;
+    try {
+        res = await fetch(url, { headers: HEADERS, signal: AbortSignal.timeout(12000) });
+    } catch (err) {
+        throw new Error(`fetch failed for ${url}: ${err.message}`);
+    }
+    if (!res.ok) {
+        let body = '';
+        try { body = await res.text(); } catch { }
+        throw new Error(`02movie HTTP ${res.status} for ${url} — body: ${body.slice(0, 200)}`);
+    }
+    let json;
+    try {
+        json = await res.json();
+    } catch (err) {
+        throw new Error(`JSON parse failed for ${url}: ${err.message}`);
+    }
+    if (json._e && typeof json._e === 'string') {
+        try {
+            return await decrypt(json._e);
+        } catch (err) {
+            throw new Error(`decryption failed for ${url}: ${err.message} — raw _e length: ${json._e.length}`);
+        }
+    }
+    return json;
 }
 
 function formatSize(val) {
@@ -47,21 +69,108 @@ function formatSize(val) {
     return `${(n / 1073741824).toFixed(2)} GB`;
 }
 
-export async function getDownloads(id, s, e) {
-    const path = s && e
-        ? `/api/tv/download?id=${id}&season=${s}&episode=${e}`
-        : `/api/movies/download?id=${id}`;
-
-    const data = await fetchDecrypted(path);
-    const options = data?.downloadOptions;
-    if (!Array.isArray(options) || !options.length) return null;
-
-    return options
-        .filter(o => o.url)
-        .map(o => ({
+function extractOptions(data, server) {
+    const options = Array.isArray(data?.downloadOptions) && data.downloadOptions.length
+        ? data.downloadOptions.map(o => ({
             url: o.url.startsWith('/') ? `${BASE}${o.url}` : o.url,
             quality: o.quality || 'Unknown',
             size: formatSize(o.size),
             format: (o.format || 'mp4').toUpperCase(),
-        }));
+            server,
+        }))
+        : Array.isArray(data?.links) && data.links.length
+            ? data.links.map(o => ({
+                url: o.downloadLink,
+                quality: o.quality || 'Unknown',
+                size: formatSize(o.size),
+                format: (o.format || 'mp4').toUpperCase(),
+                server,
+            }))
+            : [];
+
+    return options.filter(o => o.url);
+}
+
+export async function getStream(id, s, e) {
+    const primaryPath = s && e
+        ? `/api/tv/download?id=${id}&season=${s}&episode=${e}`
+        : `/api/movies/download?id=${id}`;
+
+    const fallbackPath = s && e
+        ? `/api/tv/fallback?tmdbId=${id}&season=${s}&episode=${e}`
+        : `/api/movies/fallback?tmdbId=${id}`;
+
+    const [primary, fallback] = await Promise.allSettled([
+        fetchDecrypted(primaryPath),
+        fetchDecrypted(fallbackPath),
+    ]);
+
+    const server1 = primary.status === 'fulfilled' ? extractOptions(primary.value, 1) : [];
+    const server2 = fallback.status === 'fulfilled' ? extractOptions(fallback.value, 2) : [];
+    const all = [...server1, ...server2];
+
+    for (const option of all) {
+        try {
+            const res = await fetch(option.url, {
+                method: 'HEAD',
+                headers: { 'User-Agent': HEADERS['User-Agent'] },
+                signal: AbortSignal.timeout(6000),
+                redirect: 'follow',
+            });
+            if (res.ok) return option.url;
+        } catch {
+            continue;
+        }
+    }
+
+    return null;
+}
+
+async function verifyDownload(url) {
+    try {
+        const res = await fetch(url, {
+            method: 'HEAD',
+            headers: { 'User-Agent': HEADERS['User-Agent'] },
+            signal: AbortSignal.timeout(8000),
+            redirect: 'follow',
+        });
+        return res.ok;
+    } catch {
+        return false;
+    }
+}
+
+export async function getDownloads(id, s, e) {
+    const primaryPath = s && e
+        ? `/api/tv/download?id=${id}&season=${s}&episode=${e}`
+        : `/api/movies/download?id=${id}`;
+
+    const fallbackPath = s && e
+        ? `/api/tv/fallback?tmdbId=${id}&season=${s}&episode=${e}`
+        : `/api/movies/fallback?tmdbId=${id}`;
+
+    const [primary, fallback] = await Promise.allSettled([
+        fetchDecrypted(primaryPath),
+        fetchDecrypted(fallbackPath),
+    ]);
+
+    const server1 = primary.status === 'fulfilled' ? extractOptions(primary.value, 1) : [];
+    const server2 = fallback.status === 'fulfilled' ? extractOptions(fallback.value, 2) : [];
+
+    const all = [...server1, ...server2];
+
+    if (!all.length) {
+        const p = primary.status === 'rejected' ? primary.reason?.message : `empty (keys: ${JSON.stringify(Object.keys(primary.value ?? {}))})`;
+        const f = fallback.status === 'rejected' ? fallback.reason?.message : `empty (keys: ${JSON.stringify(Object.keys(fallback.value ?? {}))})`;
+        throw new Error(`no downloads from either server. primary: ${p} | fallback: ${f}`);
+    }
+
+    const verified = await Promise.all(
+        all.map(async o => {
+            const ok = await verifyDownload(o.url);
+            return { ...o, verified: ok };
+        })
+    );
+
+    return verified.filter(o => o.verified).map(({ verified, ...rest }) => rest);
 }

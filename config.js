@@ -23,7 +23,6 @@ export const SOURCES = [
         timeout: 25000,
         jitter: 700,
         retries: 2,
-        disabled: true,
     },
     {
         key: 'vidrock',
@@ -31,15 +30,6 @@ export const SOURCES = [
         proxyParam: 'vr',
         timeout: 20000,
         jitter: 800,
-        retries: 3,
-        disabled: true,
-    },
-    {
-        key: 'videasy',
-        label: 'Videasy',
-        proxyParam: 'vy',
-        timeout: 20000,
-        jitter: 900,
         retries: 3,
     },
     {
@@ -51,38 +41,67 @@ export const SOURCES = [
         retries: 2,
     },
     {
-        key: 'peachify',
-        label: 'Peachify',
-        proxyParam: 'pc',
-        timeout: 20000,
-        jitter: 500,
-        retries: 2,
-        disabled: true,
-    },
-    {
-        key: 'lookmovie',
-        label: 'LookMovie',
-        proxyParam: 'lm',
-        timeout: 20000,
-        jitter: 500,
-        retries: 2,
-        disabled: true,
-    },
-    {
         key: 'vixsrc',
         label: 'VixSrc',
         proxyParam: 'vx',
         timeout: 20000,
         jitter: 500,
         retries: 2,
+    },
+    {
+        key: 'vidlink',
+        label: 'VidLink',
+        proxyParam: 'vl',
+        timeout: 25000,
+        jitter: 500,
+        retries: 2,
+    },
+    {
+        key: '02movie',
+        label: '02Movie',
+        proxyParam: 'zm',
+        timeout: 20000,
+        jitter: 600,
+        retries: 2,
+        skipProxy: true,
+    },
+    {
+        key: 'meowtv',
+        label: 'MeowTV',
+        proxyParam: 'mt',
+        timeout: 20000,
+        jitter: 500,
+        retries: 2,
+    },
+    {
+        key: 'vaplayer',
+        label: 'AirFlix',
+        proxyParam: 'af',
+        timeout: 20000,
+        jitter: 600,
+        retries: 2,
+        skipProxy: true,
         disabled: true,
     },
+    {
+        key: 'icefy',
+        label: 'Icefy',
+        proxyParam: 'iy',
+        timeout: 20000,
+        jitter: 500,
+        retries: 2,
+    },
+    {
+        key: 'videasy',
+        label: 'Videasy',
+        proxyParam: 'vy',
+        timeout: 20000,
+        jitter: 900,
+        retries: 3,
+    },
 ];
+
 export const SOURCE_MAP = Object.fromEntries(SOURCES.map(s => [s.key, s]));
-export const ALLOWED_ORIGINS = [
-    'https://vyla.pages.dev',
-    'http://127.0.0.1:8788',
-    'http://169.254.162.163:7860',
-];
-export const HEALTH_PROBE_ID = '550';
+export const ALLOWED_ORIGINS = ['*'];
+export const HEALTH_PROBE_ID = '155';
 export const CACHE_TTL = 5 * 60 * 1000;

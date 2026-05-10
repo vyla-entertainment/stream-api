@@ -53,6 +53,8 @@ const SERVERS = [
     { path: 'hollymoviehd', query: '' },
     { path: 'vixsrc', query: '' },
     { path: 'purstream', query: '' },
+    { path: 'anime', query: '' },
+    { path: 'aniwave', query: '' },
 ];
 
 function extractUrl(server, root) {
@@ -69,6 +71,10 @@ function extractUrl(server, root) {
             return root.data?.stream?.playlist || null;
         case 'purstream':
             return root.sources?.[0]?.url || null;
+        case 'anime':
+            return root.sources?.[0]?.url || root.url || null;
+        case 'aniwave':
+            return root.sources?.[0]?.url || root.url || null;
         default:
             return null;
     }
@@ -79,22 +85,30 @@ async function fetchServer(serverPath, query, id, s, e) {
     const url = `${API_BASE_URL}/${serverPath}/${segment}${query}`;
 
     const res = await fetch(url, { headers: HEADERS, signal: AbortSignal.timeout(10000) });
-    if (!res.ok) throw new Error(`vidnest/${serverPath}: ${res.status}`);
+    if (!res.ok) throw new Error(`vidnest/${serverPath}: HTTP ${res.status}`);
 
     const json = await res.json();
     const data = json.encrypted ? decrypt(json.data) : json.data;
-    return extractUrl(serverPath, data);
+    const streamUrl = extractUrl(serverPath, data);
+
+    if (!streamUrl) throw new Error(`vidnest/${serverPath}: no url in response`);
+
+    return streamUrl;
 }
 
 async function getStream(id, s, e) {
+    const errors = [];
+
     for (const { path, query } of SERVERS) {
         try {
             const url = await fetchServer(path, query, id, s, e);
             if (url) return url;
-        } catch {
+        } catch (err) {
+            errors.push(`${path}: ${err.message}`);
         }
     }
-    return null;
+
+    throw new Error(`vidnest all servers failed — ${errors.join(' | ')}`);
 }
 
 async function proxyStream(url, res, { fetchUpstream, rewriteM3u8 }) {

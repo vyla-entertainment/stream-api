@@ -2,16 +2,14 @@
     "name": "vyla-api",
     "version": "2.0.0",
     "private": true,
-    "description": "Vyla API — multi-provider stream scraper on Cloudflare Pages",
+    "description": "Vyla API — multi-provider stream scraper on Hugging Face Spaces",
     "type": "module",
     "scripts": {
-        "dev": "wrangler pages dev public --compatibility-flag nodejs_compat",
-        "deploy": "wrangler pages deploy public"
-    },
-    "devDependencies": {
-        "wrangler": "^3.0.0"
+        "start": "node server.js",
+        "dev": "node server.js"
     },
     "dependencies": {
-        "tweetnacl": "^1.0.3"
+        "tweetnacl": "^1.0.3",
+        "libsodium-wrappers": "^0.7.15"
     }
 }

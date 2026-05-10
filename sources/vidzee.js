@@ -1,6 +1,6 @@
 'use strict';
 
-const { webcrypto } = require('crypto');
+import { webcrypto } from 'crypto';
 const crypto = webcrypto;
 
 const PLAYER_URL = 'https://player.vidzee.wtf';
