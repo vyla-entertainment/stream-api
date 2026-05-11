@@ -114,10 +114,31 @@ function withTimeout(promise, ms) {
 async function fetchUpstream(url, redirects = 0, extraHeaders = {}, _proxyAttempt = false) {
     if (redirects > 5) throw new Error('redirect loop');
     const httpsUrl = url.replace('http://', 'https://');
-    const res = await fetch(httpsUrl, {
-        headers: { 'User-Agent': getUA(), ...extraHeaders },
-        redirect: 'manual',
-    });
+    let res;
+    try {
+        res = await fetch(httpsUrl, {
+            headers: { 'User-Agent': getUA(), ...extraHeaders },
+            redirect: 'manual',
+        });
+    } catch (fetchErr) {
+        if (!_proxyAttempt) {
+            const proxies = await getProxies();
+            const proxy = pickProxy(proxies);
+            if (proxy) {
+                try {
+                    const pRes = await fetchViaProxy(httpsUrl, proxy, extraHeaders);
+                    if (pRes && pRes.status >= 300 && pRes.status < 400 && pRes.headers.get('location')) {
+                        pRes.body?.cancel();
+                        const location = pRes.headers.get('location');
+                        const next = new URL(location, httpsUrl).href.replace('http://', 'https://');
+                        return fetchUpstream(next, redirects + 1, extraHeaders, true);
+                    }
+                    if (pRes) return pRes;
+                } catch { }
+            }
+        }
+        throw fetchErr;
+    }
     if ((res.status === 403 || res.status === 429) && !_proxyAttempt) {
         res.body?.cancel();
         const proxies = await getProxies();
@@ -125,13 +146,13 @@ async function fetchUpstream(url, redirects = 0, extraHeaders = {}, _proxyAttemp
         if (proxy) {
             try {
                 const pRes = await fetchViaProxy(httpsUrl, proxy, extraHeaders);
-                if (pRes.status >= 300 && pRes.status < 400 && pRes.headers.get('location')) {
+                if (pRes && pRes.status >= 300 && pRes.status < 400 && pRes.headers.get('location')) {
                     pRes.body?.cancel();
                     const location = pRes.headers.get('location');
                     const next = new URL(location, httpsUrl).href.replace('http://', 'https://');
                     return fetchUpstream(next, redirects + 1, extraHeaders, true);
                 }
-                return pRes;
+                if (pRes) return pRes;
             } catch { }
         }
     }
