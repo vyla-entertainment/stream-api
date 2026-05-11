@@ -51,6 +51,43 @@ function getCached(key, fn) {
 
 const jitter = (ms) => new Promise(r => setTimeout(r, Math.random() * ms));
 
+const proxyPool = { list: [], fetchedAt: 0 };
+
+async function getProxies() {
+    if (proxyPool.list.length && Date.now() - proxyPool.fetchedAt < 10 * 60 * 1000) return proxyPool.list;
+    try {
+        const res = await fetch('https://proxylist.geonode.com/api/proxy-list?limit=500&page=1&sort_by=lastChecked&sort_type=desc', {
+            headers: { 'User-Agent': getUA() }
+        });
+        const json = await res.json();
+        proxyPool.list = (json.data || []).filter(p =>
+            p.protocols?.some(pr => pr === 'http' || pr === 'https') &&
+            p.upTime >= 80 &&
+            p.responseTime < 5000
+        ).map(p => ({ ip: p.ip, port: p.port, protocol: p.protocols.find(pr => pr === 'http' || pr === 'https') }));
+        proxyPool.fetchedAt = Date.now();
+    } catch { }
+    return proxyPool.list;
+}
+
+function pickProxy(proxies) {
+    return proxies[Math.floor(Math.random() * proxies.length)] || null;
+}
+
+async function fetchViaProxy(url, proxy, extraHeaders = {}) {
+    const { ProxyAgent } = await import('undici');
+    const proxyUrl = (proxy.protocol === 'socks4' || proxy.protocol === 'socks5')
+        ? null
+        : `http://${proxy.ip}:${proxy.port}`;
+    if (!proxyUrl) return null;
+    const dispatcher = new ProxyAgent(proxyUrl);
+    return fetch(url, {
+        headers: { 'User-Agent': getUA(), ...extraHeaders },
+        redirect: 'manual',
+        dispatcher,
+    });
+}
+
 async function withRetry(fn, attempts = 3, delay = 1000) {
     let lastError;
     for (let i = 0; i < attempts; i++) {
@@ -74,13 +111,30 @@ function withTimeout(promise, ms) {
     ]);
 }
 
-async function fetchUpstream(url, redirects = 0, extraHeaders = {}) {
+async function fetchUpstream(url, redirects = 0, extraHeaders = {}, _proxyAttempt = false) {
     if (redirects > 5) throw new Error('redirect loop');
     const httpsUrl = url.replace('http://', 'https://');
     const res = await fetch(httpsUrl, {
         headers: { 'User-Agent': getUA(), ...extraHeaders },
         redirect: 'manual',
     });
+    if ((res.status === 403 || res.status === 429) && !_proxyAttempt) {
+        res.body?.cancel();
+        const proxies = await getProxies();
+        const proxy = pickProxy(proxies);
+        if (proxy) {
+            try {
+                const pRes = await fetchViaProxy(httpsUrl, proxy, extraHeaders);
+                if (pRes.status >= 300 && pRes.status < 400 && pRes.headers.get('location')) {
+                    pRes.body?.cancel();
+                    const location = pRes.headers.get('location');
+                    const next = new URL(location, httpsUrl).href.replace('http://', 'https://');
+                    return fetchUpstream(next, redirects + 1, extraHeaders, true);
+                }
+                return pRes;
+            } catch { }
+        }
+    }
     if (res.status >= 300 && res.status < 400 && res.headers.get('location')) {
         res.body?.cancel();
         const location = res.headers.get('location');
@@ -400,6 +454,108 @@ async function handleRequest(req) {
     if (pathname === '/api/health') {
         const result = await handleHealth(SOURCE_MODULES, cache, verifyStream);
         return { status: result.status, body: result.body, headers: { 'Content-Type': 'application/json', ...corsHeaders } };
+    }
+
+    if (pathname === '/api/debug/vidnest/decrypt') {
+        const id = q.id || '666243';
+        const s = q.s || null;
+        const e = q.e || null;
+        const BASE_URL = 'https://vidnest.fun';
+        const API_BASE_URL = 'https://new.vidnest.fun';
+        const HEADERS = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/150 Safari/537.36',
+            'Accept': 'application/json, text/javascript, */*; q=0.01',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Referer': `${BASE_URL}/`,
+            'Origin': BASE_URL,
+        };
+        const VIDNEST_ALPHABET = 'RB0fpH8ZEyVLkv7c2i6MAJ5u3IKFDxlS1NTsnGaqmXYdUrtzjwObCgQP94hoeW+/=';
+        const VIDNEST_REVERSE_MAP = (() => {
+            const map = {};
+            for (let i = 0; i < VIDNEST_ALPHABET.length; i++) map[VIDNEST_ALPHABET[i]] = i;
+            return map;
+        })();
+        function decodeVidnestBase64(input) {
+            let padded = input;
+            const mod = padded.length % 4;
+            if (mod !== 0) padded += '='.repeat(4 - mod);
+            const bytes = [];
+            for (let i = 0; i < padded.length; i += 4) {
+                const chunk = padded.slice(i, i + 4);
+                const c0 = VIDNEST_REVERSE_MAP[chunk[0]] ?? 64;
+                const c1 = VIDNEST_REVERSE_MAP[chunk[1]] ?? 64;
+                const c2 = chunk[2] === '=' ? 64 : (VIDNEST_REVERSE_MAP[chunk[2]] ?? 64);
+                const c3 = chunk[3] === '=' ? 64 : (VIDNEST_REVERSE_MAP[chunk[3]] ?? 64);
+                bytes.push(((c0 << 2) | (c1 >> 4)) & 0xff);
+                if (c2 !== 64) bytes.push((((c1 & 0x0f) << 4) | (c2 >> 2)) & 0xff);
+                if (c3 !== 64) bytes.push((((c2 & 0x03) << 6) | c3) & 0xff);
+            }
+            return Buffer.from(bytes).toString('utf8');
+        }
+        const WORKING_SERVERS = [
+            { path: 'moviebox', query: '' },
+            { path: 'allmovies', query: '' },
+            { path: 'hollymoviehd', query: '' },
+            { path: 'vidlink', query: '' },
+        ];
+        const segment = (s && e) ? `tv/${id}/${s}/${e}` : `movie/${id}`;
+        const results = await Promise.all(WORKING_SERVERS.map(async ({ path, query }) => {
+            const url = `${API_BASE_URL}/${path}/${segment}${query}`;
+            try {
+                const res = await fetch(url, { headers: HEADERS, signal: AbortSignal.timeout(10000) });
+                const json = await res.json();
+                if (!json.data) return { server: path, error: 'no data field' };
+                let decrypted;
+                try {
+                    decrypted = JSON.parse(decodeVidnestBase64(json.data));
+                } catch (err) {
+                    return { server: path, error: `decrypt failed: ${err.message}`, rawSnippet: json.data.slice(0, 100) };
+                }
+                return { server: path, decrypted };
+            } catch (err) {
+                return { server: path, error: err.message };
+            }
+        }));
+        return { status: 200, body: JSON.stringify(results, null, 2), headers: { 'Content-Type': 'application/json', ...corsHeaders } };
+    }
+
+    if (pathname === '/api/debug/vidnest') {
+        const id = q.id || '666243';
+        const s = q.s || null;
+        const e = q.e || null;
+        const BASE_URL = 'https://vidnest.fun';
+        const API_BASE_URL = 'https://new.vidnest.fun';
+        const HEADERS = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/150 Safari/537.36',
+            'Accept': 'application/json, text/javascript, */*; q=0.01',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Referer': `${BASE_URL}/`,
+            'Origin': BASE_URL,
+        };
+        const SERVERS = [
+            { path: 'moviebox', query: '' },
+            { path: 'allmovies', query: '' },
+            { path: 'klikxxi', query: '' },
+            { path: 'onehd', query: '?server=upcloud' },
+            { path: 'hollymoviehd', query: '' },
+            { path: 'vidlink', query: '' },
+            { path: 'purstream', query: '' },
+            { path: 'delta', query: '' },
+        ];
+        const segment = (s && e) ? `tv/${id}/${s}/${e}` : `movie/${id}`;
+        const results = await Promise.all(SERVERS.map(async ({ path, query }) => {
+            const url = `${API_BASE_URL}/${path}/${segment}${query}`;
+            try {
+                const res = await fetch(url, { headers: HEADERS, signal: AbortSignal.timeout(10000) });
+                const text = await res.text();
+                let parsed = null;
+                try { parsed = JSON.parse(text); } catch { }
+                return { server: path, url, status: res.status, hasData: !!parsed?.data, encrypted: parsed?.encrypted, dataSnippet: parsed?.data?.slice(0, 80) ?? null, rawSnippet: text.slice(0, 200) };
+            } catch (err) {
+                return { server: path, url, status: null, error: err.message };
+            }
+        }));
+        return { status: 200, body: JSON.stringify(results, null, 2), headers: { 'Content-Type': 'application/json', ...corsHeaders } };
     }
 
     if (pathname === '/api/movie') {

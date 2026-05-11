@@ -1,5 +1,3 @@
-'use strict';
-
 const BASE_URL = 'https://vidnest.fun';
 const API_BASE_URL = 'https://new.vidnest.fun';
 
@@ -15,9 +13,7 @@ const VIDNEST_ALPHABET = 'RB0fpH8ZEyVLkv7c2i6MAJ5u3IKFDxlS1NTsnGaqmXYdUrtzjwObCg
 
 const VIDNEST_REVERSE_MAP = (() => {
     const map = {};
-    for (let i = 0; i < VIDNEST_ALPHABET.length; i++) {
-        map[VIDNEST_ALPHABET[i]] = i;
-    }
+    for (let i = 0; i < VIDNEST_ALPHABET.length; i++) map[VIDNEST_ALPHABET[i]] = i;
     return map;
 })();
 
@@ -25,7 +21,6 @@ function decodeVidnestBase64(input) {
     let padded = input;
     const mod = padded.length % 4;
     if (mod !== 0) padded += '='.repeat(4 - mod);
-
     const bytes = [];
     for (let i = 0; i < padded.length; i += 4) {
         const chunk = padded.slice(i, i + 4);
@@ -33,12 +28,10 @@ function decodeVidnestBase64(input) {
         const c1 = VIDNEST_REVERSE_MAP[chunk[1]] ?? 64;
         const c2 = chunk[2] === '=' ? 64 : (VIDNEST_REVERSE_MAP[chunk[2]] ?? 64);
         const c3 = chunk[3] === '=' ? 64 : (VIDNEST_REVERSE_MAP[chunk[3]] ?? 64);
-
         bytes.push(((c0 << 2) | (c1 >> 4)) & 0xff);
         if (c2 !== 64) bytes.push((((c1 & 0x0f) << 4) | (c2 >> 2)) & 0xff);
         if (c3 !== 64) bytes.push((((c2 & 0x03) << 6) | c3) & 0xff);
     }
-
     return Buffer.from(bytes).toString('utf8');
 }
 
@@ -47,34 +40,56 @@ function decrypt(payload) {
 }
 
 const SERVERS = [
-    { path: 'klikxxi', query: '' },
-    { path: 'allmovies', query: '' },
-    { path: 'onehd', query: '?server=upcloud' },
     { path: 'hollymoviehd', query: '' },
-    { path: 'vixsrc', query: '' },
+    { path: 'vidlink', query: '' },
+    { path: 'onehd', query: '?server=upcloud' },
+    { path: 'klikxxi', query: '' },
     { path: 'purstream', query: '' },
-    { path: 'anime', query: '' },
-    { path: 'aniwave', query: '' },
+    { path: 'allmovies', query: '' },
+    { path: 'moviebox', query: '' },
 ];
 
-function extractUrl(server, root) {
+function extractResult(server, root) {
     switch (server) {
-        case 'klikxxi':
+        case 'allmovies': {
+            const s = root.streams?.[0];
+            if (!s?.url) return null;
+            return s.headers ? { url: s.url, headers: s.headers } : s.url;
+        }
+        case 'hollymoviehd': {
+            const s = root.sources?.[0];
+            return s?.file || null;
+        }
+        case 'vidlink': {
+            const playlist = root.data?.stream?.playlist;
+            if (!playlist) return null;
+            const urlObj = new URL(playlist);
+            const embeddedHeaders = urlObj.searchParams.get('headers');
+            urlObj.searchParams.delete('headers');
+            urlObj.searchParams.delete('host');
+            const cleanUrl = urlObj.toString();
+            if (embeddedHeaders) {
+                try {
+                    return { url: cleanUrl, headers: JSON.parse(embeddedHeaders) };
+                } catch { }
+            }
+            return root.headers ? { url: cleanUrl, headers: root.headers } : cleanUrl;
+        }
+        case 'onehd': {
+            const url = root.url;
+            if (!url) return null;
+            return root.headers ? { url, headers: root.headers } : url;
+        }
+        case 'klikxxi': {
             return root.sources?.[0]?.url || null;
-        case 'allmovies':
-            return root.streams?.[0]?.url || null;
-        case 'onehd':
-            return root.url || null;
-        case 'hollymoviehd':
-            return root.sources?.[0]?.file || null;
-        case 'vixsrc':
-            return root.data?.stream?.playlist || null;
-        case 'purstream':
+        }
+        case 'purstream': {
             return root.sources?.[0]?.url || null;
-        case 'anime':
-            return root.sources?.[0]?.url || root.url || null;
-        case 'aniwave':
-            return root.sources?.[0]?.url || root.url || null;
+        }
+        case 'moviebox': {
+            const u = root.url?.[0];
+            return u?.link || null;
+        }
         default:
             return null;
     }
@@ -83,52 +98,23 @@ function extractUrl(server, root) {
 async function fetchServer(serverPath, query, id, s, e) {
     const segment = (s && e) ? `tv/${id}/${s}/${e}` : `movie/${id}`;
     const url = `${API_BASE_URL}/${serverPath}/${segment}${query}`;
-
     const res = await fetch(url, { headers: HEADERS, signal: AbortSignal.timeout(10000) });
-    if (!res.ok) throw new Error(`vidnest/${serverPath}: HTTP ${res.status}`);
-
+    if (!res.ok) return null;
     const json = await res.json();
+    if (!json.data) return null;
     const data = json.encrypted ? decrypt(json.data) : json.data;
-    const streamUrl = extractUrl(serverPath, data);
-
-    if (!streamUrl) throw new Error(`vidnest/${serverPath}: no url in response`);
-
-    return streamUrl;
+    return extractResult(serverPath, data);
 }
 
-async function getStream(id, s, e) {
-    const errors = [];
-
-    for (const { path, query } of SERVERS) {
-        try {
-            const url = await fetchServer(path, query, id, s, e);
-            if (url) return url;
-        } catch (err) {
-            errors.push(`${path}: ${err.message}`);
-        }
+export async function getStream(id, s, e) {
+    const results = await Promise.allSettled(
+        SERVERS.map(({ path, query }) => fetchServer(path, query, id, s, e))
+    );
+    for (const result of results) {
+        if (result.status === 'fulfilled' && result.value) return result.value;
     }
-
-    throw new Error(`vidnest all servers failed — ${errors.join(' | ')}`);
+    return null;
 }
 
-async function proxyStream(url, res, { fetchUpstream, rewriteM3u8 }) {
-    const upstream = await fetchUpstream(url, 0, HEADERS);
-    const ct = (upstream.headers['content-type'] || '').toLowerCase();
-    const isM3u8 = ct.includes('mpegurl') || ct.includes('m3u8') || /\.m3u8?(\?|$)/i.test(url);
-    if (isM3u8) {
-        const chunks = [];
-        for await (const c of upstream) chunks.push(c);
-        const body = Buffer.concat(chunks).toString('utf8');
-        res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        return res.end(rewriteM3u8(body, url, '&vn=1'));
-    }
-    res.setHeader('Content-Type', ct || 'application/octet-stream');
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Cache-Control', 'public, max-age=3600');
-    upstream.pipe(res);
-}
-
-const VERIFY_HEADERS = { ...HEADERS };
-
-export { getStream, proxyStream, VERIFY_HEADERS, HEADERS };
+export const VERIFY_HEADERS = { ...HEADERS };
+export const SKIP_VERIFY = true;
