@@ -10,9 +10,7 @@ const HEADERS = {
 };
 
 const SERVERS = [
-    { name: 'cuevana', url: 'https://api2.videasy.net/cuevana/sources-with-title' },
     { name: 'mb-flix', url: 'https://api.videasy.net/mb-flix/sources-with-title' },
-    { name: '1movies', url: 'https://api.videasy.net/1movies/sources-with-title' },
     { name: 'cdn', url: 'https://api.videasy.net/cdn/sources-with-title' },
     { name: 'superflix', url: 'https://api.videasy.net/superflix/sources-with-title' },
     { name: 'lamovie', url: 'https://api.videasy.net/lamovie/sources-with-title' },
@@ -21,22 +19,26 @@ const SERVERS = [
 const decCache = new Map();
 
 async function decrypt(blob, tmdbId) {
-    if (!blob || blob.length < 10) return null;
+    if (!blob || blob.length < 10) {
+        return null;
+    }
     const key = `${tmdbId}:${blob.slice(0, 32)}`;
     if (decCache.has(key)) return decCache.get(key);
     try {
-        const res = await fetchWithProxyFallback(DEC_API, {
+        const res = await fetch(DEC_API, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ text: blob, id: tmdbId })
         });
-        if (!res?.ok) return null;
+        if (!res?.ok) {
+            return null;
+        }
         const json = await res.json();
         if (json.status !== 200 || !json.result?.sources) return null;
         const payload = { sources: json.result.sources ?? [], subtitles: json.result.subtitles ?? [] };
         decCache.set(key, payload);
         return payload;
-    } catch {
+    } catch (err) {
         return null;
     }
 }
@@ -51,14 +53,18 @@ async function fetchServer(server, id, s, e, title) {
             episodeId: String(e ?? 1),
             seasonId: String(s ?? 1),
         });
-        const res = await fetchWithProxyFallback(`${server.url}?${params}`, { headers: HEADERS });
+        const url = `${server.url}?${params}`;
+        const res = await fetch(url, { headers: HEADERS });
         if (!res?.ok) return null;
         const blob = await res.text();
         if (!blob || blob.length < 10) return null;
         const decrypted = await decrypt(blob, String(id));
-        if (!decrypted || !decrypted.sources.length) return null;
-        return decrypted.sources.filter(s => s?.url).map(s => s.url);
-    } catch {
+        if (!decrypted || !decrypted.sources.length) {
+            return null;
+        }
+        const urls = decrypted.sources.filter(s => s?.url).map(s => s.url);
+        return urls;
+    } catch (err) {
         return null;
     }
 }
@@ -66,7 +72,7 @@ async function fetchServer(server, id, s, e, title) {
 async function getStream(id, s, e) {
     const results = await Promise.all(SERVERS.map(srv => fetchServer(srv, id, s, e, '')));
     for (const urls of results) {
-        if (urls && urls.length) return urls[0];
+        if (urls && urls.length) return { url: urls[0], headers: HEADERS };
     }
     return null;
 }
@@ -101,3 +107,6 @@ async function proxyStream(url, res, { fetchUpstream, rewriteM3u8 }) {
 const VERIFY_HEADERS = { ...HEADERS };
 
 export { getStream, getSources, proxyStream, VERIFY_HEADERS, HEADERS };
+
+export const SKIP_VERIFY = true;
+export const MULTI_URL = false;

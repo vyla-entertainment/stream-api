@@ -19,7 +19,7 @@ function buildApiUrl(id, s, e) {
 
 async function fetchApi(url) {
     try {
-        const res = await fetchWithProxyFallback(url, { headers: HEADERS });
+        const res = await fetch(url, { headers: HEADERS });
         if (!res || res.status !== 200) return null;
         return res.json();
     } catch {
@@ -30,7 +30,7 @@ async function fetchApi(url) {
 async function fetchEmbedPage(src) {
     try {
         const url = src.startsWith('http') ? src : BASE_URL + src;
-        const res = await fetchWithProxyFallback(url, { headers: HEADERS });
+        const res = await fetch(url, { headers: HEADERS });
         if (!res || res.status !== 200) return null;
         return res.text();
     } catch {
@@ -55,7 +55,7 @@ function buildMasterUrl({ token, expires, playlist, lang }) {
 
 async function fetchPlaylist(masterUrl) {
     try {
-        const res = await fetchWithProxyFallback(masterUrl, { headers: HEADERS });
+        const res = await fetch(masterUrl, { headers: HEADERS });
         if (!res || res.status !== 200) return null;
         return res.text();
     } catch {

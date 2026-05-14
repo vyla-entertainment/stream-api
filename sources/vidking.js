@@ -12,13 +12,13 @@ const HEADERS = {
 const MOVIE_API = 'https://api.videasy.net/mb-flix/sources-with-title';
 const TV_API = 'https://api.videasy.net/downloader2/sources-with-title';
 
-export const SKIP_VERIFY = false;
+export const SKIP_VERIFY = true;
 export const MULTI_URL = false;
 export const VERIFY_HEADERS = { ...HEADERS };
 
 async function fetchMeta(tmdbId, mediaType) {
     const k = process.env.TMDB_API_KEY;
-    const res = await fetchWithProxyFallback(`https://api.themoviedb.org/3/${mediaType}/${tmdbId}?api_key=${k}&append_to_response=external_ids`);
+    const res = await fetch(`https://api.themoviedb.org/3/${mediaType}/${tmdbId}?api_key=${k}&append_to_response=external_ids`);
     if (!res) return { title: '', year: '', imdbId: '' };
     const d = await res.json();
     const title = mediaType === 'movie' ? (d.title || d.original_title || '') : (d.name || d.original_name || '');
@@ -30,7 +30,7 @@ async function fetchMeta(tmdbId, mediaType) {
 async function decrypt(blob, tmdbId) {
     if (!blob || blob.length < 10) return null;
     try {
-        const res = await fetchWithProxyFallback(DEC_API, {
+        const res = await fetch(DEC_API, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ text: blob, id: tmdbId })
@@ -59,9 +59,10 @@ export async function getStream(id, s, e) {
         imdbId,
         _t: Date.now(),
     });
-    const res = await fetchWithProxyFallback(`${apiUrl}?${params}`, { headers: HEADERS });
+    const res = await fetch(`${apiUrl}?${params}`, { headers: HEADERS });
     if (!res?.ok) return null;
     const blob = await res.text();
     const urls = await decrypt(blob, String(id));
-    return urls?.[0] ?? null;
+    if (!urls?.length) return null;
+    return { url: urls[0], headers: HEADERS };
 }

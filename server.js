@@ -352,9 +352,9 @@ function getIndexBody() {
 
     const samples = {
         movie: {
-            stream: '/api/movie?id=155',
-            downloads: '/api/downloads/movie/155',
-            subtitles: '/api/subtitles/movie/155',
+            stream: '/api/movie?id=550',
+            downloads: '/api/downloads/movie/550',
+            subtitles: '/api/subtitles/movie/550',
         },
         tv: {
             stream: '/api/tv?id=1396&season=1&episode=1',
@@ -367,7 +367,7 @@ function getIndexBody() {
         enabledSources.map(({ key }) => [
             key,
             {
-                movie: `/api/test/155?source=${key}`,
+                movie: `/api/test/550?source=${key}`,
                 tv: `/api/test/1396?season=1&episode=1&source=${key}`,
             }
         ])
@@ -593,7 +593,7 @@ async function handleRequest(req) {
                         const stripped = full[0] === 0x89 ? full.slice(120) : full;
                         return { status: 200, body: Buffer.from(stripped), headers: { 'Content-Type': ct || 'video/MP2T', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'public, max-age=3600' } };
                     }
-                    const finalCt = isMkv ? 'video/mp4' : (ct || 'application/octet-stream');
+                    const finalCt = isMkv ? 'video/mp4' : (ct === 'application/octet-stream' ? 'video/mp4' : (ct || 'video/mp4'));
                     const rangeHeader = req.headers['range'];
                     const streamUpstream = rangeHeader ? await fetch(cleanUrl, {
                         headers: { 'User-Agent': getUA(), ...extraHeaders, 'Range': rangeHeader },

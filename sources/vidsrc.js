@@ -14,11 +14,14 @@ const PLAYER_DOMAINS = {
     '{v4}': 'cloudnestra.com',
 };
 
-const PROXY_HEADERS = {
+export const PROXY_HEADERS = {
     'Referer': 'https://cloudnestra.com/',
     'Origin': 'https://cloudnestra.com',
     'User-Agent': HEADERS['User-Agent'],
 };
+
+export const VERIFY_HEADERS = { ...PROXY_HEADERS };
+export { PROXY_HEADERS as HEADERS };
 
 const STEP_TIMEOUT_MS = 7000;
 
@@ -33,7 +36,7 @@ async function fetchHtml(url, extraHeaders = {}, outerSignal = null) {
     const { signal, clear } = makeAbort(STEP_TIMEOUT_MS);
     const combined = outerSignal ? AbortSignal.any([outerSignal, signal]) : signal;
     try {
-        const res = await fetchWithProxyFallback(url, {
+        const res = await fetch(url, {
             headers: { ...HEADERS, ...extraHeaders },
             signal: combined,
             redirect: 'follow',
@@ -70,7 +73,7 @@ function extractM3u8Urls(html) {
     return urls.length ? urls : null;
 }
 
-async function getStream(id, s, e) {
+export async function getStream(id, s, e) {
     const controller = new AbortController();
     const { signal } = controller;
 
@@ -115,7 +118,9 @@ async function getStream(id, s, e) {
         }
 
         const urls = extractM3u8Urls(html3);
-        if (!urls?.length) throw new Error(`vidsrc step3: no m3u8 url found in player JS`);
+        if (!urls?.length) {
+            throw new Error(`vidsrc step3: no m3u8 url found in player JS`);
+        }
 
         return urls[0];
     } finally {
@@ -123,7 +128,7 @@ async function getStream(id, s, e) {
     }
 }
 
-async function proxyStream(url, res, { fetchUpstream, rewriteM3u8 }) {
+export async function proxyStream(url, res, { fetchUpstream, rewriteM3u8 }) {
     const upstream = await fetchUpstream(url, 0, PROXY_HEADERS);
     const ct = (upstream.headers['content-type'] || '').toLowerCase();
     const isM3u8 = ct.includes('mpegurl') || ct.includes('m3u8') || /\.m3u8?(\?|$)/i.test(url);
@@ -139,8 +144,3 @@ async function proxyStream(url, res, { fetchUpstream, rewriteM3u8 }) {
     res.setHeader('Cache-Control', 'public, max-age=3600');
     upstream.pipe(res);
 }
-
-const VERIFY_HEADERS = { ...PROXY_HEADERS };
-
-export { getStream, proxyStream, VERIFY_HEADERS };
-export { PROXY_HEADERS as HEADERS };

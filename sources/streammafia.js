@@ -25,7 +25,7 @@ function decryptPayload(payload) {
 
 async function getSessionCookie(headers) {
     try {
-        const res = await fetchWithProxyFallback(BASE_URL + '/api/session', { method: 'POST', headers, body: null });
+        const res = await fetch(BASE_URL + '/api/session', { method: 'POST', headers, body: null });
         return res?.headers.get('Set-Cookie') || '';
     } catch {
         return '';
@@ -34,7 +34,7 @@ async function getSessionCookie(headers) {
 
 async function getToken(headers) {
     try {
-        const res = await fetchWithProxyFallback(`${BASE_URL}/api/token`, { headers, referrer: BASE_URL + '/' });
+        const res = await fetch(`${BASE_URL}/api/token`, { headers, referrer: BASE_URL + '/' });
         if (!res || res.status !== 200) return '';
         const data = await res.json();
         return data.token || '';
@@ -45,7 +45,7 @@ async function getToken(headers) {
 
 async function fetchEncrypted(url, headers) {
     try {
-        const res = await fetchWithProxyFallback(url, { headers });
+        const res = await fetch(url, { headers });
         if (!res || res.status !== 200) return null;
         return await res.json();
     } catch {
