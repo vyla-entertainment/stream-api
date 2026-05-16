@@ -102,7 +102,7 @@ async function getStream(id, s, e) {
                 const decrypted = await decrypt(entry.link, decKey);
                 if (decrypted && decrypted.startsWith('http')) {
                     const check = await fetchWithTimeout(decrypted, hlsHeaders, 5000);
-                    if (check.ok) return decrypted;
+                    if (check.ok) return { url: decrypted, headers: hlsHeaders };
                 }
             } catch {
                 continue;
@@ -163,3 +163,4 @@ async function proxyStream(url, res, { fetchUpstream, rewriteM3u8 }) {
 const VERIFY_HEADERS = { ...hlsHeaders };
 
 export { getStream, proxyStream, VERIFY_HEADERS, hlsHeaders, PLAYER_URL };
+export const SKIP_VERIFY = true;

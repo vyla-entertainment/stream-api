@@ -35,7 +35,15 @@ async function getStream(id, s, e) {
     const data = await res.json();
     const streamUrl = data?.stream?.url;
     if (!streamUrl || !streamUrl.startsWith('http')) throw new Error('MeowTV: no stream url');
-    return streamUrl;
+    return {
+        url: streamUrl,
+        headers: {
+            'User-Agent': UA,
+            'Referer': REFERER,
+            'Origin': REFERER,
+        },
+    };
 }
 
 export { getStream, VERIFY_HEADERS };
+export const SKIP_VERIFY = true;

@@ -214,11 +214,11 @@ async function verifyStream(rawUrl, sourceKey) {
     } catch { return false; }
 }
 
-async function verifyHlsPlayable(proxiedUrl, absoluteBase) {
+async function verifyHlsPlayable(proxiedUrl, absoluteBase, extraHeaders = {}) {
     try {
         const m3u8Res = await fetch(proxiedUrl, {
             signal: AbortSignal.timeout(8000),
-            headers: { 'User-Agent': getUA() },
+            headers: { 'User-Agent': getUA(), ...extraHeaders },
         });
         if (!m3u8Res.ok) return { ok: false, error: `m3u8 fetch failed: ${m3u8Res.status}` };
         const text = await m3u8Res.text();
@@ -230,7 +230,7 @@ async function verifyHlsPlayable(proxiedUrl, absoluteBase) {
             if (!variantLine) return { ok: false, error: 'no variant playlist found in master' };
             const variantRes = await fetch(variantLine, {
                 signal: AbortSignal.timeout(8000),
-                headers: { 'User-Agent': getUA() },
+                headers: { 'User-Agent': getUA(), ...extraHeaders },
             });
             if (!variantRes.ok) return { ok: false, error: `variant playlist fetch failed: ${variantRes.status}` };
             const variantText = await variantRes.text();
@@ -392,11 +392,30 @@ async function handleTestSource(sourceKey, id, s, e, clientIP = null, host = nul
     const rawUrl = bestRaw?.url ?? null;
 
     if (wrappedUrl) {
-        const hlsCheck = await verifyHlsPlayable(wrappedUrl, absoluteBase);
-        if (!hlsCheck.ok) {
+        const rawHeaders = bestRaw?.headers || {};
+        const proxiedBody = await fetch(wrappedUrl, { signal: AbortSignal.timeout(8000), headers: { 'User-Agent': getUA() } })
+            .then(r => r.text()).then(t => t.slice(0, 200)).catch(e => e.message);
+        const [proxiedCheck, rawCheck] = await Promise.all([
+            verifyHlsPlayable(wrappedUrl, absoluteBase),
+            rawUrl ? verifyHlsPlayable(rawUrl, absoluteBase, rawHeaders) : Promise.resolve({ ok: null, error: 'no raw url' }),
+        ]);
+        if (!proxiedCheck.ok) {
             return {
                 status: 200,
-                body: JSON.stringify({ source: sourceKey, id, s: s || null, e: e || null, ok: false, url: null, raw_url: rawUrl, elapsed_ms: Date.now() - start, error: hlsCheck.error }, null, 2),
+                body: JSON.stringify({
+                    source: sourceKey, id, s: s || null, e: e || null,
+                    ok: false, url: null, raw_url: rawUrl, elapsed_ms: Date.now() - start,
+                    error: proxiedCheck.error,
+                    debug: {
+                        proxy_failed: true,
+                        proxy_error: proxiedCheck.error,
+                        proxy_body_preview: proxiedBody,
+                        raw_reachable: rawCheck.ok,
+                        raw_error: rawCheck.error,
+                        raw_headers_used: rawHeaders,
+                        proxied_url: wrappedUrl,
+                    },
+                }, null, 2),
                 contentType: 'application/json',
             };
         }
