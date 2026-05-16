@@ -8,8 +8,6 @@ import { fetchSubtitles, handleSubtitleMovie, handleSubtitleTv, SUBTITLE_BASES }
 import { handleDownloadMovie, handleDownloadTv } from './routes/downloads.js';
 import { handleHealth } from './routes/health.js';
 
-import { handleLiveTvChannels, handleLiveTvChannel, handleLiveTvCategories, handleLiveTvCountries, handleLiveTvLanguages, handleLiveTvNetworks, handleLiveTvStats, handleLiveTvSearch, handleLiveTvByCountry, handleLiveTvByCategory } from './routes/livetv.js';
-
 async function umamiTrack(event, data = {}) {
     try {
         await fetch('https://cloud.umami.is/api/send', {
@@ -469,20 +467,6 @@ function getIndexBody() {
                     movie: '/api/subtitles/movie/<tmdb_id>',
                     tv: '/api/subtitles/tv/<tmdb_id>/<season>/<episode>',
                 },
-                live: {
-                    channels: '/api/live?search=<q>&country=<code>&category=<cat>&language=<lang>&network=<net>&sort=name|streams|country|launched|network&page=1&limit=50&has_streams=true&nsfw=false&include_closed=false&min_streams=<n>&launched_after=<YYYY-MM-DD>',
-                    channel: '/api/live/<channel_id>',
-                    search: '/api/live/search?q=<term>&limit=20',
-                    stats: '/api/live/stats',
-                    by_country: '/api/live/country/<country_code>',
-                    by_category: '/api/live/category/<category_id>',
-                    meta: {
-                        categories: '/api/live/meta/categories',
-                        countries: '/api/live/meta/countries',
-                        languages: '/api/live/meta/languages',
-                        networks: '/api/live/meta/networks',
-                    },
-                },
                 health: '/api/health',
             },
             tests: {
@@ -813,20 +797,6 @@ async function handleRequest(req) {
             return { status: 200, body: JSON.stringify({ error: err.message }), headers: { 'Content-Type': 'application/json', ...corsHeaders } };
         }
     }
-
-    if (pathname === '/api/live') return handleLiveTvChannels(q, corsHeaders);
-    if (pathname === '/api/live/search') return handleLiveTvSearch(q, corsHeaders);
-    if (pathname === '/api/live/stats') return handleLiveTvStats(corsHeaders);
-    if (pathname === '/api/live/meta/categories') return handleLiveTvCategories(corsHeaders);
-    if (pathname === '/api/live/meta/countries') return handleLiveTvCountries(corsHeaders);
-    if (pathname === '/api/live/meta/languages') return handleLiveTvLanguages(corsHeaders);
-    if (pathname === '/api/live/meta/networks') return handleLiveTvNetworks(corsHeaders);
-    const liveTvCountryMatch = pathname.match(/^\/api\/live\/country\/([^/]+)$/);
-    if (liveTvCountryMatch) return handleLiveTvByCountry(decodeURIComponent(liveTvCountryMatch[1]), q, corsHeaders);
-    const liveTvCategoryMatch = pathname.match(/^\/api\/live\/category\/([^/]+)$/);
-    if (liveTvCategoryMatch) return handleLiveTvByCategory(decodeURIComponent(liveTvCategoryMatch[1]), q, corsHeaders);
-    const liveTvChannelMatch = pathname.match(/^\/api\/live\/([^/]+)$/);
-    if (liveTvChannelMatch) return handleLiveTvChannel(decodeURIComponent(liveTvChannelMatch[1]), corsHeaders);
 
     return { status: 404, body: JSON.stringify({ error: 'not found' }), headers: { 'Content-Type': 'application/json', ...corsHeaders } };
 }
