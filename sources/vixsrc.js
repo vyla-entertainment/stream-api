@@ -47,7 +47,7 @@ function extractTokenData(html) {
 
 function buildMasterUrl({ token, expires, playlist, lang }) {
     const sep = playlist.includes('?') ? '&' : '?';
-    return `${playlist}${sep}token=${token}&expires=${expires}&h=1&lang=${lang}`;
+    return `${playlist}${sep}type=video&rendition=1080p&token=${token}&expires=${expires}&edge=sc-u2-01&lang=${lang}`;
 }
 
 export async function getStream(id, s, e, clientIP = null, selfBase = null) {
@@ -64,10 +64,12 @@ export async function getStream(id, s, e, clientIP = null, selfBase = null) {
         if (!tokenData) return null;
 
         const masterUrl = buildMasterUrl(tokenData);
+        const base = selfBase || FALLBACK_BASE;
+        const proxiedMaster = `${base}/api?url=${encodeURIComponent(masterUrl)}&proxyHeaders=${encodeURIComponent(JSON.stringify(HEADERS))}`;
 
         return {
-            url: masterUrl,
-            headers: HEADERS,
+            url: proxiedMaster,
+            headers: {},
             skipProxy: false,
         };
     } catch {
