@@ -242,9 +242,11 @@ async function verifyHlsPlayable(proxiedUrl, absoluteBase, extraHeaders = {}) {
         const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
         const isMaster = lines.some(l => l.includes('#EXT-X-STREAM-INF'));
         if (isMaster) {
-            const variantLine = lines.find(l => !l.startsWith('#') && l.startsWith('http'));
+            const variantLine = lines.find(l => !l.startsWith('#'));
             if (!variantLine) return { ok: false, error: 'no variant playlist found in master' };
-            const variantRes = await fetch(variantLine, {
+            const safeBase = absoluteBase.replace('https://localhost', 'http://localhost').replace('https://127.0.0.1', 'http://127.0.0.1');
+            const variantUrl = variantLine.startsWith('http') ? variantLine : safeBase + (variantLine.startsWith('/') ? variantLine : '/' + variantLine);
+            const variantRes = await fetch(variantUrl, {
                 signal: AbortSignal.timeout(20000),
                 headers: { 'User-Agent': getUA(), ...extraHeaders },
             });
