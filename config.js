@@ -14,7 +14,7 @@ export const SOURCES = [
     { key: 'moviebox', sourceFile: 'moviebox', label: 'MovieBox', proxyParam: 'mb', timeout: 25000, jitter: 500, retries: 2, sourcesTimeout: 8000, disabled: true },
     { key: 'vidnest', sourceFile: 'vidnest', label: 'VidNest', proxyParam: 'vn', timeout: 20000, jitter: 600, retries: 3, disabled: true },
     { key: 'popr', sourceFile: 'popr', label: 'Popr', proxyParam: 'pp', timeout: 20000, jitter: 600, retries: 2, disabled: true },
-    { key: 'cinezo', sourceFile: 'cinezo', label: 'Cinezo', proxyParam: 'cz', timeout: 25000, jitter: 500, retries: 2 },
+    { key: 'cinezo', sourceFile: 'cinezo', label: 'Cinezo', proxyParam: 'cz', timeout: 60000, jitter: 500, retries: 2 },
     { key: 'vidfun', sourceFile: 'vidfun', label: 'VidFun', proxyParam: 'vf', timeout: 30000, jitter: 500, retries: 2 },
     { key: 'fsharetv', sourceFile: 'fsharetv', label: 'FShareTV', proxyParam: 'fs', timeout: 30000, jitter: 600, retries: 2 },
     { key: 'vidapi', sourceFile: 'vidapi', label: 'VidApi', proxyParam: 'va', timeout: 25000, jitter: 500, retries: 2 },
