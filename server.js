@@ -393,7 +393,7 @@ async function handleTestSource(sourceKey, id, s, e, clientIP = null, host = nul
     const cfg = SOURCE_MAP[sourceKey];
     const absoluteBase = getAbsoluteBase(host);
 
-    if (cfg.disabled) {
+    if (cfg?.disabled) {
         return {
             status: 200,
             body: JSON.stringify({ source: sourceKey, id, s: s || null, e: e || null, ok: false, url: null, raw_url: null, elapsed_ms: Date.now() - start, error: 'source disabled' }, null, 2),
@@ -401,16 +401,24 @@ async function handleTestSource(sourceKey, id, s, e, clientIP = null, host = nul
         };
     }
 
+    const mod = SOURCE_MODULES[sourceKey];
+
     let rawResult = null;
     let fetchError = null;
     try {
         const fallbackBase = isFallbackNeeded(host) ? FALLBACK_BASE : '';
-        rawResult = await fetchSource(cfg, cacheKey, id, s, e, clientIP, absoluteBase, fallbackBase);
+        if (cfg) {
+            rawResult = await fetchSource(cfg, cacheKey, id, s, e, clientIP, absoluteBase, fallbackBase);
+        }
+        if (!rawResult) {
+            rawResult = await withTimeout(mod.getStream(id, s, e, clientIP, absoluteBase), 30000);
+        }
+        if (!rawResult && isFallbackNeeded(host)) {
+            rawResult = await withTimeout(mod.getStream(id, s, e, clientIP, fallbackBase), 30000);
+        }
     } catch (err) {
         fetchError = err.message;
     }
-
-    const mod = SOURCE_MODULES[sourceKey];
 
     let candidates = [];
     if (rawResult) {
