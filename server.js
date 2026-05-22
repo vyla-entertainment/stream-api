@@ -145,7 +145,7 @@ function rewriteM3u8(body, url, extraParam = '', absoluteBase = '') {
     }).join('\n');
 }
 
-function fetchSource(cfg, cacheKey, id, s, e, clientIP = null) {
+function fetchSource(cfg, cacheKey, id, s, e, clientIP = null, absoluteBase = '') {
     const mod = SOURCE_MODULES[cfg.key];
 
     if (cfg.multiBase) {
@@ -174,7 +174,7 @@ function fetchSource(cfg, cacheKey, id, s, e, clientIP = null) {
             getCached(
                 `${cfg.key}-${cacheKey}`,
                 () => withRetry(
-                    () => mod.getStream(id, s, e, clientIP),
+                    () => mod.getStream(id, s, e, clientIP, absoluteBase),
                     cfg.retries,
                     1000
                 )
@@ -271,7 +271,7 @@ async function getAllWorkingSources(id, s, e, clientIP = null, absoluteBase = ''
     const cacheKey = `${id}-${s || ''}-${e || ''}`;
     const fetched = await Promise.all(
         SOURCES.filter(cfg => !cfg.disabled).map(cfg =>
-            fetchSource(cfg, cacheKey, id, s, e, clientIP)
+            fetchSource(cfg, cacheKey, id, s, e, clientIP, absoluteBase)
                 .then(r => ({ raw: r, source: cfg.key }))
                 .catch(() => ({ raw: null, source: cfg.key }))
         )
@@ -375,7 +375,7 @@ async function handleTestSource(sourceKey, id, s, e, clientIP = null, host = nul
     let rawResult = null;
     let fetchError = null;
     try {
-        rawResult = await fetchSource(cfg, cacheKey, id, s, e, clientIP);
+        rawResult = await fetchSource(cfg, cacheKey, id, s, e, clientIP, absoluteBase);
     } catch (err) {
         fetchError = err.message;
     }
@@ -622,13 +622,13 @@ async function handleRequest(req) {
             };
 
             try {
-                streamResult = await mod.getStream(id, s, e);
+                streamResult = await mod.getStream(id, s, e, null, absoluteBase);
             } catch (err) {
                 streamError = err.message;
             } finally {
                 globalThis.fetch = originalFetch;
             }
-
+            
             const candidates = streamResult?.allUrls || (streamResult ? [streamResult] : []);
             const checks = await Promise.all(candidates.slice(0, 3).map(async (raw, i) => {
                 const wrapped = wrapUrl(raw, sourceKey, absoluteBase);

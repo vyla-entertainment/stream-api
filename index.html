@@ -3,7 +3,7 @@
 <script>
     var video = document.getElementById('video');
     var hls = new Hls();
-    hls.loadSource('// i like to test vids here lowk ignore it');
+    hls.loadSource('');
     hls.attachMedia(video);
     hls.on(Hls.Events.MANIFEST_PARSED, function () {
         video.play();
