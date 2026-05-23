@@ -93,11 +93,19 @@ const getUA = () => UA_LIST[Math.floor(Math.random() * UA_LIST.length)];
 
 const cache = new Map();
 
+const MAX_CACHE = 500;
+
 function getCached(key, fn) {
     const hit = cache.get(key);
     if (hit && Date.now() - hit.ts < CACHE_TTL) return Promise.resolve(hit.val);
     return fn().then(val => {
-        if (val) cache.set(key, { val, ts: Date.now() });
+        if (val) {
+            if (cache.size >= MAX_CACHE) {
+                const oldest = [...cache.entries()].sort((a, b) => a[1].ts - b[1].ts)[0][0];
+                cache.delete(oldest);
+            }
+            cache.set(key, { val, ts: Date.now() });
+        }
         return val;
     });
 }
@@ -284,7 +292,7 @@ async function verifyStream(rawUrl, sourceKey) {
 async function verifyHlsPlayable(proxiedUrl, absoluteBase, extraHeaders = {}, skipProxyCheck = false) {
     try {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 12000);
+        const timeout = setTimeout(() => controller.abort(), 8000);
 
         const m3u8Res = await fetch(proxiedUrl, {
             signal: controller.signal,
@@ -293,53 +301,18 @@ async function verifyHlsPlayable(proxiedUrl, absoluteBase, extraHeaders = {}, sk
         clearTimeout(timeout);
 
         if (!m3u8Res.ok) return { ok: false, error: `m3u8 fetch failed: ${m3u8Res.status}` };
-        let text = await m3u8Res.text();
+        const text = await m3u8Res.text();
 
         if (text.includes('WRONG HASH') || text.includes('democratize artificial intelligence') || text.includes('429') || text.includes('Cloudflare')) {
             return { ok: false, error: 'Proxy Blocked or Invalid Hash' };
         }
         if (!text.trim().startsWith('#EXTM3U')) return { ok: false, error: 'response is not a valid m3u8' };
 
-        let mediaPlaylistUrl = proxiedUrl;
-        if (text.includes('#EXT-X-STREAM-INF')) {
-            const lines = text.split('\n').map(l => l.trim());
-            let variantPath = '';
-            for (let i = 0; i < lines.length; i++) {
-                if (lines[i].startsWith('#EXT-X-STREAM-INF') && lines[i + 1] && !lines[i + 1].startsWith('#')) {
-                    variantPath = lines[i + 1];
-                    break;
-                }
-            }
-            if (variantPath) {
-                mediaPlaylistUrl = variantPath.startsWith('http') ? variantPath : new URL(variantPath, proxiedUrl).href;
-                const variantRes = await fetch(mediaPlaylistUrl, {
-                    headers: { 'User-Agent': getUA(), ...extraHeaders },
-                    signal: AbortSignal.timeout(6000)
-                });
-                if (!variantRes.ok) return { ok: false, error: `variant fetch failed: ${variantRes.status}` };
-                text = await variantRes.text();
-            }
-        }
+        const lines = text.split('\n').map(l => l.trim());
+        const hasSegments = lines.some(l => l && !l.startsWith('#'));
+        const hasVariants = text.includes('#EXT-X-STREAM-INF');
 
-        const segmentLines = text.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
-        if (segmentLines.length === 0) return { ok: false, error: 'no segments found in playlist' };
-
-        const firstSegment = segmentLines[0];
-        const segmentUrl = firstSegment.startsWith('http') ? firstSegment : new URL(firstSegment, mediaPlaylistUrl).href;
-
-        const segCheck = await fetch(segmentUrl, {
-            method: 'HEAD',
-            headers: { 'User-Agent': getUA(), ...extraHeaders },
-            signal: AbortSignal.timeout(6000)
-        });
-
-        if (segCheck.status >= 400) {
-            const segRetry = await fetch(segmentUrl, {
-                headers: { 'User-Agent': getUA(), ...extraHeaders, 'Range': 'bytes=0-1023' },
-                signal: AbortSignal.timeout(6000)
-            });
-            if (!segRetry.ok) return { ok: false, error: `segment verification failed: ${segRetry.status}` };
-        }
+        if (!hasSegments && !hasVariants) return { ok: false, error: 'empty playlist' };
 
         return { ok: true, error: null };
     } catch (err) {
@@ -350,73 +323,61 @@ async function verifyHlsPlayable(proxiedUrl, absoluteBase, extraHeaders = {}, sk
 async function getAllWorkingSources(id, s, e, clientIP = null, absoluteBase = '') {
     const cacheKey = `${id}-${s || ''}-${e || ''}`;
     const fallbackBase = isFallbackNeeded(absoluteBase.replace('https://', '').replace('http://', '')) ? FALLBACK_BASE : '';
-    const fetched = await Promise.all(
-        SOURCES.filter(cfg => !cfg.disabled).map(cfg =>
-            fetchSource(cfg, cacheKey, id, s, e, clientIP, absoluteBase, fallbackBase)
-                .then(r => ({ raw: r, source: cfg.key }))
-                .catch(() => ({ raw: null, source: cfg.key }))
-        )
-    );
 
-    const candidates = fetched.filter(c => c.raw);
-    const verified = await Promise.all(
-        candidates.map(async c => {
-            const cfg = SOURCE_MAP[c.source];
-            const mod = SOURCE_MODULES[c.source];
+    const results = [];
+    const settled = new Array(SOURCES.filter(c => !c.disabled).length).fill(false);
 
-            if (mod.SKIP_VERIFY && mod.MULTI_URL && c.raw?.allUrls?.length) {
-                const results = await Promise.all(c.raw.allUrls.map(async (rawUrl, i) => {
-                    const wrapped = wrapUrl(rawUrl, c.source, absoluteBase);
-                    if (!wrapped) return null;
-                    if (!rawUrl?.skipProxy && !rawUrl?.skipHlsCheck) {
+    await Promise.all(
+        SOURCES.filter(cfg => !cfg.disabled).map(async (cfg) => {
+            try {
+                const raw = await fetchSource(cfg, cacheKey, id, s, e, clientIP, absoluteBase, fallbackBase);
+                if (!raw) return;
+
+                const mod = SOURCE_MODULES[cfg.key];
+
+                if (mod.SKIP_VERIFY) {
+                    const urls = mod.MULTI_URL && raw?.allUrls?.length ? raw.allUrls : [raw];
+                    for (const rawUrl of urls) {
+                        const wrapped = wrapUrl(rawUrl, cfg.key, absoluteBase);
+                        if (!wrapped) continue;
                         const hlsCheck = await verifyHlsPlayable(wrapped, absoluteBase, {}, false);
-                        if (!hlsCheck.ok) return null;
+                        if (hlsCheck.ok || hlsCheck.error?.includes('429')) {
+                            results.push({
+                                source: cfg.key,
+                                label: cfg.label ?? cfg.key,
+                                url: wrapped,
+                            });
+                            break;
+                        }
                     }
-                    return {
-                        source: c.source,
-                        label: `${cfg?.label ?? c.source} ${i + 1}`,
-                        url: wrapped,
-                    };
-                }));
-                return results.filter(Boolean);
-            }
-
-            if (mod.SKIP_VERIFY) {
-                const wrapped = wrapUrl(c.raw, c.source, absoluteBase);
-                if (!wrapped) return [null];
-                if (!c.raw?.skipProxy && !c.raw?.skipHlsCheck) {
-                    const hlsCheck = await verifyHlsPlayable(wrapped, absoluteBase, {}, false);
-                    if (!hlsCheck.ok) return [null];
+                    return;
                 }
-                return [{
-                    source: c.source,
-                    label: cfg?.label ?? c.source,
-                    url: wrapped,
-                }];
-            }
 
-            const allUrls = c.raw?.allUrls
-                ? c.raw.allUrls.map(u => (typeof u === 'object' ? u : { url: u, headers: {} }))
-                : [c.raw];
-            for (const candidate of allUrls) {
-                const raw = typeof candidate === 'object' ? candidate.url : candidate;
-                const ok = await verifyStream(raw, c.source);
-                if (ok) {
-                    const wrapped = wrapUrl(candidate, c.source, absoluteBase);
+                const allUrls = raw?.allUrls
+                    ? raw.allUrls.map(u => typeof u === 'object' ? u : { url: u })
+                    : [raw];
+
+                for (const candidate of allUrls) {
+                    const rawUrl = typeof candidate === 'object' ? candidate.url : candidate;
+                    const ok = await verifyStream(rawUrl, cfg.key);
+                    if (!ok) continue;
+                    const wrapped = wrapUrl(candidate, cfg.key, absoluteBase);
                     if (!wrapped) continue;
                     const hlsCheck = await verifyHlsPlayable(wrapped, absoluteBase);
-                    if (!hlsCheck.ok) continue;
-                    return [{
-                        source: c.source,
-                        label: cfg?.label ?? c.source,
-                        url: wrapped,
-                    }];
+                    if (hlsCheck.ok) {
+                        results.push({
+                            source: cfg.key,
+                            label: cfg.label ?? cfg.key,
+                            url: wrapped,
+                        });
+                        break;
+                    }
                 }
-            }
-            return [null];
+            } catch { }
         })
     );
-    return verified.flat().filter(Boolean);
+
+    return results;
 }
 
 async function getMetadata(id, s, e) {
