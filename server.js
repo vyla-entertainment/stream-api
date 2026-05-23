@@ -488,7 +488,7 @@ async function handleTestSource(sourceKey, id, s, e, clientIP = null, host = nul
     let bestRaw = null;
     let wrappedUrl = null;
 
-    if (mod.SKIP_VERIFY) {
+    if (mod.SKIP_VERIFY || mod.MULTI_URL) {
         for (const candidate of candidates) {
             if (candidate?.skipProxy || candidate?.skipHlsCheck) {
                 bestRaw = candidate;
@@ -520,6 +520,41 @@ async function handleTestSource(sourceKey, id, s, e, clientIP = null, host = nul
                 wrappedUrl = wrapped;
                 break;
             }
+        }
+    } else {
+        for (const candidate of candidates) {
+            const ok = await verifyStream(candidate.url, sourceKey);
+            if (!ok) continue;
+            const wrapped = wrapUrl(candidate, sourceKey, absoluteBase);
+            if (!wrapped) continue;
+            const hlsCheck = await verifyHlsPlayable(wrapped, absoluteBase);
+            if (!hlsCheck.ok) {
+                const rawHeaders = candidate?.headers || {};
+                const proxiedBody = await fetch(wrapped, { signal: AbortSignal.timeout(20000), headers: { 'User-Agent': getUA() } })
+                    .then(r => r.text()).then(t => t.slice(0, 200)).catch(e => e.message);
+                const rawCheck = await verifyHlsPlayable(candidate.url, absoluteBase, rawHeaders);
+                return {
+                    status: 200,
+                    body: JSON.stringify({
+                        source: sourceKey, id, s: s || null, e: e || null,
+                        ok: false, url: null, raw_url: candidate.url, elapsed_ms: Date.now() - start,
+                        error: hlsCheck.error,
+                        debug: {
+                            proxy_failed: true,
+                            proxy_error: hlsCheck.error,
+                            proxy_body_preview: proxiedBody,
+                            raw_reachable: rawCheck.ok,
+                            raw_error: rawCheck.error,
+                            raw_headers_used: rawHeaders,
+                            proxied_url: wrapped,
+                        },
+                    }, null, 2),
+                    contentType: 'application/json',
+                };
+            }
+            bestRaw = candidate;
+            wrappedUrl = wrapped;
+            break;
         }
     }
 
