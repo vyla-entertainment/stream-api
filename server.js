@@ -388,7 +388,7 @@ async function getAllWorkingSources(id, s, e, clientIP = null, absoluteBase = ''
                 const results = await Promise.all(c.raw.allUrls.map(async (rawUrl, i) => {
                     const wrapped = wrapUrl(rawUrl, c.source, absoluteBase);
                     if (!wrapped) return null;
-                    if (!rawUrl?.skipProxy) {
+                    if (!rawUrl?.skipProxy && !rawUrl?.skipHlsCheck) {
                         const hlsCheck = await verifyHlsPlayable(wrapped, absoluteBase, {}, false);
                         if (!hlsCheck.ok) return null;
                     }

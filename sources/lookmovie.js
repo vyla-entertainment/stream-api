@@ -146,7 +146,7 @@ async function getStreams(base, type, id, hash, expires, clientIP) {
         if (!streams) return null;
         const allUrls = Object.entries(streams)
             .filter(([k, v]) => v && typeof v === 'string' && v.startsWith('http') && !k.toLowerCase().includes('auto'))
-            .map(([, v]) => v);
+            .map(([, v]) => ({ url: v, skipHlsCheck: true }));
         if (!allUrls.length) return null;
         return { allUrls };
     } catch {
