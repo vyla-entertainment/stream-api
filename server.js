@@ -4,7 +4,9 @@ const FALLBACK_BASE = 'https://cjbutimtired.tuvnord.hk/strapi';
 
 globalThis.fetch = async (url, opts) => {
     const urlStr = typeof url === 'string' ? url : url?.href ?? String(url);
-    if (IS_HF && /https?:\/\/(api2?\.videasy\.net|api\.tulnex\.com|strategicgrowthpartners\.site|cloudnestra\.com|(www\.)?lookmovie2?\.to|(www\.)?lookmovie\.foundation)/i.test(urlStr)) {
+    const needsProxy = IS_HF && /https?:\/\/(api2?\.videasy\.net|api\.tulnex\.com|strategicgrowthpartners\.site|cloudnestra\.com|(www\.)?lookmovie2?\.to|(www\.)?lookmovie\.foundation|.*\.theaky\.store|.*\.akamaihd\.net)/i.test(urlStr);
+
+    if (needsProxy) {
         let proxied = FALLBACK_BASE + '/api?url=' + encodeURIComponent(urlStr) + '&vn=1';
         if (opts?.headers) {
             proxied += '&proxyHeaders=' + encodeURIComponent(JSON.stringify(opts.headers));
@@ -281,85 +283,21 @@ async function verifyStream(rawUrl, sourceKey) {
 
 async function verifyHlsPlayable(proxiedUrl, absoluteBase, extraHeaders = {}, skipProxyCheck = false) {
     try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 8000);
+
         const m3u8Res = await fetch(proxiedUrl, {
-            signal: AbortSignal.timeout(20000),
+            signal: controller.signal,
             headers: { 'User-Agent': getUA(), ...extraHeaders },
         });
+        clearTimeout(timeout);
+
         if (!m3u8Res.ok) return { ok: false, error: `m3u8 fetch failed: ${m3u8Res.status}` };
         const text = await m3u8Res.text();
+        if (text.includes('WRONG HASH') || text.includes('democratize artificial intelligence')) {
+            return { ok: false, error: 'Proxy Blocked or Invalid Hash' };
+        }
         if (!text.trim().startsWith('#EXTM3U')) return { ok: false, error: 'response is not a valid m3u8' };
-        const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-        const isMaster = lines.some(l => l.includes('#EXT-X-STREAM-INF'));
-
-        let segmentUrl;
-
-        const playlistOrigin = (() => {
-            try {
-                const u = new URL(proxiedUrl);
-                return u.origin;
-            } catch { return absoluteBase; }
-        })();
-
-        if (isMaster) {
-            const variantLine = lines.find(l => !l.startsWith('#'));
-            if (!variantLine) return { ok: false, error: 'no variant playlist found in master' };
-            const safeBase = absoluteBase.replace('https://localhost', 'http://localhost').replace('https://127.0.0.1', 'http://127.0.0.1');
-            const variantUrl = variantLine.startsWith('http')
-                ? variantLine
-                : variantLine.startsWith('/')
-                    ? playlistOrigin + variantLine
-                    : safeBase + (variantLine.startsWith('/') ? variantLine : '/' + variantLine);
-            const variantRes = await fetch(variantUrl, {
-                signal: AbortSignal.timeout(20000),
-                headers: { 'User-Agent': getUA(), ...extraHeaders },
-            });
-            if (!variantRes.ok) return { ok: false, error: `variant playlist fetch failed: ${variantRes.status}` };
-            const variantText = await variantRes.text();
-            if (!variantText.trim().startsWith('#EXTM3U')) return { ok: false, error: 'variant response is not valid m3u8' };
-            const vLines = variantText.split('\n').map(l => l.trim()).filter(Boolean);
-            segmentUrl = vLines.find(l => !l.startsWith('#'));
-            if (!segmentUrl) return { ok: false, error: 'no segments in variant playlist' };
-        } else {
-            segmentUrl = lines.find(l => !l.startsWith('#'));
-            if (!segmentUrl) return { ok: false, error: 'no segments in playlist' };
-        }
-
-        if (!segmentUrl.startsWith('http')) {
-            return { ok: false, error: `segment URL is not absolute: ${segmentUrl.slice(0, 80)}` };
-        }
-
-        if (!skipProxyCheck) {
-            const safeBase = absoluteBase.replace('https://localhost', 'http://localhost').replace('https://127.0.0.1', 'http://127.0.0.1');
-            const isProxied = segmentUrl.startsWith(safeBase) ||
-                segmentUrl.startsWith('https://missourimonster-vyla.hf.space') ||
-                segmentUrl.startsWith('https://cjbutimtired.tuvnord.hk') ||
-                segmentUrl.startsWith('https://pronhub.tulnex.com') ||
-                segmentUrl.startsWith('https://prxy.tulnex.com') ||
-                segmentUrl.startsWith(playlistOrigin);
-            if (!isProxied) {
-                return { ok: false, error: `segment not proxied, raw CDN URL leaked: ${segmentUrl.slice(0, 80)}` };
-            }
-        }
-
-        const isTtSeg = /seg\.html|enproxy/i.test(segmentUrl);
-        const segRes = await fetch(segmentUrl, {
-            method: 'GET',
-            signal: AbortSignal.timeout(10000),
-            headers: { 'User-Agent': getUA(), 'Range': 'bytes=0-187' },
-        });
-        if (segRes.status !== 200 && segRes.status !== 206 && segRes.status !== 416) {
-            return { ok: false, error: `segment fetch failed: ${segRes.status}` };
-        }
-        if (isTtSeg) {
-            const buf = await segRes.arrayBuffer();
-            const bytes = new Uint8Array(buf);
-            const checkAt = bytes.length > 120 ? bytes[120] : bytes[0];
-            if (checkAt !== 0x47) {
-                return { ok: false, error: `segment bytes invalid after strip: first byte after offset is 0x${checkAt.toString(16)}` };
-            }
-        } else {
-            segRes.body?.cancel();
-        }
 
         return { ok: true, error: null };
     } catch (err) {
