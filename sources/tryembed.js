@@ -163,8 +163,34 @@ function extractUrls(data) {
     return urls;
 }
 
+async function isAnime(tmdbId, season) {
+    try {
+        const k = process.env.TMDB_API_KEY;
+        if (!k) return false;
+        const res = await fetch(
+            `https://api.themoviedb.org/3/tv/${tmdbId}?api_key=${k}`,
+            { signal: AbortSignal.timeout(5000) }
+        );
+        if (!res.ok) { res.body?.cancel(); return false; }
+        const data = await res.json();
+        const genres = data.genres || [];
+        const originCountry = data.origin_country || [];
+        const originalLanguage = data.original_language || '';
+        const isAnimationGenre = genres.some(g => g.id === 16);
+        const isJapanese = originCountry.includes('JP') || originalLanguage === 'ja';
+        return isAnimationGenre && isJapanese;
+    } catch {
+        return false;
+    }
+}
+
 export async function getStream(tmdbId, season, episode, _clientIP, _base, audio = 'sub') {
     const mediaType = season ? 'tv' : 'movie';
+    if (mediaType === 'movie') return null;
+
+    const anime = await isAnime(tmdbId, season);
+    if (!anime) return null;
+
     const anilistId = await tmdbToAnilist(tmdbId, mediaType, season);
     if (!anilistId) return null;
 
