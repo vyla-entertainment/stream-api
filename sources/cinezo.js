@@ -121,11 +121,23 @@ function extractUrl(data) {
 
     const wrap = (url, headers = null) => {
         if (!url || typeof url !== 'string' || !url.includes('http')) return null;
+
+        if (url.includes('mp4.himanshu464121.workers.dev')) {
+            try {
+                const urlObj = new URL(url);
+                const extractedHeaders = urlObj.searchParams.get('headers');
+                if (extractedHeaders) {
+                    headers = { ...(headers || {}), ...JSON.parse(extractedHeaders) };
+                }
+            } catch (e) { }
+        }
+
         const skipProxy = url.includes('pronhub.tulnex.com') ||
             url.includes('prxy.tulnex.com') ||
-            url.includes('workers.dev') ||
+            (url.includes('workers.dev') && !url.includes('mp4.himanshu464121.workers')) ||
             url.includes('m3u8-proxy') ||
             url.includes('proxy.spencerdevs.xyz');
+
         return { url, headers, skipProxy };
     };
 
