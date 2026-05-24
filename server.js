@@ -316,6 +316,47 @@ async function verifyHlsPlayable(proxiedUrl, absoluteBase, extraHeaders = {}, sk
 
         if (!hasSegments && !hasVariants) return { ok: false, error: 'empty playlist' };
 
+        if (!skipProxyCheck) {
+            let nextUrl = lines.find(l => l && !l.startsWith('#'));
+            if (nextUrl) {
+                if (!nextUrl.startsWith('http')) nextUrl = new URL(nextUrl, proxiedUrl).href;
+
+                const nextCtrl = new AbortController();
+                const nextTimeout = setTimeout(() => nextCtrl.abort(), 8000);
+                const nextRes = await fetch(nextUrl, {
+                    method: 'GET',
+                    headers: { 'User-Agent': getUA(), ...extraHeaders, 'Range': 'bytes=0-1024' },
+                    signal: nextCtrl.signal
+                });
+                clearTimeout(nextTimeout);
+
+                if (!nextRes.ok && nextRes.status !== 206) {
+                    return { ok: false, error: `Variant/Segment fetch failed: ${nextRes.status}` };
+                }
+
+                const ct = (nextRes.headers.get('content-type') || '').toLowerCase();
+                if (ct.includes('mpegurl') || ct.includes('m3u8') || nextUrl.includes('.m3u8')) {
+                    const subText = await nextRes.text();
+                    const subLines = subText.split('\n').map(l => l.trim());
+                    let segUrl = subLines.find(l => l && !l.startsWith('#'));
+                    if (segUrl) {
+                        if (!segUrl.startsWith('http')) segUrl = new URL(segUrl, nextUrl).href;
+                        const segCtrl = new AbortController();
+                        const segTimeout = setTimeout(() => segCtrl.abort(), 8000);
+                        const segRes = await fetch(segUrl, {
+                            method: 'GET',
+                            headers: { 'User-Agent': getUA(), ...extraHeaders, 'Range': 'bytes=0-1024' },
+                            signal: segCtrl.signal
+                        });
+                        clearTimeout(segTimeout);
+                        if (!segRes.ok && segRes.status !== 206) {
+                            return { ok: false, error: `Segment fetch failed: ${segRes.status}` };
+                        }
+                    }
+                }
+            }
+        }
+
         return { ok: true, error: null };
     } catch (err) {
         return { ok: false, error: err.message };
