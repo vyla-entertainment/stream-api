@@ -1,5 +1,5 @@
 import { createHash, createDecipheriv } from 'crypto';
-const BASE_URL = 'https://sf.streammafia.to';
+const BASE_URL = 'https://player.nhdapi.com';
 
 const UA_LIST = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
@@ -11,6 +11,8 @@ const getUA = () => UA_LIST[Math.floor(Math.random() * UA_LIST.length)];
 
 export const SKIP_VERIFY = true;
 export const MULTI_URL = true;
+
+const TV_PACKAGES = ['Hydra', 'Titan', 'Nexus', 'Inferno', 'BKC'];
 
 function decryptPayload(payload) {
     const iv = Buffer.from(payload.iv, 'base64');
@@ -64,6 +66,14 @@ function extractSources(api, proxyHeaders) {
     return sources;
 }
 
+function extractFallbackSources(api, proxyHeaders) {
+    const sources = [];
+    if (api.url) {
+        sources.push({ url: api.url, headers: proxyHeaders });
+    }
+    return sources;
+}
+
 async function resolveSwitch(sw, headers, proxyHeaders) {
     try {
         const url = `${BASE_URL}/api/source/${sw.file_code}`;
@@ -76,41 +86,57 @@ async function resolveSwitch(sw, headers, proxyHeaders) {
     }
 }
 
+async function buildSession(id) {
+    const ua = getUA();
+    const headers = {
+        'User-Agent': ua,
+        Accept: 'application/json, text/javascript, */*; q=0.01',
+        'Accept-Language': 'en-US,en;q=0.9',
+        Referer: BASE_URL + '/',
+        Origin: BASE_URL,
+        Cookie: '',
+        'x-api-token': '',
+        'x-content-id': String(id),
+    };
+
+    const cookie = await getSessionCookie(headers);
+    if (!cookie) return null;
+
+    headers.Cookie = cookie.split(';')[0] || 'vid_session=' + Buffer.from(JSON.stringify({ id: String(id), iat: Date.now() })).toString('base64');
+
+    await new Promise(r => setTimeout(r, 100));
+
+    const token = await getToken(headers);
+    if (!token) return null;
+
+    headers['x-api-token'] = token;
+
+    return { headers, ua, token };
+}
+
+async function fetchTvFallback(id, s, e, headers, proxyHeaders) {
+    const results = await Promise.all(
+        TV_PACKAGES.map(async (pkg) => {
+            try {
+                const url = `${BASE_URL}/api/v3/fallback?type=tv&id=${id}&s=${s}&e=${e}&pkg=${pkg}`;
+                const encrypted = await fetchEncrypted(url, headers);
+                if (!encrypted) return [];
+                const api = decryptPayload(encrypted);
+                return extractFallbackSources(api, proxyHeaders);
+            } catch {
+                return [];
+            }
+        })
+    );
+    return results.flat();
+}
+
 export async function getStream(id, s, e) {
     try {
-        const ua = getUA();
+        const session = await buildSession(id);
+        if (!session) return null;
 
-        const headers = {
-            'User-Agent': ua,
-            Accept: 'application/json, text/javascript, */*; q=0.01',
-            'Accept-Language': 'en-US,en;q=0.9',
-            Referer: BASE_URL + '/',
-            Origin: BASE_URL,
-            Cookie: '',
-            'x-api-token': '',
-            'x-content-id': String(id),
-        };
-
-        const cookie = await getSessionCookie(headers);
-        if (!cookie) return null;
-
-        headers.Cookie = cookie.split(';')[0] || 'vid_session=' + Buffer.from(JSON.stringify({ id: String(id), iat: Date.now() })).toString('base64');
-
-        await new Promise(r => setTimeout(r, 100));
-
-        const token = await getToken(headers);
-        if (!token) return null;
-
-        headers['x-api-token'] = token;
-
-        const url = s
-            ? `${BASE_URL}/api/?tv=${id}&season=${s}&episode=${e}`
-            : `${BASE_URL}/api/movie/?id=${id}`;
-
-        const encrypted = await fetchEncrypted(url, headers);
-        if (!encrypted) return null;
-
-        const api = decryptPayload(encrypted);
+        const { headers, ua, token } = session;
 
         const proxyHeaders = {
             'User-Agent': ua,
@@ -121,13 +147,21 @@ export async function getStream(id, s, e) {
             'x-content-id': String(id),
         };
 
-        const mainSources = extractSources(api, proxyHeaders);
+        let allUrls = [];
 
-        const switchSources = api.switches?.length
-            ? (await Promise.all(api.switches.map(sw => resolveSwitch(sw, headers, proxyHeaders)))).flat()
-            : [];
-
-        const allUrls = [...mainSources, ...switchSources];
+        if (s) {
+            allUrls = await fetchTvFallback(id, s, e, headers, proxyHeaders);
+        } else {
+            const url = `${BASE_URL}/api/movie/?id=${id}`;
+            const encrypted = await fetchEncrypted(url, headers);
+            if (!encrypted) return null;
+            const api = decryptPayload(encrypted);
+            const mainSources = extractSources(api, proxyHeaders);
+            const switchSources = api.switches?.length
+                ? (await Promise.all(api.switches.map(sw => resolveSwitch(sw, headers, proxyHeaders)))).flat()
+                : [];
+            allUrls = [...mainSources, ...switchSources];
+        }
 
         const seen = new Set();
         const deduped = allUrls.filter(src => {
