@@ -56,16 +56,50 @@ async function getPlayPageData(base, slug, type, clientIP) {
         if (!res.ok) return null;
         const html = await res.text();
 
-        const hashMatch = html.match(/['"]?hash['"]?\s*[:=]\s*['"]([^'"]+)['"]/i);
-        const expiresMatch = html.match(/['"]?expires['"]?\s*[:=]\s*['"]?(\d+)['"]?/i);
+        const storageMatch = html.match(/window\[['"](?:movie|show)_storage['"]\]\s*=\s*\{([^}]+)\}/);
+        if (!storageMatch) return null;
+        const block = storageMatch[1];
+
+        const hashMatch = block.match(/hash\s*:\s*['"]([^'"]+)['"]/);
+        const expiresMatch = block.match(/expires\s*:\s*(\d+)/);
         if (!hashMatch || !expiresMatch) return null;
+
         return { html, hash: hashMatch[1], expires: expiresMatch[1] };
     } catch {
         return null;
     }
 }
 
+async function getMovieId(html) {
+    const storageMatch = html.match(/window\[['"]movie_storage['"]\]\s*=\s*\{([^}]+)\}/);
+    if (storageMatch) {
+        const idMatch = storageMatch[1].match(/id_movie\s*:\s*(\d+)/);
+        if (idMatch) return idMatch[1];
+    }
+    const match = html.match(/['"]?(?:id_movie|movieId)['"]?\s*[:=]\s*['"]?(\d+)['"]?/i);
+    return match ? match[1] : null;
+}
+
 async function getEpisodeId(html, s, e) {
+    const storageMatch = html.match(/window\[['"]show_storage['"]\]\s*=\s*\{([^}]+)\}/s);
+    if (storageMatch) {
+        const block = storageMatch[1];
+        const seasonMatch = block.match(/seasons\s*:\s*(\[[\s\S]+?\])\s*[,}]/);
+        if (seasonMatch) {
+            try {
+                const seasons = JSON.parse(seasonMatch[1]);
+                const season = seasons.find(x => String(x?.season ?? x?.meta?.season) === String(s));
+                if (season) {
+                    const eps = season.episodes;
+                    const ep = Array.isArray(eps)
+                        ? eps.find(x => String(x.episode) === String(e))
+                        : (eps?.[String(e)] || Object.values(eps || {}).find(x => String(x.episode) === String(e)));
+                    if (ep) return String(ep.id_episode ?? ep.id);
+                }
+            } catch { }
+        }
+    }
+
     const parts = html.split(/id_episode['"]?\s*[:=]\s*['"]?(\d+)['"]?/i);
     for (let i = 1; i < parts.length; i += 2) {
         const id = parts[i];
@@ -115,9 +149,38 @@ async function getEpisodeId(html, s, e) {
     return null;
 }
 
-async function getMovieId(html) {
-    const match = html.match(/['"]?(?:id_movie|movieId)['"]?\s*[:=]\s*['"]?(\d+)['"]?/i);
-    return match ? match[1] : null;
+async function getStreams(base, type, streamId, hash, expires, clientIP) {
+    const isShow = type === 'shows';
+    const accessEndpoint = isShow
+        ? `${base}/api/v1/security/episode-access?id_episode=${streamId}&hash=${hash}&expires=${expires}`
+        : `${base}/api/v1/security/movie-access?id_movie=${streamId}&hash=${hash}&expires=${expires}`;
+
+    try {
+        const headers = {
+            ...VERIFY_HEADERS,
+            'Accept': 'application/json',
+            'Referer': `${base}/`,
+            'X-Requested-With': 'XMLHttpRequest',
+        };
+        if (clientIP) headers['X-Forwarded-For'] = clientIP;
+
+        const res = await fetch(accessEndpoint, { headers, signal: AbortSignal.timeout(8000) });
+        if (!res.ok) return null;
+        const data = await res.json();
+
+        const streams = data?.streams ?? data?.result?.streams ?? data?.data?.streams ?? data;
+        if (!streams || typeof streams !== 'object') return null;
+
+        const allUrls = Object.entries(streams)
+            .filter(([, v]) => typeof v === 'string' && v.includes('.m3u8'))
+            .map(([quality, url]) => ({ url, quality, skipProxy: false, skipHlsCheck: true }));
+
+        if (!allUrls.length) return null;
+        return { allUrls };
+    } catch (err) {
+        console.error('[lookmovie] getStreams error:', err.message);
+        return null;
+    }
 }
 
 export async function getStream(id, s = null, e = null, clientIP = null, effectiveBase = '') {

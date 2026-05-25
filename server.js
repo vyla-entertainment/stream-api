@@ -280,7 +280,7 @@ async function verifyStream(rawUrl, sourceKey) {
     } catch { return false; }
 }
 
-async function verifyHlsPlayable(proxiedUrl, extraHeaders = {}, skipProxyCheck = false) {
+async function verifyPlayable(proxiedUrl, extraHeaders = {}, skipProxyCheck = false) {
     const cached = hlsVerifyCache.get(proxiedUrl);
     if (cached !== undefined) return cached;
 
@@ -301,7 +301,7 @@ async function verifyHlsPlayable(proxiedUrl, extraHeaders = {}, skipProxyCheck =
 
         const text = await m3u8Res.text();
         if (!text.trim().startsWith('#EXTM3U')) return fail('invalid m3u8');
-        if (text.includes('WRONG HASH') || text.includes('democratize artificial intelligence') || text.includes('429') || text.includes('Cloudflare')) return fail('Proxy Blocked or Invalid Hash');
+        if (/^429$|^429\s/m.test(text) || text.includes('Too Many Requests')) return fail('Proxy Blocked or Invalid Hash');
         if (!text.includes('#EXTINF') && !text.includes('#EXT-X-STREAM-INF')) return fail('empty playlist');
 
         if (!skipProxyCheck) {
@@ -343,8 +343,8 @@ async function processSourceCandidate(raw, cfg, absoluteBase, skipVerify) {
     if (skipVerify) {
         const wrapped = wrapUrl(candidate, cfg.key, absoluteBase);
         if (!wrapped) return null;
-        const hlsCheck = await verifyHlsPlayable(wrapped, {}, !!candidate.skipProxy);
-        return (hlsCheck.ok || hlsCheck.error?.includes('429') || /timeout|aborted/.test(hlsCheck.error))
+        const playableCheck = await verifyPlayable(wrapped, {}, !!candidate.skipProxy);
+        return (playableCheck.ok || playableCheck.error?.includes('429') || /timeout|aborted/.test(playableCheck.error))
             ? { source: cfg.key, label: cfg.label ?? cfg.key, url: wrapped }
             : null;
     }
@@ -354,8 +354,8 @@ async function processSourceCandidate(raw, cfg, absoluteBase, skipVerify) {
         Promise.resolve(wrapUrl(candidate, cfg.key, absoluteBase)),
     ]);
     if (!verified || !wrapped) return null;
-    const hlsCheck = await verifyHlsPlayable(wrapped, {}, false);
-    return (hlsCheck.ok || hlsCheck.error?.includes('429') || /timeout|aborted/.test(hlsCheck.error))
+    const playableCheck = await verifyPlayable(wrapped, {}, false);
+    return (playableCheck.ok || playableCheck.error?.includes('429') || /timeout|aborted/.test(playableCheck.error))
         ? { source: cfg.key, label: cfg.label ?? cfg.key, url: wrapped }
         : null;
 }
@@ -442,8 +442,8 @@ async function handleTestSource(sourceKey, id, s, e, clientIP, host) {
                 const wrappedUrl = wrapUrl(candidate, sourceKey, absoluteBase);
                 if (!wrappedUrl) continue;
                 if (candidate?.skipProxy || candidate?.skipHlsCheck) return { ok: true, url: wrappedUrl, raw_url: candidate.url };
-                const hlsCheck = await verifyHlsPlayable(wrappedUrl, {}, !!candidate.skipProxy);
-                if (hlsCheck.ok || /429|timeout|aborted/.test(hlsCheck.error)) return { ok: true, url: wrappedUrl, raw_url: candidate.url };
+                const playableCheck = await verifyPlayable(wrappedUrl, {}, !!candidate.skipProxy);
+                if (playableCheck.ok || /429|timeout|aborted/.test(playableCheck.error)) return { ok: true, url: wrappedUrl, raw_url: candidate.url };
                 try {
                     const headRes = await _originalFetch(wrappedUrl, { method: 'HEAD', headers: { 'User-Agent': getUA() }, signal: AbortSignal.timeout(8000), redirect: 'follow' });
                     headRes.body?.cancel();
@@ -454,14 +454,14 @@ async function handleTestSource(sourceKey, id, s, e, clientIP, host) {
                 if (!(await verifyStream(candidate.url, sourceKey))) continue;
                 const wrappedUrl = wrapUrl(candidate, sourceKey, absoluteBase);
                 if (!wrappedUrl) continue;
-                const hlsCheck = await verifyHlsPlayable(wrappedUrl);
-                if (!hlsCheck.ok) {
+                const playableCheck = await verifyPlayable(wrappedUrl);
+                if (!playableCheck.ok) {
                     const rawHeaders = candidate?.headers || {};
                     const [proxiedBody, rawCheck] = await Promise.all([
                         _originalFetch(wrappedUrl, { signal: AbortSignal.timeout(20000), headers: { 'User-Agent': getUA() } }).then(r => r.text()).then(t => t.slice(0, 200)).catch(e => e.message),
-                        verifyHlsPlayable(candidate.url, rawHeaders),
+                        verifyPlayable(candidate.url, rawHeaders),
                     ]);
-                    return { ok: false, error: hlsCheck.error, raw_url: candidate.url, debug: { proxy_failed: true, proxy_error: hlsCheck.error, proxy_body_preview: proxiedBody, raw_reachable: rawCheck.ok, raw_error: rawCheck.error, raw_headers_used: rawHeaders, proxied_url: wrappedUrl } };
+                    return { ok: false, error: playableCheck.error, raw_url: candidate.url, debug: { proxy_failed: true, proxy_error: playableCheck.error, proxy_body_preview: proxiedBody, raw_reachable: rawCheck.ok, raw_error: rawCheck.error, raw_headers_used: rawHeaders, proxied_url: wrappedUrl } };
                 }
                 return { ok: true, url: wrappedUrl, raw_url: candidate.url };
             }
@@ -693,17 +693,30 @@ async function handleRequest(req, res) {
             debugLock.delete(lockKey);
         } catch (err) { streamError = err.message; }
         const candidates = streamResult?.allUrls || (streamResult ? [streamResult] : []);
+
         const checks = await Promise.all(candidates.slice(0, 3).map(async (raw, i) => {
             const rawUrl = typeof raw === 'object' ? raw.url : raw;
             const rawHeaders = (typeof raw === 'object' && raw.headers) ? raw.headers : {};
-            let m3u8Preview = null, hlsCheck = null;
+            const wrappedUrl = wrapUrl(typeof raw === 'object' ? raw : { url: raw }, sourceKey, absoluteBase);
+            let m3u8Preview = null, mp4Preview = null, playable_check = null;
             try {
-                const r = await _originalFetch(rawUrl, { signal: AbortSignal.timeout(20000), headers: { 'User-Agent': getUA(), ...rawHeaders } });
-                m3u8Preview = (await r.text()).slice(0, 400);
-                hlsCheck = await verifyHlsPlayable(rawUrl, rawHeaders, !!(typeof raw === 'object' && raw?.skipProxy));
-            } catch (err) { hlsCheck = { ok: false, error: err.message }; }
-            return { index: i, raw_url: rawUrl, proxy_url: rawUrl, hls_check: hlsCheck, m3u8_preview: m3u8Preview };
+                const fetchUrl = wrappedUrl || rawUrl;
+                const fetchHeaders = wrappedUrl ? { 'User-Agent': getUA() } : { 'User-Agent': getUA(), ...rawHeaders };
+                const r = await _originalFetch(fetchUrl, { signal: AbortSignal.timeout(20000), headers: { ...fetchHeaders, 'Range': 'bytes=0-511' } });
+                const ct = (r.headers.get('content-type') || '').toLowerCase();
+                const isMp4 = /\.mp4(\?|$)/i.test(fetchUrl) || ct.includes('video/mp4') || ct.includes('video/mp2t') || ct.includes('octet-stream');
+                if (isMp4) {
+                    const bytes = new Uint8Array(await r.arrayBuffer());
+                    mp4Preview = Array.from(bytes.slice(0, 32)).map(b => b.toString(16).padStart(2, '0')).join(' ');
+                    playable_check = { ok: r.ok || r.status === 206, error: (r.ok || r.status === 206) ? null : `mp4 fetch failed: ${r.status}` };
+                } else {
+                    m3u8Preview = (await r.text()).slice(0, 400);
+                    playable_check = await verifyPlayable(fetchUrl, fetchHeaders, !wrappedUrl);
+                }
+            } catch (err) { playable_check = { ok: false, error: err.message }; }
+            return { index: i, raw_url: rawUrl, proxy_url: wrappedUrl, playable_check, m3u8_preview: m3u8Preview, mp4_preview: mp4Preview };
         }));
+
         return respondJson(200, { source: sourceKey, id, candidates: candidates.length, checks, elapsed_ms: Date.now() - t0, stream_error: streamError, fetch_trace: fetchTrace, got_result: streamResult !== null, result_keys: streamResult ? Object.keys(streamResult) : null });
     }
 
