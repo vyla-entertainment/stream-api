@@ -214,40 +214,34 @@ function rewriteM3u8(body, url, extraParam, absoluteBase) {
     return out.join('\n');
 }
 
-function fetchAllSources() {
-    const endpoint = store.s
-        ? `${baseURL}/api/tv?id=${store.id}&season=${store.s}&episode=${store.e || '1'}`
-        : `${baseURL}/api/movie?id=${store.id}`;
+function fetchSource(cfg, cacheKey, id, s, e, clientIP, absoluteBase, fallbackBase) {
+    const mod = SOURCE_MODULES[cfg.key];
+    const effectiveBase = getEffectiveBase(absoluteBase);
+    const audio = (cfg.key === 'tryembed-dub' || cfg.key === 'vidnest-dub') ? 'dub' : 'sub';
 
-    return new Promise((resolve, reject) => {
-        const sourcesData = [];
-        let firstResolved = false;
-        const es = new EventSource(endpoint);
-
-        es.onmessage = (event) => {
-            const msg = JSON.parse(event.data);
-            if (msg.type === "source") {
-                const s = msg.source;
-                const entry = { label: s.label, source: s.source, url: s.url };
-                sourcesData.push(entry);
-
-                if (!firstResolved) {
-                    firstResolved = true;
-                    resolve({ first: entry, aggregated: sourcesData });
-                } else {
-                    if (typeof store.buildSourceList === "function") store.buildSourceList();
-                }
+    if (cfg.multiBase) {
+        return withTimeout(jitter(cfg.jitter).then(async () => {
+            for (const base of mod.BASES) {
+                const res = await getCached(`${cfg.key}-${base}-${cacheKey}`, () => withRetry(() => mod.getStream(id, s, e, base, clientIP, audio), cfg.retries, 500));
+                if (res) return res;
             }
-            if (msg.type === "done") {
-                es.close();
-                if (!firstResolved) reject(new Error("no working sources"));
-            }
-        };
-        es.onerror = () => {
-            es.close();
-            if (!firstResolved) reject(new Error("stream failed"));
-        };
-    });
+            return null;
+        }), cfg.timeout);
+    }
+
+    const primaryTimeout = fallbackBase ? Math.floor(cfg.timeout * 0.6) : cfg.timeout;
+    return withTimeout(jitter(cfg.jitter).then(async () => {
+        const primary = await withTimeout(
+            getCached(`${cfg.key}-${cacheKey}`, () => withRetry(() => mod.getStream(id, s, e, clientIP, effectiveBase, audio), cfg.retries, 1000)),
+            primaryTimeout
+        );
+        if (primary) return primary;
+        if (!fallbackBase) return null;
+        return withTimeout(
+            getCached(`${cfg.key}-fallback-${cacheKey}`, () => withRetry(() => mod.getStream(id, s, e, clientIP, fallbackBase, audio), cfg.retries, 1000)),
+            cfg.timeout - primaryTimeout
+        );
+    }), cfg.timeout);
 }
 
 function wrapUrl(rawUrl, sourceKey, absoluteBase = '') {
