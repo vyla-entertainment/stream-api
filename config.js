@@ -1,14 +1,14 @@
 export const SOURCES = [
-    { key: 'vidlink', sourceFile: 'vidlink', label: 'VidLink', proxyParam: 'vl', timeout: 15000, jitter: 500, retries: 2 },
-    { key: 'vidzee', sourceFile: 'vidzee', label: 'VidZee', proxyParam: 'vz', timeout: 20000, jitter: 400, retries: 3, sourcesTimeout: 10000 },
+    { key: 'miruro-sub', sourceFile: 'miruro', label: 'Miruro (Sub)', proxyParam: 'mrsub', timeout: 25000, jitter: 500, retries: 2 },
+    { key: 'miruro-dub', sourceFile: 'miruro', label: 'Miruro (Dub)', proxyParam: 'mrdub', timeout: 25000, jitter: 500, retries: 2 },
     { key: 'meowtv', sourceFile: 'meowtv', label: 'MeowTV', proxyParam: 'mt', timeout: 15000, jitter: 500, retries: 2 },
-    { key: 'flixhq', sourceFile: 'flixhq', label: 'FlixHQ', proxyParam: 'fq', timeout: 20000, jitter: 600, retries: 2 },
+    { key: 'flixhq', sourceFile: 'flixhq', label: 'FlixHQ', proxyParam: 'fq', timeout: 20000, jitter: 600, retries: 2, disabled: true },
     { key: 'cinesu', sourceFile: 'cinesu', label: 'CineSu', proxyParam: 'cs', timeout: 15000, jitter: 500, retries: 2 },
     { key: 'icefy', sourceFile: 'icefy', label: 'Icefy', proxyParam: 'iy', timeout: 20000, jitter: 500, retries: 2, sourcesTimeout: 10000 },
     { key: 'vidrock', sourceFile: 'vidrock', label: 'VidRock', proxyParam: 'vr', timeout: 20000, jitter: 800, retries: 3 },
-    { key: 'vidsrc', sourceFile: 'vidsrc', label: 'VidSrc', proxyParam: 'vs', timeout: 20000, jitter: 700, retries: 2, sourcesTimeout: 10000, disabled: true },
+    { key: 'vidlink', sourceFile: 'vidlink', label: 'VidLink', proxyParam: 'vl', timeout: 15000, jitter: 500, retries: 2 },
+    { key: 'vidzee', sourceFile: 'vidzee', label: 'VidZee', proxyParam: 'vz', timeout: 20000, jitter: 400, retries: 3, sourcesTimeout: 10000 },
     { key: 'vixsrc', label: 'VixSrc', sourceFile: 'vixsrc', proxyParam: 'vx', timeout: 35000, retries: 2, jitter: 0, skipProxy: false },
-    { key: 'videasy', sourceFile: 'videasy', label: 'Videasy', proxyParam: 'vy', timeout: 40000, jitter: 900, retries: 3, sourcesTimeout: 10000 },
     { key: 'nhdapi', sourceFile: 'nhdapi', label: 'nhdapi', proxyParam: 'nhd', timeout: 20000, jitter: 600, retries: 2 },
     { key: '02movie', sourceFile: '02movie', label: '02Movie', proxyParam: 'zm', timeout: 35000, jitter: 600, retries: 1 },
     { key: 'moviebox', sourceFile: 'moviebox', label: 'MovieBox', proxyParam: 'mb', timeout: 20000, jitter: 500, retries: 2, sourcesTimeout: 10000, disabled: true },
@@ -30,8 +30,9 @@ export const SOURCES = [
     { key: 'toustream', sourceFile: 'toustream', label: 'TouStream', proxyParam: 'ts', timeout: 20000, jitter: 400, retries: 1, disabled: true },
     { key: 'flaxmovies', sourceFile: 'flaxmovies', label: 'FlaxMovies', proxyParam: 'fx', timeout: 20000, jitter: 500, retries: 2 },
     { key: 'vapor', sourceFile: 'vapor', label: 'Vapor', proxyParam: 'vp', timeout: 20000, jitter: 500, retries: 2 },
-    { key: 'miruro-sub', sourceFile: 'miruro', label: 'Miruro (Sub)', proxyParam: 'mrsub', timeout: 25000, jitter: 500, retries: 2 },
-    { key: 'miruro-dub', sourceFile: 'miruro', label: 'Miruro (Dub)', proxyParam: 'mrdub', timeout: 25000, jitter: 500, retries: 2 },
+    { key: 'vidsrc', sourceFile: 'vidsrc', label: 'VidSrc', proxyParam: 'vs', timeout: 20000, jitter: 700, retries: 2, sourcesTimeout: 10000, disabled: true },
+    { key: 'videasy', sourceFile: 'videasy', label: 'Videasy', proxyParam: 'vy', timeout: 40000, jitter: 900, retries: 3, sourcesTimeout: 10000 },
+
 ];
 
 export const SOURCE_MAP = Object.fromEntries(SOURCES.map(s => [s.key, s]));

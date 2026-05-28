@@ -2,16 +2,16 @@ import { createRequire } from 'module';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import https from 'https';
 
 const require = createRequire(import.meta.url);
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const REFERER = 'https://vidlink.pro/';
 const ORIGIN = 'https://vidlink.pro';
-const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124';
+const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36 Edg/148.0.0.0';
 
 export const VERIFY_HEADERS = {
-    Referer: REFERER,
+    Referer: `${ORIGIN}/`,
     Origin: ORIGIN,
 };
 
@@ -19,12 +19,12 @@ export const CDN_HEADERS = [
     {
         pattern: /vodvidl\.site|vidldl\.site|vidldr\.site/i,
         headers: {
-            'Referer': REFERER,
-            'Origin': ORIGIN,
+            'Referer': 'https://vidlink.pro/',
+            'Origin': 'https://vidlink.pro',
             'Accept': '*/*',
             'Accept-Language': 'en-US,en;q=0.9',
-            'sec-fetch-dest': 'empty',
-            'sec-fetch-mode': 'cors',
+            'sec-fetch-dest': 'video',
+            'sec-fetch-mode': 'no-cors',
             'sec-fetch-site': 'cross-site',
         },
     },
@@ -59,30 +59,158 @@ function bootWasm() {
     return bootPromise;
 }
 
+function http1Fetch(url) {
+    return new Promise((resolve, reject) => {
+        const u = new URL(url);
+        const req = https.request({
+            hostname: u.hostname,
+            path: u.pathname + u.search,
+            method: 'GET',
+            headers: {
+                'User-Agent': UA,
+                'Accept': '*/*',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Connection': 'keep-alive',
+            },
+        }, (res) => {
+            const chunks = [];
+            res.on('data', chunk => {
+                chunks.push(chunk);
+            });
+            res.on('end', () => {
+                const buf = Buffer.concat(chunks);
+                resolve({ status: res.statusCode, ok: res.statusCode >= 200 && res.statusCode < 300, headers: res.headers, buf });
+            });
+            res.on('error', e => {
+                reject(e);
+            });
+        });
+        req.on('error', e => {
+            reject(e);
+        });
+        req.end();
+    });
+}
+
+async function decompressResponse(buf, encoding) {
+    const { createBrotliDecompress, createGunzip, createInflate } = await import('zlib');
+    const { pipeline } = await import('stream/promises');
+    const { Readable, PassThrough } = await import('stream');
+
+    if (!encoding || encoding.trim() === '') {
+        const raw = buf.toString('utf8');
+        return raw;
+    }
+
+    const output = new PassThrough();
+    const chunks = [];
+    output.on('data', c => chunks.push(c));
+
+    const input = Readable.from(buf);
+    let decomp;
+    if (encoding === 'br') {
+        decomp = createBrotliDecompress();
+    } else if (encoding === 'gzip') {
+        decomp = createGunzip();
+    } else if (encoding === 'deflate') {
+        decomp = createInflate();
+    } else {
+        return buf.toString('utf8');
+    }
+
+    try {
+        await pipeline(input, decomp, output);
+    } catch (err) {
+        return buf.toString('utf8');
+    }
+
+    const result = Buffer.concat(chunks).toString('utf8');
+    return result;
+}
+
 export async function getStream(id, s, e) {
     await bootWasm();
+
     const token = globalThis.getAdv(String(id));
     if (!token) throw new Error('getAdv returned null');
 
     const apiUrl = s
-        ? `https://vidlink.pro/api/b/tv/${token}/${s}/${e || 1}?multiLang=0`
-        : `https://vidlink.pro/api/b/movie/${token}?multiLang=0`;
+        ? `${ORIGIN}/api/b/tv/${token}/${s}/${e || 1}?multiLang=0`
+        : `${ORIGIN}/api/b/movie/${token}?multiLang=0`;
 
-    const res = await fetch(apiUrl, {
-        headers: { Referer: REFERER, Origin: ORIGIN, 'User-Agent': UA },
-    });
-    if (!res.ok) throw new Error(`vidlink API ${res.status}`);
-    const data = await res.json();
+    const { status, ok, headers, buf } = await http1Fetch(apiUrl);
+
+
+    if (!ok) throw new Error(`vidlink API ${status}`);
+
+    const encoding = headers['content-encoding'] || '';
+
+    const text = await decompressResponse(buf, encoding);
+
+    if (!text || text.trim() === '') throw new Error('vidlink API returned empty body');
+
+    let data;
+    try {
+        data = JSON.parse(text);
+    } catch (err) {
+        throw new Error(`vidlink JSON parse failed. Body preview: ${text.slice(0, 300)}`);
+    }
+
+    const pageReferer = s ? `${ORIGIN}/tv/${id}` : `${ORIGIN}/movie/${id}`;
     const playlist = data?.stream?.playlist;
-    if (!playlist) throw new Error('no playlist in response');
+    const qualities = data?.stream?.qualities;
 
-    const playlistUrl = new URL(playlist);
-    playlistUrl.searchParams.delete('headers');
-    playlistUrl.searchParams.delete('host');
-    const cleanPlaylist = playlistUrl.toString();
+    if (playlist) {
+        const playlistUrl = new URL(playlist);
+        playlistUrl.searchParams.delete('headers');
+        playlistUrl.searchParams.delete('host');
 
-    return {
-        url: cleanPlaylist,
-        headers: { Referer: REFERER, Origin: ORIGIN },
-    };
+        return {
+            url: u.toString(),
+            headers: {
+                'Referer': 'https://vidlink.pro/',
+                'Origin': 'https://vidlink.pro',
+            },
+        };
+    }
+
+    if (qualities) {
+        const preferred = ['1080', '720', '480', '360'];
+        let picked = null;
+        for (const q of preferred) {
+            if (qualities[q]?.url) { picked = qualities[q].url; break; }
+        }
+        if (!picked) {
+            const first = Object.values(qualities).find(v => v?.url);
+            if (first) picked = first.url;
+        }
+
+        if (picked) {
+            const u = new URL(picked);
+            const embeddedHeaders = u.searchParams.get('headers');
+            u.searchParams.delete('headers');
+            u.searchParams.delete('host');
+
+            let cdnReferer = 'https://filmboom.top/';
+            let cdnOrigin = 'https://filmboom.top';
+            if (embeddedHeaders) {
+                try {
+                    const parsed = JSON.parse(embeddedHeaders);
+                    if (parsed.referer) cdnReferer = parsed.referer;
+                    if (parsed.origin) cdnOrigin = parsed.origin;
+                } catch { }
+            }
+
+            return {
+                url: u.toString(),
+                headers: {
+                    'Referer': cdnReferer,
+                    'Origin': cdnOrigin,
+                },
+            };
+        }
+    }
+
+    throw new Error(`no playlist or qualities in response. Keys: ${Object.keys(data || {}).join(', ')}`);
 }
