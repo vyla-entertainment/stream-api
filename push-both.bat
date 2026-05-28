@@ -9,11 +9,15 @@ git remote remove hf 2>nul
 git remote add hf https://huggingface.co/spaces/MissouriMonster/vyla
 
 git remote remove hf2 2>nul
-git remote add hf2 https://huggingface.co/spaces/MissouriMonster/momo
+git remote add hf2 https://huggingface.co/spaces/MissouriMonster/stopusingthislink4urproject
+
+git remote remove hf3 2>nul
+git remote add hf3 https://huggingface.co/spaces/MissouriMonster/momo
 
 echo Pushing to Hugging Face...
 git push hf main --force
 git push hf2 main --force
+git push hf3 main --force
 
 echo Pushing to GitHub...
 git push github main --force
