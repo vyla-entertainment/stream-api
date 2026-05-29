@@ -1,7 +1,7 @@
 import { webcrypto } from 'crypto';
 
 const BASE = 'https://flixhq.one';
-const F16PX = 'https://f16px.com';
+const F16PX = 'https://weneverbeenfree.com';
 
 export const SKIP_VERIFY = true;
 
@@ -71,13 +71,16 @@ async function fetchEmbedUrl(token, pageUrl, isMovie = false) {
     const list = await res.json();
     const arr = Array.isArray(list) ? list : (list ? [list] : []);
     if (arr[0]?.error) throw new Error(`ajax.php error: ${arr[0].error}`);
-    const entry = arr.find(x => x.link && x.link.includes('f16px.com'));
-    if (!entry) throw new Error(`no f16px entry: ${JSON.stringify(arr)}`);
+    const entry = arr.find(x => x.link && x.link.includes('weneverbeenfree.com'))
+        || arr.find(x => x.link && x.name === 'FlixHQ')
+        || arr.find(x => x.link);
+    if (!entry) throw new Error(`no usable entry: ${JSON.stringify(arr)}`);
     return entry.link;
 }
 
 function extractVideoId(embedUrl) {
-    const m = embedUrl.match(/f16px\.com\/e\/([a-zA-Z0-9_-]+)/);
+    const m = embedUrl.match(/weneverbeenfree\.com\/e\/([a-zA-Z0-9_-]+)/)
+        || embedUrl.match(/f16px\.com\/e\/([a-zA-Z0-9_-]+)/);
     if (!m) throw new Error('no video id in ' + embedUrl);
     return m[1];
 }
