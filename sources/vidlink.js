@@ -167,7 +167,7 @@ export async function getStream(id, s, e) {
         playlistUrl.searchParams.delete('host');
 
         return {
-            url: u.toString(),
+            url: playlistUrl.toString(),
             headers: {
                 'Referer': 'https://vidlink.pro/',
                 'Origin': 'https://vidlink.pro',
