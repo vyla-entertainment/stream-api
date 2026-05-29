@@ -550,8 +550,11 @@ async function handleRequest(req, res) {
         ]);
         res.write(`data: ${JSON.stringify({ type: 'meta', meta, subtitles: subtitles || [] })}\n\n`);
 
-        const total = await streamSources(ACTIVE_SOURCES, id, null, null, clientIP, absoluteBase, res);
-        res.write(`data: ${JSON.stringify({ type: 'done', total })}\n\n`);
+        const requestedSources = searchParams.get('sources')?.split(',').map(s => s.trim()).filter(Boolean) ?? [];
+        const sourcesToUse = requestedSources.length
+            ? ACTIVE_SOURCES.filter(s => requestedSources.includes(s.key))
+            : ACTIVE_SOURCES;
+        const total = await streamSources(sourcesToUse, id, null, null, clientIP, absoluteBase, res); res.write(`data: ${JSON.stringify({ type: 'done', total })}\n\n`);
         res.end();
         return null;
     }
@@ -571,8 +574,11 @@ async function handleRequest(req, res) {
         ]);
         res.write(`data: ${JSON.stringify({ type: 'meta', meta, subtitles: subtitles || [] })}\n\n`);
 
-        const total = await streamSources(ACTIVE_SOURCES, id, s, e, clientIP, absoluteBase, res);
-        res.write(`data: ${JSON.stringify({ type: 'done', total })}\n\n`);
+        const requestedSources = searchParams.get('sources')?.split(',').map(s => s.trim()).filter(Boolean) ?? [];
+        const sourcesToUse = requestedSources.length
+            ? ACTIVE_SOURCES.filter(src => requestedSources.includes(src.key))
+            : ACTIVE_SOURCES;
+        const total = await streamSources(sourcesToUse, id, s, e, clientIP, absoluteBase, res); res.write(`data: ${JSON.stringify({ type: 'done', total })}\n\n`);
         res.end();
         return null;
     }
