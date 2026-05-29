@@ -1,37 +1,21 @@
 @echo off
-
 echo Setting up remotes...
 
-git remote remove github 2>nul
-git remote add github https://github.com/vyla-entertainment/stream-api.git
+call :add github https://github.com/vyla-entertainment/stream-api.git
+call :add hf https://huggingface.co/spaces/MissouriMonster/vyla
+call :add hf2 https://huggingface.co/spaces/MissouriMonster/stopusingthislink4urproject
+call :add hf3 https://huggingface.co/spaces/MissouriMonster/momo
+call :add hf4 https://huggingface.co/spaces/MissouriMonster/popr
+call :add hf5 https://huggingface.co/spaces/MissouriMonster/peaktv
+call :add hf6 https://huggingface.co/spaces/MissouriMonster/movieslay
 
-git remote remove hf 2>nul
-git remote add hf https://huggingface.co/spaces/MissouriMonster/vyla
-
-git remote remove hf2 2>nul
-git remote add hf2 https://huggingface.co/spaces/MissouriMonster/stopusingthislink4urproject
-
-git remote remove hf3 2>nul
-git remote add hf3 https://huggingface.co/spaces/MissouriMonster/momo
-
-git remote remove hf4 2>nul
-git remote add hf4 https://huggingface.co/spaces/MissouriMonster/popr
-
-git remote remove hf5 2>nul
-git remote add hf5 https://huggingface.co/spaces/MissouriMonster/peaktv
-
-git remote remove hf6 2>nul
-git remote add hf6 https://huggingface.co/spaces/MissouriMonster/movieslay
-
-echo Pushing to Hugging Face...
-git push hf main --force
-git push hf2 main --force
-git push hf3 main --force
-git push hf4 main --force
-git push hf5 main --force
-git push hf6 main --force
-
-echo Pushing to GitHub...
-git push github main --force
+echo Pushing...
+for %%R in (github hf hf2 hf3 hf4 hf5 hf6) do git push %%R main --force
 
 echo Done!
+exit /b
+
+:add
+git remote remove %1 2>nul
+git remote add %1 %2
+exit /b
