@@ -7,8 +7,12 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+let LOGO_TEXT = '';
+try { LOGO_TEXT = fs.readFileSync(path.join(__dirname, 'public/logo.txt'), 'utf8'); } catch { }
+
 if (cluster.isPrimary) {
-    cluster.fork();
+    const workerCount = process.env.SPACE_ID ? 4 : 1;
+    for (let i = 0; i < workerCount; i++) cluster.fork();
 
     const toWatch = [
         fileURLToPath(import.meta.url),
@@ -478,12 +482,14 @@ const ROUTE_TESTS = {
     download_tv: /^\/(?:api\/)?downloads?\/tv\/([^/]+)\/([^/]+)\/([^/]+)$/,
 };
 
+const EARLY_CLOSE_MS = 12000;
+
 async function streamSources(sources, id, s, e, clientIP, absoluteBase, res) {
     const sent = new Set();
     const host = absoluteBase.replace('http://', '').replace('https://', '');
     const debugResults = [];
 
-    await Promise.allSettled(sources.map(async cfg => {
+    const tasks = sources.map(async cfg => {
         try {
             const tck = `test-${cfg.key}-${id}-${s || ''}-${e || ''}`;
             testResultCache.map.delete(tck);
@@ -497,7 +503,12 @@ async function streamSources(sources, id, s, e, clientIP, absoluteBase, res) {
         } catch (err) {
             debugResults.push({ source: cfg.key, ok: false, error: err.message });
         }
-    }));
+    });
+
+    await Promise.race([
+        Promise.allSettled(tasks),
+        new Promise(r => setTimeout(r, EARLY_CLOSE_MS))
+    ]);
 
     res.write(`data: ${JSON.stringify({ type: 'debug', results: debugResults })}\n\n`);
     return sent.size;
@@ -510,15 +521,11 @@ async function handleRequest(req, res) {
     const clientIP = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || null;
 
     if (req.method === 'OPTIONS') return { status: 204, body: '', headers: CORS_HEADERS };
-    const logo = fs.readFileSync(
-        path.join(__dirname, 'public/logo.txt'),
-        'utf8'
-    );
 
     if (pathname === '/' || pathname === '') {
         return {
             status: 200,
-            body: `${logo}
+            body: `${LOGO_TEXT}
 
 developed_by: @vyla-entertainment
 github: https://github.com/vyla-entertainment
@@ -844,6 +851,7 @@ docs: https://vyla.mintlify.app
 const PORT = process.env.PORT || 7860;
 
 http.createServer(async (req, res) => {
+    req.socket.setTimeout(60000);
     try {
         const result = await handleRequest(req, res);
         if (result === null) return;
