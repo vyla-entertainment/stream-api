@@ -106,7 +106,7 @@ export async function getStream(id, s, e) {
 
         let html2;
         try {
-            html2 = await fetchHtml(rcpUrl, { 'Referer': BASE_URL + '/' }, signal);
+            html2 = await fetchHtml(rcpUrl, { 'Referer': 'https://cloudnestra.com/' }, signal);
         } catch (err) {
             throw new Error(`vidify step2 (${rcpUrl}): ${err.message}`);
         }
