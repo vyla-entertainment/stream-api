@@ -315,9 +315,7 @@ function extractUrl(data) {
         const { unwrapped, headers: extractedHeaders } = unwrapTulnexProxy(url);
         const mergedHeaders = { ...(extractedHeaders || {}), ...(headers || {}) };
         const finalHeaders = Object.keys(mergedHeaders).length > 0 ? mergedHeaders : null;
-        const skipProxy = (unwrapped.includes('workers.dev') && !unwrapped.includes('mp4.himanshu464121.workers')) ||
-            unwrapped.includes('proxy.spencerdevs.xyz');
-        return { url: unwrapped, headers: finalHeaders, skipProxy };
+        return { url: unwrapped, headers: finalHeaders };
     };
 
     if (typeof data === 'string' && data.includes('http')) return wrap(data);
