@@ -14,6 +14,7 @@ import { Readable } from 'stream';
 dotenv.config();
 
 const rateLimitMap = new Map();
+const BLOCKED_IPS = new Set(['45.150.110.57']); // Contact me via discord if you are being blocked, I'll spin up a custom server for you: https://vyla.pages.dev/discord
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -532,12 +533,14 @@ async function handleRequest(req, res) {
 
     if (req.method === 'OPTIONS') return { status: 204, body: '', headers: CORS_HEADERS };
 
+    if (BLOCKED_IPS.has(clientIP)) return respondJson(403, { error: 'forbidden' });
+
     const now = Date.now();
     const rl = rateLimitMap.get(clientIP) || { count: 0, ts: now };
     if (now - rl.ts > 10000) { rl.count = 0; rl.ts = now; }
     rl.count++;
     rateLimitMap.set(clientIP, rl);
-    if (rl.count > 20) return respondJson(429, { error: 'rate limited' });
+    if (rl.count > 50) return respondJson(429, { error: 'rate limited' });
 
     if (req.method === 'OPTIONS') return { status: 204, body: '', headers: CORS_HEADERS };
 
