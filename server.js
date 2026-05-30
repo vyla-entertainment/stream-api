@@ -531,8 +531,6 @@ async function handleRequest(req, res) {
     const { pathname, searchParams } = reqUrl;
     const clientIP = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket?.remoteAddress || null;
 
-    if (req.method === 'OPTIONS') return { status: 204, body: '', headers: CORS_HEADERS };
-
     if (BLOCKED_IPS.has(clientIP)) return respondJson(403, { error: 'forbidden' });
 
     const now = Date.now();
