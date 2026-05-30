@@ -48,7 +48,7 @@ export async function getStream(id, s, e) {
             .map(u => ({ url: u, headers }));
 
         if (!allUrls.length) return null;
-        return { allUrls };
+        return { allUrls, url: allUrls[0].url, headers: allUrls[0].headers };
     } catch {
         return null;
     }

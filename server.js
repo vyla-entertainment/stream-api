@@ -46,7 +46,7 @@ dotenv.config();
 const _originalFetch = globalThis.fetch;
 const IS_HF = !!process.env.SPACE_ID;
 const FALLBACK_BASE = 'https://boltunblocker.com/strapi';
-const NEED_PROXY_REGEX = /https?:\/\/(api2?\.videasy\.net|api\.dmvdriverseducation\.org|api\.tulnex\.com|strategicgrowthpartners\.site|cloudnestra\.com|(www\.)?lookmovie2?\.to|(www\.)?lookmovie\.foundation|.*\.theaky\.store|.*\.akamaihd\.net|.*\.vix-content\.net|vixsrc\.to)/i;
+const NEED_PROXY_REGEX = /https?:\/\/(api2?\.videasy\.net|api\.dmvdriverseducation\.org|api\.tulnex\.com|strategicgrowthpartners\.site|cloudnestra\.com|(www\.)?lookmovie2?\.to|(www\.)?lookmovie\.foundation|.*\.theaky\.store|.*\.akamaihd\.net|.*\.vix-content\.net|vixsrc\.to|.*\.hakunaymatata\.com)/i;
 const M3U8_REGEX = /\.m3u8?(\?|$)|mpegurl|m3u8/i;
 const TIKTOK_REGEX = /tiktokcdn\.com|ibyteimg\.com/i;
 const STRIP_REGEX = /seg\.html|enproxy|letsgocdn\d+\.shop/i;
@@ -682,6 +682,9 @@ docs: https://vyla.mintlify.app
             const wrappedUrl = wrapUrl(typeof raw === 'object' ? raw : { url: raw }, sourceKey, absoluteBase);
             let m3u8Preview = null, mp4Preview = null, playable_check = null;
             try {
+                if (raw?.skipProxy) {
+                    return { index: i, raw_url: rawUrl, proxy_url: rawUrl, playable_check: { ok: true, error: null }, m3u8_preview: 'skipped: direct client playback', mp4_preview: null };
+                }
                 const fetchUrl = wrappedUrl || rawUrl;
                 const fetchHeaders = wrappedUrl ? { 'User-Agent': getUA() } : { 'User-Agent': getUA(), ...rawHeaders };
                 const r = await _originalFetch(fetchUrl, { signal: AbortSignal.timeout(20000), headers: { ...fetchHeaders, 'Range': 'bytes=0-511' } });

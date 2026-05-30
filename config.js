@@ -15,7 +15,6 @@ export const SOURCES = [
     { key: 'vidnest', label: 'VidNest', sourceFile: 'vidnest', proxyParam: 'vdn', timeout: 20000, retries: 1, jitter: 0 },
     { key: 'vidnest-sub', label: 'VidNest (Sub)', sourceFile: 'vidnest', proxyParam: 'vdn', timeout: 20000, retries: 1, jitter: 0 },
     { key: 'vidnest-dub', label: 'VidNest (Dub)', sourceFile: 'vidnest', proxyParam: 'vdn', timeout: 20000, retries: 1, jitter: 0 },
-    { key: 'popr', sourceFile: 'popr', label: 'Popr', proxyParam: 'pp', timeout: 20000, jitter: 600, retries: 2, disabled: true },
     { key: 'cinezo', sourceFile: 'cinezo', label: 'Cinezo', proxyParam: 'cz', timeout: 60000, jitter: 500, retries: 2 },
     { key: 'vidfun', sourceFile: 'vidfun', label: 'VidFun', proxyParam: 'vf', timeout: 20000, jitter: 500, retries: 2, disabled: true },
     { key: 'fsharetv', sourceFile: 'fsharetv', label: 'FShareTV', proxyParam: 'fs', timeout: 25000, jitter: 600, retries: 2 },
@@ -29,9 +28,9 @@ export const SOURCES = [
     { key: 'toustream', sourceFile: 'toustream', label: 'TouStream', proxyParam: 'ts', timeout: 20000, jitter: 400, retries: 1 },
     { key: 'flaxmovies', sourceFile: 'flaxmovies', label: 'FlaxMovies', proxyParam: 'fx', timeout: 20000, jitter: 500, retries: 2 },
     { key: 'vapor', sourceFile: 'vapor', label: 'Vapor', proxyParam: 'vp', timeout: 20000, jitter: 500, retries: 2 },
-    { key: 'vidsrc', sourceFile: 'vidsrc', label: 'VidSrc', proxyParam: 'vs', timeout: 20000, jitter: 700, retries: 2, sourcesTimeout: 10000, disabled: true },
+    { key: 'vidsrc', sourceFile: 'vidsrc', label: 'VidSrc', proxyParam: 'vs', timeout: 20000, jitter: 700, retries: 2, sourcesTimeout: 10000 },
     { key: 'videasy', sourceFile: 'videasy', label: 'Videasy', proxyParam: 'vy', timeout: 40000, jitter: 900, retries: 3, sourcesTimeout: 10000 },
-
+    { key: 'peachify', sourceFile: 'peachify', label: 'Peachify', proxyParam: 'py', timeout: 30000, jitter: 500, retries: 2 },
 ];
 
 export const SOURCE_MAP = Object.fromEntries(SOURCES.map(s => [s.key, s]));

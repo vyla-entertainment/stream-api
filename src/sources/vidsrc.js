@@ -15,13 +15,13 @@ const PLAYER_DOMAINS = {
 };
 
 export const PROXY_HEADERS = {
+    'User-Agent': HEADERS['User-Agent'],
     'Referer': 'https://cloudnestra.com/',
     'Origin': 'https://cloudnestra.com',
-    'User-Agent': HEADERS['User-Agent'],
+    'Accept': '*/*',
 };
 
 export const VERIFY_HEADERS = { ...PROXY_HEADERS };
-export { PROXY_HEADERS as HEADERS };
 
 const STEP_TIMEOUT_MS = 7000;
 
@@ -73,6 +73,14 @@ function extractM3u8Urls(html) {
     return urls.length ? urls : null;
 }
 
+function extractApiUrl(html, baseUrl) {
+    const src = html.match(/src=["']([^"']*\/e\/[^"']+)["']/i)?.[1]
+        ?? html.match(/src=["']([^"']*\/embed[^"']+)["']/i)?.[1]
+        ?? html.match(/<iframe[^>]+src=["']([^"']+)["'][^>]*>/i)?.[1];
+    if (!src) return null;
+    try { return new URL(src, baseUrl).href; } catch { return null; }
+}
+
 export async function getStream(id, s, e) {
     const controller = new AbortController();
     const { signal } = controller;
@@ -117,12 +125,29 @@ export async function getStream(id, s, e) {
             throw new Error(`vidsrc step3 (${playerUrl}): ${err.message}`);
         }
 
-        const urls = extractM3u8Urls(html3);
+        let urls = extractM3u8Urls(html3);
+
         if (!urls?.length) {
-            throw new Error(`vidsrc step3: no m3u8 url found in player JS`);
+            const step4Url = extractApiUrl(html3, playerUrl);
+            if (!step4Url) throw new Error(`vidsrc step3: no m3u8 and no nested iframe. playerUrl=${playerUrl} snippet=${html3.slice(0, 2000)}`);
+
+            let html4;
+            try {
+                html4 = await fetchHtml(step4Url, { 'Referer': playerUrl }, signal);
+            } catch (err) {
+                throw new Error(`vidsrc step4 (${step4Url}): ${err.message}`);
+            }
+
+            urls = extractM3u8Urls(html4);
+            if (!urls?.length) throw new Error(`vidsrc step4: no m3u8 url found. snippet=${html4.slice(0, 300)}`);
         }
 
-        return urls[0];
+        return {
+            url: urls[0],
+            headers: PROXY_HEADERS,
+            allUrls: urls.map(u => ({ url: u, headers: PROXY_HEADERS })),
+        };
+
     } finally {
         controller.abort();
     }
