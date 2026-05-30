@@ -1,14 +1,30 @@
 import cluster from 'cluster';
-
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { PostHog } from 'posthog-node';
+import dotenv from 'dotenv';
+import http from 'http';
+import { SOURCES, SOURCE_MAP, CACHE_TTL } from './config.js';
+import { fetchSubtitles, handleSubtitleMovie, handleSubtitleTv, SUBTITLE_BASES } from './src/routes/subtitles.js';
+import { handleDownloadMovie, handleDownloadTv } from './src/routes/downloads.js';
+import { handleHealth } from './src/routes/health.js';
+import { Readable } from 'stream';
+
+dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 let LOGO_TEXT = '';
 try { LOGO_TEXT = fs.readFileSync(path.join(__dirname, 'public/logo.txt'), 'utf8'); } catch { }
+
+const posthog = process.env.POSTHOG_API_KEY
+    ? new PostHog(process.env.POSTHOG_API_KEY, { host: 'https://us.i.posthog.com', flushAt: 20, flushInterval: 10000 })
+    : null;
+
+process.on('exit', () => posthog?.shutdown());
+process.on('SIGTERM', async () => { await posthog?.shutdown(); process.exit(0); });
 
 if (cluster.isPrimary) {
     const workerCount = process.env.SPACE_ID ? 4 : 1;
@@ -35,17 +51,6 @@ if (cluster.isPrimary) {
     cluster.on('exit', () => cluster.fork());
     await new Promise(() => { });
 }
-
-import dotenv from 'dotenv';
-import http from 'http';
-import { SOURCES, SOURCE_MAP, CACHE_TTL } from './config.js';
-import { fetchSubtitles, handleSubtitleMovie, handleSubtitleTv, SUBTITLE_BASES } from './src/routes/subtitles.js';
-import { handleDownloadMovie, handleDownloadTv } from './src/routes/downloads.js';
-import { handleHealth } from './src/routes/health.js';
-
-import { Readable } from 'stream';
-
-dotenv.config();
 
 const _originalFetch = globalThis.fetch;
 const IS_HF = !!process.env.SPACE_ID;
@@ -108,17 +113,21 @@ const UA_LIST = [
 const getUA = () => UA_LIST[Math.floor(Math.random() * UA_LIST.length)];
 const safeDecode = s => { try { return decodeURIComponent(s); } catch { return s; } };
 
-function umamiTrack(event, data) {
-    _originalFetch('https://cloud.umami.is/api/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'User-Agent': UA_LIST[0] },
-        body: JSON.stringify({
-            payload: { website: 'fdeaba2a-4820-45ec-9f57-6e0b85758b46', name: event, data, language: 'en-US', title: event, url: `/${event}`, hostname: 'missourimonster-vyla.hf.space', screen: '1920x1080' },
-            type: 'event',
-        }),
-        signal: AbortSignal.timeout(3000),
-    }).catch(() => { });
+function posthogTrack(event, data) {
+    if (!posthog) return;
+    posthog.capture({ distinctId: 'server', event, properties: data });
 }
+
+const getRequestMeta = (req, reqUrl) => ({
+    ip: req.headers['x-forwarded-for'] || req.socket?.remoteAddress || null,
+    referer: req.headers['referer'] || null,
+    origin: req.headers['origin'] || null,
+    user_agent: req.headers['user-agent'] || null,
+    host: req.headers['host'] || null,
+    country: req.headers['cf-ipcountry'] || null,
+    path: reqUrl.pathname,
+    query: reqUrl.search || null,
+});
 
 const ALL_SOURCE_MODULES = Object.fromEntries(
     await Promise.all(SOURCES.map(async cfg => [cfg.key, await import(`./src/sources/${cfg.sourceFile}.js`)]))
@@ -573,6 +582,7 @@ docs: https://vyla.mintlify.app
         const sourcesToUse = requestedSources.length
             ? ACTIVE_SOURCES.filter(s => requestedSources.includes(s.key))
             : ACTIVE_SOURCES;
+        posthogTrack('stream-movie', { id, ...getRequestMeta(req, reqUrl) });
         const total = await streamSources(sourcesToUse, id, null, null, clientIP, absoluteBase, res); res.write(`data: ${JSON.stringify({ type: 'done', total })}\n\n`);
         res.end();
         return null;
@@ -597,6 +607,7 @@ docs: https://vyla.mintlify.app
         const sourcesToUse = requestedSources.length
             ? ACTIVE_SOURCES.filter(src => requestedSources.includes(src.key))
             : ACTIVE_SOURCES;
+        posthogTrack('stream-tv', { id, season: s, episode: e, ...getRequestMeta(req, reqUrl) });
         const total = await streamSources(sourcesToUse, id, s, e, clientIP, absoluteBase, res); res.write(`data: ${JSON.stringify({ type: 'done', total })}\n\n`);
         res.end();
         return null;
@@ -617,24 +628,20 @@ docs: https://vyla.mintlify.app
     }
 
     let match = ROUTE_TESTS.subtitle_movie.exec(pathname);
-    if (match) { umamiTrack('subtitles-movie', { id: match[1] }); return handleSubtitleMovie(match[1], CORS_HEADERS); }
-
+    if (match) { posthogTrack('subtitles-movie', { id: match[1], ...getRequestMeta(req, reqUrl) }); return handleSubtitleMovie(match[1], CORS_HEADERS); }
     match = ROUTE_TESTS.subtitle_tv.exec(pathname);
-    if (match) { umamiTrack('subtitles-tv', { id: match[1], season: match[2], episode: match[3] }); return handleSubtitleTv(match[1], match[2], match[3], CORS_HEADERS); }
-
+    if (match) { posthogTrack('subtitles-tv', { id: match[1], season: match[2], episode: match[3], ...getRequestMeta(req, reqUrl) }); return handleSubtitleTv(match[1], match[2], match[3], CORS_HEADERS); }
     match = ROUTE_TESTS.download_movie.exec(pathname);
-    if (match) { umamiTrack('downloads-movie', { id: match[1] }); return handleDownloadMovie(match[1], CORS_HEADERS); }
+    if (match) { posthogTrack('downloads-movie', { id: match[1], ...getRequestMeta(req, reqUrl) }); return handleDownloadMovie(match[1], CORS_HEADERS); }
 
     match = ROUTE_TESTS.download_tv.exec(pathname);
-    if (match) { umamiTrack('downloads-tv', { id: match[1], season: match[2], episode: match[3] }); return handleDownloadTv(match[1], match[2], match[3], CORS_HEADERS); }
-
+    if (match) { posthogTrack('downloads-tv', { id: match[1], season: match[2], episode: match[3], ...getRequestMeta(req, reqUrl) }); return handleDownloadTv(match[1], match[2], match[3], CORS_HEADERS); }
     match = ROUTE_TESTS.test.exec(pathname);
     if (match) {
         const source = searchParams.get('source');
         if (!source || !SOURCE_MAP[source]) return respondJson(400, { error: 'invalid or missing source' });
         const result = await handleTestSource(source, match[1], searchParams.get('season') || searchParams.get('s') || null, searchParams.get('episode') || searchParams.get('e') || null, clientIP, reqUrl.host);
-        umamiTrack('test', { source, id: match[1], ok: JSON.parse(result.body).ok });
-        return { status: result.status, body: result.body, headers: JSON_CORS };
+        posthogTrack('test', { source, id: match[1], ok: JSON.parse(result.body).ok, ...getRequestMeta(req, reqUrl) }); return { status: result.status, body: result.body, headers: JSON_CORS };
     }
 
     match = ROUTE_TESTS.debug.exec(pathname);
