@@ -13,6 +13,7 @@ import { Readable } from 'stream';
 
 dotenv.config();
 
+const rateLimitMap = new Map();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -527,7 +528,16 @@ async function handleRequest(req, res) {
     const baseUrl = `http://${req.headers.host || 'localhost'}`;
     const reqUrl = new URL(req.url, baseUrl);
     const { pathname, searchParams } = reqUrl;
-    const clientIP = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || null;
+    const clientIP = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket?.remoteAddress || null;
+
+    if (req.method === 'OPTIONS') return { status: 204, body: '', headers: CORS_HEADERS };
+
+    const now = Date.now();
+    const rl = rateLimitMap.get(clientIP) || { count: 0, ts: now };
+    if (now - rl.ts > 10000) { rl.count = 0; rl.ts = now; }
+    rl.count++;
+    rateLimitMap.set(clientIP, rl);
+    if (rl.count > 20) return respondJson(429, { error: 'rate limited' });
 
     if (req.method === 'OPTIONS') return { status: 204, body: '', headers: CORS_HEADERS };
 
