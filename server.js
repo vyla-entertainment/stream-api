@@ -46,7 +46,7 @@ dotenv.config();
 const _originalFetch = globalThis.fetch;
 const IS_HF = !!process.env.SPACE_ID;
 const FALLBACK_BASE = 'https://boltunblocker.com/strapi';
-const NEED_PROXY_REGEX = /https?:\/\/(api2?\.videasy\.net|api\.dmvdriverseducation\.org|api\.tulnex\.com|strategicgrowthpartners\.site|cloudnestra\.com|(www\.)?lookmovie2?\.to|(www\.)?lookmovie\.foundation|.*\.theaky\.store|.*\.akamaihd\.net|.*\.vix-content\.net|vixsrc\.to|.*\.hakunaymatata\.com)/i;
+const NEED_PROXY_REGEX = /https?:\/\/(api2?\.videasy\.net|api\.dmvdriverseducation\.org|api\.tulnex\.com|strategicgrowthpartners\.site|cloudnestra\.com|(www\.)?lookmovie2?\.to|(www\.)?lookmovie\.foundation|.*\.theaky\.store|.*\.akamaihd\.net|.*\.vix-content\.net|vixsrc\.to|.*\.hakunaymatata\.com|vsembed\.ru)/i;
 const M3U8_REGEX = /\.m3u8?(\?|$)|mpegurl|m3u8/i;
 const TIKTOK_REGEX = /tiktokcdn\.com|ibyteimg\.com/i;
 const STRIP_REGEX = /seg\.html|enproxy|letsgocdn\d+\.shop/i;
