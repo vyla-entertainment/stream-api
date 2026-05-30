@@ -31,6 +31,7 @@ export const SOURCES = [
     { key: 'vidsrc', sourceFile: 'vidsrc', label: 'VidSrc', proxyParam: 'vs', timeout: 20000, jitter: 700, retries: 2, sourcesTimeout: 10000 },
     { key: 'videasy', sourceFile: 'videasy', label: 'Videasy', proxyParam: 'vy', timeout: 40000, jitter: 900, retries: 3, sourcesTimeout: 10000 },
     { key: 'peachify', sourceFile: 'peachify', label: 'Peachify', proxyParam: 'py', timeout: 30000, jitter: 500, retries: 2 },
+    { key: 'vidify', sourceFile: 'vidify', label: 'Vidify', proxyParam: 'vdy', timeout: 20000, jitter: 700, retries: 2 },
 ];
 
 export const SOURCE_MAP = Object.fromEntries(SOURCES.map(s => [s.key, s]));
