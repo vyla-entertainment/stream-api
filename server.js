@@ -1,6 +1,11 @@
 import cluster from 'cluster';
+
 import fs from 'fs';
+import path from 'path';
 import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 if (cluster.isPrimary) {
     cluster.fork();
@@ -8,12 +13,12 @@ if (cluster.isPrimary) {
     const toWatch = [
         fileURLToPath(import.meta.url),
         './config.js',
-        './routes/subtitles.js',
-        './routes/downloads.js',
-        './routes/health.js',
+        './src/routes/subtitles.js',
+        './src/routes/downloads.js',
+        './src/routes/health.js',
     ];
 
-    fs.watch('./sources', { persistent: false }, () => {
+    fs.watch('./src/sources', { persistent: false }, () => {
         for (const id in cluster.workers) cluster.workers[id].kill();
     });
 
@@ -30,9 +35,9 @@ if (cluster.isPrimary) {
 import dotenv from 'dotenv';
 import http from 'http';
 import { SOURCES, SOURCE_MAP, CACHE_TTL } from './config.js';
-import { fetchSubtitles, handleSubtitleMovie, handleSubtitleTv, SUBTITLE_BASES } from './routes/subtitles.js';
-import { handleDownloadMovie, handleDownloadTv } from './routes/downloads.js';
-import { handleHealth } from './routes/health.js';
+import { fetchSubtitles, handleSubtitleMovie, handleSubtitleTv, SUBTITLE_BASES } from './src/routes/subtitles.js';
+import { handleDownloadMovie, handleDownloadTv } from './src/routes/downloads.js';
+import { handleHealth } from './src/routes/health.js';
 
 import { Readable } from 'stream';
 
@@ -112,7 +117,7 @@ function umamiTrack(event, data) {
 }
 
 const ALL_SOURCE_MODULES = Object.fromEntries(
-    await Promise.all(SOURCES.map(async cfg => [cfg.key, await import(`./sources/${cfg.sourceFile}.js`)]))
+    await Promise.all(SOURCES.map(async cfg => [cfg.key, await import(`./src/sources/${cfg.sourceFile}.js`)]))
 );
 
 const SOURCE_MODULES = Object.fromEntries(
@@ -505,18 +510,25 @@ async function handleRequest(req, res) {
     const clientIP = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || null;
 
     if (req.method === 'OPTIONS') return { status: 204, body: '', headers: CORS_HEADERS };
+    const logo = fs.readFileSync(
+        path.join(__dirname, 'public/logo.txt'),
+        'utf8'
+    );
 
     if (pathname === '/' || pathname === '') {
-        return respondJson(200, {
-            routes: {
-                movie: "/movie?id=:id",
-                tv: "/tv?id=:id&season=:s&episode=:e",
-                subtitles: "/subtitles",
-                downloads: "/downloads",
-                test: "/test",
-                health: "/health"
+        return {
+            status: 200,
+            body: `${logo}
+
+developed_by: @vyla-entertainment
+github: https://github.com/vyla-entertainment
+docs: https://vyla.mintlify.app
+`,
+            headers: {
+                'Content-Type': 'text/plain; charset=utf-8',
+                ...CORS_HEADERS
             }
-        });
+        };
     }
 
     if (pathname === '/test' || pathname === '/api/test') {

@@ -1,17 +1,27 @@
 const SOURCES = [
+    { name: 'nova', movieApi: 'https://api.tulnex.com/nova/movie/${id}', tvApi: 'https://api.tulnex.com/nova/tv/${id}/${s}/${e}' },
     { name: 'vaplayer', movieApi: 'https://api.tulnex.com/vaplayer/movie/${id}', tvApi: 'https://api.tulnex.com/vaplayer/tv/${id}/${s}/${e}' },
-    { name: 'tik', movieApi: 'https://api.tulnex.com/tik/movie/${id}', tvApi: 'https://api.tulnex.com/tik/tv/${id}/${s}/${e}' },
-    { name: 'icefy', movieApi: 'https://api.tulnex.com/icefy/movie/${id}', tvApi: 'https://api.tulnex.com/icefy/tv/${id}/${s}/${e}' },
-    { name: 'moviebox', movieApi: 'https://api.tulnex.com/moviebox/movie/${id}', tvApi: 'https://api.tulnex.com/moviebox/tv/${id}/${s}/${e}' },
-    { name: 'uniquestream', movieApi: 'https://api.tulnex.com/uniquestream/movie/${id}', tvApi: 'https://api.tulnex.com/uniquestream/tv/${id}/${s}/${e}' },
-    { name: 'vidzee', movieApi: 'https://api.tulnex.com/vidzee/movie/${id}?server=0', tvApi: 'https://api.tulnex.com/vidzee/tv/${id}/${s}/${e}?server=0' },
-    { name: 'on', movieApi: 'https://api.tulnex.com/on/movie/${id}', tvApi: 'https://api.tulnex.com/on/tv/${id}/${s}/${e}' },
-    { name: 'watchflix', movieApi: 'https://api.tulnex.com/watchflix/movie/${id}', tvApi: 'https://api.tulnex.com/watchflix/tv/${id}/${s}/${e}' },
-    { name: 'inka', movieApi: 'https://api.tulnex.com/inka/movie/${id}', tvApi: 'https://api.tulnex.com/inka/tv/${id}/${s}/${e}' },
+    { name: 'orion', movieApi: 'https://api.tulnex.com/orion/movie/${id}', tvApi: 'https://api.tulnex.com/orion/tv/${id}/${s}/${e}' },
     { name: 've-yoru', movieApi: 'https://api.tulnex.com/ve/server/Yoru/movie/${id}', tvApi: 'https://api.tulnex.com/ve/server/Yoru/tv/${id}/${s}/${e}' },
-    { name: 've-neon', movieApi: 'https://api.tulnex.com/ve/server/Neon/movie/${id}', tvApi: 'https://api.tulnex.com/ve/server/Neon/tv/${id}/${s}/${e}' },
+    { name: 'nhdapi', movieApi: 'https://api.tulnex.com/nhdapi/movie/${id}', tvApi: 'https://api.tulnex.com/nhdapi/tv/${id}/${s}/${e}' },
+    { name: 'watchflix', movieApi: 'https://api.tulnex.com/watchflix/movie/${id}', tvApi: 'https://api.tulnex.com/watchflix/tv/${id}/${s}/${e}' },
     { name: '111movies-cobra', movieApi: 'https://api.tulnex.com/111movies/cobra/movie/${id}', tvApi: 'https://api.tulnex.com/111movies/cobra/tv/${id}/${s}/${e}' },
     { name: '111movies-bravo', movieApi: 'https://api.tulnex.com/111movies/Bravo/movie/${id}', tvApi: 'https://api.tulnex.com/111movies/Bravo/tv/${id}/${s}/${e}' },
+    { name: 'youplex', movieApi: 'https://api.tulnex.com/youplex/movie/${id}', tvApi: 'https://api.tulnex.com/youplex/tv/${id}/${s}/${e}' },
+    { name: '1shows', movieApi: 'https://api.tulnex.com/1shows/movie/${id}', tvApi: 'https://api.tulnex.com/1shows/tv/${id}/${s}/${e}' },
+    { name: 've-neon', movieApi: 'https://api.tulnex.com/ve/server/Neon/movie/${id}', tvApi: 'https://api.tulnex.com/ve/server/Neon/tv/${id}/${s}/${e}' },
+    { name: 'icefy', movieApi: 'https://api.tulnex.com/icefy/movie/${id}', tvApi: 'https://api.tulnex.com/icefy/tv/${id}/${s}/${e}' },
+    { name: 'uniquestream', movieApi: 'https://api.tulnex.com/uniquestream/movie/${id}', tvApi: 'https://api.tulnex.com/uniquestream/tv/${id}/${s}/${e}' },
+    { name: '111movies-alpha', movieApi: 'https://api.tulnex.com/111movies/Alpha/movie/${id}', tvApi: 'https://api.tulnex.com/111movies/Alpha/tv/${id}/${s}/${e}' },
+    { name: 'fsharetv', movieApi: 'https://api.tulnex.com/fsharetv/movie/${id}', tvApi: '' },
+    { name: 'flicky', movieApi: 'https://api.tulnex.com/flicky/movie/${id}', tvApi: 'https://api.tulnex.com/flicky/tv/${id}/${s}/${e}' },
+    { name: 'v4', movieApi: 'https://api.tulnex.com/v4/movie/${id}', tvApi: 'https://api.tulnex.com/v4/tv/${id}/${s}/${e}' },
+    { name: 'vidfast-vfast', movieApi: 'https://api.tulnex.com/vidfast/movie/vfast/${id}', tvApi: 'https://api.tulnex.com/vidfast/tv/vfast/${id}/${s}/${e}' },
+    { name: 'moviebox', movieApi: 'https://api.tulnex.com/moviebox/movie/${id}', tvApi: 'https://api.tulnex.com/moviebox/tv/${id}/${s}/${e}' },
+    { name: 'tik', movieApi: 'https://api.tulnex.com/tik/movie/${id}', tvApi: 'https://api.tulnex.com/tik/tv/${id}/${s}/${e}' },
+    { name: 'vidzee', movieApi: 'https://api.tulnex.com/vidzee/movie/${id}?server=0', tvApi: 'https://api.tulnex.com/vidzee/tv/${id}/${s}/${e}?server=0' },
+    { name: 'on', movieApi: 'https://api.tulnex.com/on/movie/${id}', tvApi: 'https://api.tulnex.com/on/tv/${id}/${s}/${e}' },
+    { name: 'inka', movieApi: 'https://api.tulnex.com/inka/movie/${id}', tvApi: 'https://api.tulnex.com/inka/tv/${id}/${s}/${e}' },
     { name: 'vidfast-mega', movieApi: 'https://api.tulnex.com/vidfast/movie/Mega/${id}', tvApi: 'https://api.tulnex.com/vidfast/tv/Mega/${id}/${s}/${e}' },
     { name: 'vidfast-vrapid', movieApi: 'https://api.tulnex.com/vidfast/movie/VRapid/${id}', tvApi: 'https://api.tulnex.com/vidfast/tv/VRapid/${id}/${s}/${e}' },
     { name: 'vidfast-alpha', movieApi: 'https://api.tulnex.com/vidfast/movie/Alpha/${id}', tvApi: 'https://api.tulnex.com/vidfast/tv/Alpha/${id}/${s}/${e}' },
@@ -39,9 +49,11 @@ function base64ToBuffer(b64) {
     for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
     return buf.buffer;
 }
+
 function bufferToHex(buf) {
     return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
+
 function strToBuffer(str) { return new TextEncoder().encode(str).buffer; }
 function bufferToStr(buf) { return new TextDecoder().decode(buf); }
 function hexToUint8(hex) {
@@ -151,25 +163,99 @@ async function fetchAndDecrypt(url) {
     return null;
 }
 
+let _cachedSources = null;
+let _cacheTime = 0;
+const SOURCE_CACHE_TTL = 60 * 60 * 1000;
+
+async function getCinezoSources() {
+    if (_cachedSources && Date.now() - _cacheTime < SOURCE_CACHE_TTL) {
+        return _cachedSources;
+    }
+
+    try {
+        const indexRes = await fetch('https://player.cinezo.live/', {
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+            signal: AbortSignal.timeout(10000),
+        });
+        const html = await indexRes.text();
+
+        const scriptMatch = html.match(/src="(\/assets\/index-[^"]+\.js)"/);
+        if (!scriptMatch) throw new Error('bundle not found');
+
+        const bundleRes = await fetch(`https://player.cinezo.live${scriptMatch[1]}`, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+            signal: AbortSignal.timeout(15000),
+        });
+        const js = await bundleRes.text();
+
+        const sources = [];
+        const entryRegex = /\{name:"([^"]+)",api:"(https:\/\/api\.tulnex\.com\/[^"]+)",tvApi:"([^"]*)"/g;
+        let m;
+        while ((m = entryRegex.exec(js)) !== null) {
+            sources.push({
+                name: m[1],
+                movieApi: m[2],
+                tvApi: m[3].replace(/\$\{season\}/g, '${s}').replace(/\$\{episode\}/g, '${e}'),
+            });
+        }
+
+        if (sources.length === 0) throw new Error('no sources parsed');
+
+        _cachedSources = sources;
+        _cacheTime = Date.now();
+        return sources;
+    } catch (err) {
+        console.error('[cinezo] source fetch failed, using cache or fallback:', err.message);
+        return _cachedSources || SOURCES;
+    }
+}
+
+export async function getStream(id, s, e) {
+    const sources = await getCinezoSources();
+    for (const src of sources) {
+        if (s && e && !src.tvApi) continue;
+        const url = s && e
+            ? src.tvApi.replace('${id}', id).replace('${s}', s).replace('${e}', e)
+            : src.movieApi.replace('${id}', id);
+        if (!url) continue;
+        try {
+            const data = await fetchAndDecrypt(url);
+            if (!data) continue;
+            const extracted = extractUrl(data);
+            if (extracted?.url) return extracted;
+        } catch (err) { }
+    }
+    return null;
+}
+
 function extractUrl(data) {
     if (!data) return null;
     if (data.success === false) return null;
 
-    const wrap = (url, headers = null) => {
-        if (!url || typeof url !== 'string' || !url.includes('http')) return null;
-        if (url.includes('mp4.himanshu464121.workers.dev')) {
+    const unwrapTulnexProxy = (url) => {
+        if (!url) return url;
+        if (url.includes('pronhub.tulnex.com/m3u8-proxy') || url.includes('prxy.tulnex.com')) {
             try {
-                const urlObj = new URL(url);
-                const extractedHeaders = urlObj.searchParams.get('headers');
-                if (extractedHeaders) headers = { ...(headers || {}), ...JSON.parse(extractedHeaders) };
+                const u = new URL(url);
+                const inner = u.searchParams.get('url');
+                const headersRaw = u.searchParams.get('headers');
+                if (inner) {
+                    const headers = headersRaw ? JSON.parse(decodeURIComponent(headersRaw)) : null;
+                    return { unwrapped: decodeURIComponent(inner), headers };
+                }
             } catch (e) { }
         }
-        const skipProxy = url.includes('pronhub.tulnex.com') ||
-            url.includes('prxy.tulnex.com') ||
-            (url.includes('workers.dev') && !url.includes('mp4.himanshu464121.workers')) ||
-            url.includes('m3u8-proxy') ||
-            url.includes('proxy.spencerdevs.xyz');
-        return { url, headers, skipProxy };
+        return { unwrapped: url, headers: null };
+    };
+
+    const wrap = (url, headers = null) => {
+        if (!url || typeof url !== 'string' || !url.includes('http')) return null;
+        const { unwrapped, headers: extractedHeaders } = unwrapTulnexProxy(url);
+        const mergedHeaders = { ...(extractedHeaders || {}), ...(headers || {}) };
+        const finalHeaders = Object.keys(mergedHeaders).length > 0 ? mergedHeaders : null;
+        const skipProxy = (unwrapped.includes('workers.dev') && !unwrapped.includes('mp4.himanshu464121.workers')) ||
+            unwrapped.includes('proxy.spencerdevs.xyz');
+        return { url: unwrapped, headers: finalHeaders, skipProxy };
     };
 
     if (typeof data === 'string' && data.includes('http')) return wrap(data);

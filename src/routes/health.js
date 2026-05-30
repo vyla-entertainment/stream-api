@@ -1,4 +1,4 @@
-import { SOURCES, HEALTH_PROBE_ID } from '../config.js';
+import { SOURCES, HEALTH_PROBE_ID } from '../../config.js';
 
 async function probeSource(cfg, mod) {
     const probe = async () => {
