@@ -189,13 +189,15 @@ async function getCinezoSources() {
         const js = await bundleRes.text();
 
         const sources = [];
-        const entryRegex = /\{name:"([^"]+)",api:"(https:\/\/api\.tulnex\.com\/[^"]+)",tvApi:"([^"]*)"/g;
+        const entryRegex = /name:"([^"]+)"[^}]*?api:"(https:\/\/api\.tulnex\.com\/[^"]+)"[^}]*?tvApi:"([^"]*)"/g;
         let m;
         while ((m = entryRegex.exec(js)) !== null) {
             sources.push({
                 name: m[1],
                 movieApi: m[2],
-                tvApi: m[3].replace(/\$\{season\}/g, '${s}').replace(/\$\{episode\}/g, '${e}'),
+                tvApi: m[3]
+                    .replace(/\$\{season\}/g, '${s}')
+                    .replace(/\$\{episode\}/g, '${e}'),
             });
         }
 
@@ -222,7 +224,67 @@ export async function getStream(id, s, e) {
             const data = await fetchAndDecrypt(url);
             if (!data) continue;
             const extracted = extractUrl(data);
-            if (extracted?.url) return extracted;
+            if (!extracted?.url) continue;
+
+            const testUrl = extracted.url;
+            const headersToSend = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                ...(extracted.headers || {}),
+            };
+
+            try {
+                const probe = await fetch(testUrl, {
+                    headers: headersToSend,
+                    signal: AbortSignal.timeout(6000),
+                    redirect: 'follow',
+                });
+                if (!probe.ok) continue;
+
+                const text = await probe.text();
+                if (!text.trim().startsWith('#EXTM3U')) continue;
+
+                let variantUrl = null;
+                for (const line of text.split('\n')) {
+                    const t = line.trim();
+                    if (t && !t.startsWith('#')) {
+                        variantUrl = t.startsWith('http') ? t : new URL(t, testUrl).href;
+                        break;
+                    }
+                }
+
+                if (variantUrl) {
+                    const variantRes = await fetch(variantUrl, {
+                        headers: headersToSend,
+                        signal: AbortSignal.timeout(5000),
+                        redirect: 'follow',
+                    });
+                    if (!variantRes.ok) continue;
+
+                    const variantText = await variantRes.text();
+                    let segUrl = null;
+                    for (const line of variantText.split('\n')) {
+                        const t = line.trim();
+                        if (t && !t.startsWith('#')) {
+                            segUrl = t.startsWith('http') ? t : new URL(t, variantUrl).href;
+                            break;
+                        }
+                    }
+
+                    if (segUrl) {
+                        const segRes = await fetch(segUrl, {
+                            method: 'HEAD',
+                            headers: headersToSend,
+                            signal: AbortSignal.timeout(5000),
+                            redirect: 'follow',
+                        });
+                        if (!segRes.ok && segRes.status !== 206) continue;
+                    }
+                }
+            } catch {
+                continue;
+            }
+
+            return extracted;
         } catch (err) { }
     }
     return null;
@@ -297,22 +359,6 @@ function extractUrl(data) {
     if (data.streams && Array.isArray(data.streams)) {
         const src = data.streams.find(s => (s.url || s.link) && (s.url || s.link).includes('http'));
         if (src) return wrap(src.url || src.link, src.headers || headers);
-    }
-    return null;
-}
-
-export async function getStream(id, s, e) {
-    for (const src of SOURCES) {
-        const url = s && e
-            ? src.tvApi.replace('${id}', id).replace('${s}', s).replace('${e}', e)
-            : src.movieApi.replace('${id}', id);
-        try {
-            const data = await fetchAndDecrypt(url);
-            if (!data) continue;
-            const extracted = extractUrl(data);
-            if (extracted?.url) return extracted;
-        } catch (err) {
-        }
     }
     return null;
 }
