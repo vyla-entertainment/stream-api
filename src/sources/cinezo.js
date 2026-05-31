@@ -177,6 +177,8 @@ async function fetchAndDecrypt(url) {
 }
 
 export async function getStream(id, s, e) {
+    const triedUrls = new Set();
+
     for (const src of SOURCES) {
         if (s && e && !src.tvApi) continue;
         const url = s && e
@@ -190,6 +192,9 @@ export async function getStream(id, s, e) {
             if (!extracted?.url) continue;
 
             const testUrl = extracted.url;
+            if (triedUrls.has(testUrl)) continue;
+            triedUrls.add(testUrl);
+
             const headersToSend = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
                 ...(extracted.headers || {}),
@@ -236,7 +241,7 @@ export async function getStream(id, s, e) {
                             signal: safeAbortSignal(5000),
                             redirect: 'follow',
                         });
-                        if (!segRes.ok && segRes.status !== 206) continue;
+                        if (!segRes.ok && segRes.status !== 206 && segRes.status !== 403) continue;
                     }
                 }
             } catch {
