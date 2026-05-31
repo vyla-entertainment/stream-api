@@ -207,14 +207,12 @@ async function getCinezoSources() {
         _cacheTime = Date.now();
         return sources;
     } catch (err) {
-        console.error('[cinezo] source fetch failed, using cache or fallback:', err.message);
         return _cachedSources || SOURCES;
     }
 }
 
 export async function getStream(id, s, e) {
-    const sources = await getCinezoSources();
-    for (const src of sources) {
+    for (const src of SOURCES) {
         if (s && e && !src.tvApi) continue;
         const url = s && e
             ? src.tvApi.replace('${id}', id).replace('${s}', s).replace('${e}', e)
@@ -239,7 +237,6 @@ export async function getStream(id, s, e) {
                     redirect: 'follow',
                 });
                 if (!probe.ok) continue;
-
                 const text = await probe.text();
                 if (!text.trim().startsWith('#EXTM3U')) continue;
 
@@ -285,7 +282,7 @@ export async function getStream(id, s, e) {
             }
 
             return extracted;
-        } catch (err) { }
+        } catch { }
     }
     return null;
 }
