@@ -97,7 +97,7 @@ async function decodeL3(data) {
     const parts = data.split('.');
     if (parts.length !== 3) throw new Error('L3 invalid');
     const [ivB64, saltB64, ctB64] = parts;
-    const salt = atob(saltB64);
+    const salt = nodeAtob(saltB64);
     const keyBytes = await pbkdf2(L3_KEY, salt, 100000, 32, 'SHA-512');
     const aesKey = await crypto.subtle.importKey('raw', keyBytes, { name: 'AES-CBC' }, false, ['decrypt']);
     const decrypted = await crypto.subtle.decrypt(
@@ -226,23 +226,7 @@ export async function getStream(id, s, e) {
                     });
                     if (!variantRes.ok) continue;
                     const variantText = await variantRes.text();
-                    let segUrl = null;
-                    for (const line of variantText.split('\n')) {
-                        const t = line.trim();
-                        if (t && !t.startsWith('#')) {
-                            segUrl = t.startsWith('http') ? t : new URL(t, variantUrl).href;
-                            break;
-                        }
-                    }
-                    if (segUrl) {
-                        const segRes = await fetch(segUrl, {
-                            method: 'HEAD',
-                            headers: headersToSend,
-                            signal: safeAbortSignal(5000),
-                            redirect: 'follow',
-                        });
-                        if (!segRes.ok && segRes.status !== 206 && segRes.status !== 403) continue;
-                    }
+                    if (!variantText.trim().startsWith('#EXTM3U')) continue;
                 }
             } catch {
                 continue;
