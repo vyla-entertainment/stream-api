@@ -163,54 +163,6 @@ async function fetchAndDecrypt(url) {
     return null;
 }
 
-let _cachedSources = null;
-let _cacheTime = 0;
-const SOURCE_CACHE_TTL = 60 * 60 * 1000;
-
-async function getCinezoSources() {
-    if (_cachedSources && Date.now() - _cacheTime < SOURCE_CACHE_TTL) {
-        return _cachedSources;
-    }
-
-    try {
-        const indexRes = await fetch('https://player.cinezo.live/', {
-            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-            signal: AbortSignal.timeout(10000),
-        });
-        const html = await indexRes.text();
-
-        const scriptMatch = html.match(/src="(\/assets\/index-[^"]+\.js)"/);
-        if (!scriptMatch) throw new Error('bundle not found');
-
-        const bundleRes = await fetch(`https://player.cinezo.live${scriptMatch[1]}`, {
-            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-            signal: AbortSignal.timeout(15000),
-        });
-        const js = await bundleRes.text();
-
-        const sources = [];
-        const entryRegex = /name:"([^"]+)"[^}]*?api:"(https:\/\/api\.tulnex\.com\/[^"]+)"[^}]*?tvApi:"([^"]*)"/g;
-        let m;
-        while ((m = entryRegex.exec(js)) !== null) {
-            sources.push({
-                name: m[1],
-                movieApi: m[2],
-                tvApi: m[3]
-                    .replace(/\$\{season\}/g, '${s}')
-                    .replace(/\$\{episode\}/g, '${e}'),
-            });
-        }
-
-        if (sources.length === 0) throw new Error('no sources parsed');
-
-        _cachedSources = sources;
-        _cacheTime = Date.now();
-        return sources;
-    } catch (err) {
-        return _cachedSources || SOURCES;
-    }
-}
-
 export async function getStream(id, s, e) {
     for (const src of SOURCES) {
         if (s && e && !src.tvApi) continue;
