@@ -115,9 +115,14 @@ const UA_LIST = [
 const getUA = () => UA_LIST[Math.floor(Math.random() * UA_LIST.length)];
 const safeDecode = s => { try { return decodeURIComponent(s); } catch { return s; } };
 
-function posthogTrack(event, data) {
+function posthogTrack(event, data, distinctId) {
     if (!posthog) return;
-    posthog.capture({ distinctId: 'server', event, properties: data });
+
+    posthog.capture({
+        distinctId: distinctId || 'anonymous',
+        event,
+        properties: data
+    });
 }
 
 const getRequestMeta = (req, reqUrl) => ({
@@ -593,8 +598,11 @@ docs: https://vyla.mintlify.app
         const sourcesToUse = requestedSources.length
             ? ACTIVE_SOURCES.filter(s => requestedSources.includes(s.key))
             : ACTIVE_SOURCES;
-        posthogTrack('stream-movie', { id, ...getRequestMeta(req, reqUrl) });
-        const total = await streamSources(sourcesToUse, id, null, null, clientIP, absoluteBase, res); res.write(`data: ${JSON.stringify({ type: 'done', total })}\n\n`);
+        posthogTrack(
+            'stream-movie',
+            { id, ...getRequestMeta(req, reqUrl) },
+            clientIP
+        ); const total = await streamSources(sourcesToUse, id, null, null, clientIP, absoluteBase, res); res.write(`data: ${JSON.stringify({ type: 'done', total })}\n\n`);
         res.end();
         return null;
     }
@@ -618,8 +626,11 @@ docs: https://vyla.mintlify.app
         const sourcesToUse = requestedSources.length
             ? ACTIVE_SOURCES.filter(src => requestedSources.includes(src.key))
             : ACTIVE_SOURCES;
-        posthogTrack('stream-tv', { id, season: s, episode: e, ...getRequestMeta(req, reqUrl) });
-        const total = await streamSources(sourcesToUse, id, s, e, clientIP, absoluteBase, res); res.write(`data: ${JSON.stringify({ type: 'done', total })}\n\n`);
+        posthogTrack(
+            'stream-tv',
+            { id, season: s, episode: e, ...getRequestMeta(req, reqUrl) },
+            clientIP
+        ); const total = await streamSources(sourcesToUse, id, s, e, clientIP, absoluteBase, res); res.write(`data: ${JSON.stringify({ type: 'done', total })}\n\n`);
         res.end();
         return null;
     }
@@ -643,7 +654,13 @@ docs: https://vyla.mintlify.app
     match = ROUTE_TESTS.subtitle_tv.exec(pathname);
     if (match) { posthogTrack('subtitles-tv', { id: match[1], season: match[2], episode: match[3], ...getRequestMeta(req, reqUrl) }); return handleSubtitleTv(match[1], match[2], match[3], CORS_HEADERS); }
     match = ROUTE_TESTS.download_movie.exec(pathname);
-    if (match) { posthogTrack('downloads-movie', { id: match[1], ...getRequestMeta(req, reqUrl) }); return handleDownloadMovie(match[1], CORS_HEADERS); }
+    if (match) {
+        posthogTrack(
+            'downloads-movie',
+            { id: match[1], ...getRequestMeta(req, reqUrl) },
+            clientIP
+        ); return handleDownloadMovie(match[1], CORS_HEADERS);
+    }
 
     match = ROUTE_TESTS.download_tv.exec(pathname);
     if (match) { posthogTrack('downloads-tv', { id: match[1], season: match[2], episode: match[3], ...getRequestMeta(req, reqUrl) }); return handleDownloadTv(match[1], match[2], match[3], CORS_HEADERS); }
@@ -652,7 +669,11 @@ docs: https://vyla.mintlify.app
         const source = searchParams.get('source');
         if (!source || !SOURCE_MAP[source]) return respondJson(400, { error: 'invalid or missing source' });
         const result = await handleTestSource(source, match[1], searchParams.get('season') || searchParams.get('s') || null, searchParams.get('episode') || searchParams.get('e') || null, clientIP, reqUrl.host);
-        posthogTrack('test', { source, id: match[1], ok: JSON.parse(result.body).ok, ...getRequestMeta(req, reqUrl) }); return { status: result.status, body: result.body, headers: JSON_CORS };
+        posthogTrack(
+            'test',
+            { source, id: match[1], ok: JSON.parse(result.body).ok, ...getRequestMeta(req, reqUrl) },
+            clientIP
+        ); return { status: result.status, body: result.body, headers: JSON_CORS };
     }
 
     match = ROUTE_TESTS.debug.exec(pathname);
