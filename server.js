@@ -350,7 +350,7 @@ async function verifyPlayable(proxiedUrl, extraHeaders = {}, skipProxyCheck = fa
                     if (segUrl) {
                         if (!segUrl.startsWith('http')) segUrl = new URL(segUrl, nextUrl).href;
                         const segRes = await _originalFetch(segUrl, fetchOpts);
-                        if (!segRes.ok && segRes.status !== 206) return fail(`Segment failed: ${segRes.status}`);
+                        if (!segRes.ok && segRes.status !== 206 && segRes.status !== 403) return fail(`Segment failed: ${segRes.status}`);
                     }
                 }
             }
