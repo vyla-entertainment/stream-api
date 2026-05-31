@@ -227,6 +227,29 @@ export async function getStream(id, s, e) {
                     if (!variantRes.ok) continue;
                     const variantText = await variantRes.text();
                     if (!variantText.trim().startsWith('#EXTM3U')) continue;
+
+                    let segUrl = null;
+                    for (const line of variantText.split('\n')) {
+                        const t = line.trim();
+                        if (t && !t.startsWith('#')) {
+                            segUrl = t.startsWith('http') ? t : new URL(t, variantUrl).href;
+                            break;
+                        }
+                    }
+                    if (segUrl) {
+                        try {
+                            const segRes = await fetch(segUrl, {
+                                method: 'GET',
+                                headers: headersToSend,
+                                signal: safeAbortSignal(4000),
+                                redirect: 'follow',
+                            });
+                            if (!segRes.ok && segRes.status !== 206) continue;
+                            segRes.body?.cancel();
+                        } catch {
+                            continue;
+                        }
+                    }
                 }
             } catch {
                 continue;
