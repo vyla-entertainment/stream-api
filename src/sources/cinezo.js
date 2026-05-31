@@ -43,11 +43,26 @@ const L4_KEYS = [
     'Sn00pD0g#L4HMAC_S3xur3W4ll#2026!',
 ];
 
+function safeAbortSignal(ms) {
+    const ctrl = new AbortController();
+    setTimeout(() => ctrl.abort(), ms);
+    return ctrl.signal;
+}
+
+function nodeAtob(b64) {
+    if (typeof atob === 'function') return atob(b64);
+    return Buffer.from(b64, 'base64').toString('binary');
+}
+
 function base64ToBuffer(b64) {
-    const bin = atob(b64);
+    const bin = nodeAtob(b64);
     const buf = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
     return buf.buffer;
+}
+
+function binaryDecode(encoded) {
+    return nodeAtob(encoded).split(' ').map(s => String.fromCharCode(parseInt(s, 2))).join('');
 }
 
 function bufferToHex(buf) {
@@ -76,10 +91,6 @@ function xorDecrypt(hexStr, keyBytes) {
     const out = new Uint8Array(src.length);
     for (let i = 0; i < src.length; i++) out[i] = src[i] ^ keyBytes[i % 32];
     return bufferToStr(out.buffer);
-}
-
-function binaryDecode(encoded) {
-    return atob(encoded).split(' ').map(s => String.fromCharCode(parseInt(s, 2))).join('');
 }
 
 async function decodeL3(data) {
@@ -144,23 +155,25 @@ async function decryptPayload(payload) {
 }
 
 async function fetchAndDecrypt(url) {
-    const res = await fetch(url, {
-        headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Accept': 'application/json, */*',
-        },
-        signal: AbortSignal.timeout(8000),
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    if (data?.v === 4 && data?.payload) {
-        try { return await decryptPayload(data.payload); } catch (err) {
-            return null;
+    try {
+        const res = await fetch(url, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Accept': 'application/json, */*',
+            },
+            signal: safeAbortSignal(8000),
+        });
+        if (!res.ok) return null;
+        const data = await res.json();
+        if (data?.v === 4 && data?.payload) {
+            try { return await decryptPayload(data.payload); } catch { return null; }
         }
+        if (data?.success === false) return null;
+        if (data && typeof data === 'object' && Object.keys(data).length > 0) return data;
+        return null;
+    } catch {
+        return null;
     }
-    if (data?.success === false) return null;
-    if (data && typeof data === 'object' && Object.keys(data).length > 0) return data;
-    return null;
 }
 
 export async function getStream(id, s, e) {
@@ -185,7 +198,7 @@ export async function getStream(id, s, e) {
             try {
                 const probe = await fetch(testUrl, {
                     headers: headersToSend,
-                    signal: AbortSignal.timeout(6000),
+                    signal: safeAbortSignal(6000),
                     redirect: 'follow',
                 });
                 if (!probe.ok) continue;
@@ -203,7 +216,7 @@ export async function getStream(id, s, e) {
                 if (variantUrl) {
                     const variantRes = await fetch(variantUrl, {
                         headers: headersToSend,
-                        signal: AbortSignal.timeout(5000),
+                        signal: safeAbortSignal(5000),
                         redirect: 'follow',
                     });
                     if (!variantRes.ok) continue;
@@ -220,7 +233,7 @@ export async function getStream(id, s, e) {
                         const segRes = await fetch(segUrl, {
                             method: 'HEAD',
                             headers: headersToSend,
-                            signal: AbortSignal.timeout(5000),
+                            signal: safeAbortSignal(5000),
                             redirect: 'follow',
                         });
                         if (!segRes.ok && segRes.status !== 206) continue;
