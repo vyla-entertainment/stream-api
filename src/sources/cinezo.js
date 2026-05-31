@@ -191,44 +191,6 @@ export async function getStream(id, s, e) {
                 if (!probe.ok) continue;
                 const text = await probe.text();
                 if (!text.trim().startsWith('#EXTM3U')) continue;
-
-                let variantUrl = null;
-                for (const line of text.split('\n')) {
-                    const t = line.trim();
-                    if (t && !t.startsWith('#')) {
-                        variantUrl = t.startsWith('http') ? t : new URL(t, testUrl).href;
-                        break;
-                    }
-                }
-
-                if (variantUrl) {
-                    const variantRes = await fetch(variantUrl, {
-                        headers: headersToSend,
-                        signal: AbortSignal.timeout(5000),
-                        redirect: 'follow',
-                    });
-                    if (!variantRes.ok) continue;
-
-                    const variantText = await variantRes.text();
-                    let segUrl = null;
-                    for (const line of variantText.split('\n')) {
-                        const t = line.trim();
-                        if (t && !t.startsWith('#')) {
-                            segUrl = t.startsWith('http') ? t : new URL(t, variantUrl).href;
-                            break;
-                        }
-                    }
-
-                    if (segUrl) {
-                        const segRes = await fetch(segUrl, {
-                            method: 'HEAD',
-                            headers: headersToSend,
-                            signal: AbortSignal.timeout(5000),
-                            redirect: 'follow',
-                        });
-                        if (!segRes.ok && segRes.status !== 206) continue;
-                    }
-                }
             } catch {
                 continue;
             }
