@@ -246,7 +246,7 @@ export async function getStream(id, s, e) {
                                 signal: safeAbortSignal(4000),
                                 redirect: 'follow',
                             });
-                            if (!segRes.ok && segRes.status !== 206) continue;
+                            if (!segRes.ok && segRes.status !== 206 && segRes.status !== 403) continue;
                             segRes.body?.cancel();
                         } catch {
                             continue;
