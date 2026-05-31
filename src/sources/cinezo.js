@@ -1,6 +1,5 @@
 const SOURCES = [
     { name: 'vaplayer', movieApi: 'https://api.tulnex.com/vaplayer/movie/${id}', tvApi: 'https://api.tulnex.com/vaplayer/tv/${id}/${s}/${e}' },
-    { name: 'nova', movieApi: 'https://api.tulnex.com/nova/movie/${id}', tvApi: 'https://api.tulnex.com/nova/tv/${id}/${s}/${e}' },
     { name: 'orion', movieApi: 'https://api.tulnex.com/orion/movie/${id}', tvApi: 'https://api.tulnex.com/orion/tv/${id}/${s}/${e}' },
     { name: 've-yoru', movieApi: 'https://api.tulnex.com/ve/server/Yoru/movie/${id}', tvApi: 'https://api.tulnex.com/ve/server/Yoru/tv/${id}/${s}/${e}' },
     { name: 'nhdapi', movieApi: 'https://api.tulnex.com/nhdapi/movie/${id}', tvApi: 'https://api.tulnex.com/nhdapi/tv/${id}/${s}/${e}' },
