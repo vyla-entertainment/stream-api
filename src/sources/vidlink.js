@@ -8,7 +8,7 @@ const require = createRequire(import.meta.url);
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const ORIGIN = 'https://vidlink.pro';
-const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36';
+const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36 Edg/148.0.0.0';
 
 export const VERIFY_HEADERS = {
     Referer: `${ORIGIN}/`,
@@ -59,7 +59,7 @@ function bootWasm() {
     return bootPromise;
 }
 
-function http1Fetch(url, extraHeaders = {}) {
+function http1Fetch(url) {
     return new Promise((resolve, reject) => {
         const u = new URL(url);
         const req = https.request({
@@ -69,31 +69,39 @@ function http1Fetch(url, extraHeaders = {}) {
             headers: {
                 'User-Agent': UA,
                 'Accept': '*/*',
-                'Accept-Encoding': 'gzip, deflate',
+                'Accept-Encoding': 'gzip, deflate, br',
                 'Accept-Language': 'en-US,en;q=0.9',
                 'Connection': 'keep-alive',
-                ...extraHeaders,
             },
         }, (res) => {
             const chunks = [];
-            res.on('data', chunk => chunks.push(chunk));
+            res.on('data', chunk => {
+                chunks.push(chunk);
+            });
             res.on('end', () => {
                 const buf = Buffer.concat(chunks);
                 resolve({ status: res.statusCode, ok: res.statusCode >= 200 && res.statusCode < 300, headers: res.headers, buf });
             });
-            res.on('error', e => reject(e));
+            res.on('error', e => {
+                reject(e);
+            });
         });
-        req.on('error', e => reject(e));
+        req.on('error', e => {
+            reject(e);
+        });
         req.end();
     });
 }
 
 async function decompressResponse(buf, encoding) {
-    const { createGunzip, createInflate } = await import('zlib');
+    const { createBrotliDecompress, createGunzip, createInflate } = await import('zlib');
     const { pipeline } = await import('stream/promises');
     const { Readable, PassThrough } = await import('stream');
 
-    if (!encoding || encoding.trim() === '') return buf.toString('utf8');
+    if (!encoding || encoding.trim() === '') {
+        const raw = buf.toString('utf8');
+        return raw;
+    }
 
     const output = new PassThrough();
     const chunks = [];
@@ -101,17 +109,24 @@ async function decompressResponse(buf, encoding) {
 
     const input = Readable.from(buf);
     let decomp;
-    if (encoding === 'gzip') decomp = createGunzip();
-    else if (encoding === 'deflate') decomp = createInflate();
-    else return buf.toString('utf8');
-
-    try {
-        await pipeline(input, decomp, output);
-    } catch {
+    if (encoding === 'br') {
+        decomp = createBrotliDecompress();
+    } else if (encoding === 'gzip') {
+        decomp = createGunzip();
+    } else if (encoding === 'deflate') {
+        decomp = createInflate();
+    } else {
         return buf.toString('utf8');
     }
 
-    return Buffer.concat(chunks).toString('utf8');
+    try {
+        await pipeline(input, decomp, output);
+    } catch (err) {
+        return buf.toString('utf8');
+    }
+
+    const result = Buffer.concat(chunks).toString('utf8');
+    return result;
 }
 
 export async function getStream(id, s, e) {
@@ -124,39 +139,38 @@ export async function getStream(id, s, e) {
         ? `${ORIGIN}/api/b/tv/${token}/${s}/${e || 1}?multiLang=0`
         : `${ORIGIN}/api/b/movie/${token}?multiLang=0`;
 
-    const pageReferer = s ? `${ORIGIN}/tv/${id}` : `${ORIGIN}/movie/${id}`;
+    const { status, ok, headers, buf } = await http1Fetch(apiUrl);
 
-    const { status, ok, headers, buf } = await http1Fetch(apiUrl, {
-        'Referer': pageReferer,
-        'Origin': ORIGIN,
-        'sec-fetch-dest': 'empty',
-        'sec-fetch-mode': 'cors',
-        'sec-fetch-site': 'same-origin',
-    });
 
     if (!ok) throw new Error(`vidlink API ${status}`);
 
-    const text = await decompressResponse(buf, headers['content-encoding'] || '');
+    const encoding = headers['content-encoding'] || '';
+
+    const text = await decompressResponse(buf, encoding);
+
     if (!text || text.trim() === '') throw new Error('vidlink API returned empty body');
 
     let data;
     try {
         data = JSON.parse(text);
-    } catch {
+    } catch (err) {
         throw new Error(`vidlink JSON parse failed. Body preview: ${text.slice(0, 300)}`);
     }
 
+    const pageReferer = s ? `${ORIGIN}/tv/${id}` : `${ORIGIN}/movie/${id}`;
     const playlist = data?.stream?.playlist;
     const qualities = data?.stream?.qualities;
 
     if (playlist) {
         const playlistUrl = new URL(playlist);
         playlistUrl.searchParams.delete('headers');
+        playlistUrl.searchParams.delete('host');
+
         return {
             url: playlistUrl.toString(),
             headers: {
-                'Referer': `${ORIGIN}/`,
-                'Origin': ORIGIN,
+                'Referer': 'https://vidlink.pro/',
+                'Origin': 'https://vidlink.pro',
             },
         };
     }
@@ -175,6 +189,8 @@ export async function getStream(id, s, e) {
         if (picked) {
             const u = new URL(picked);
             const embeddedHeaders = u.searchParams.get('headers');
+            u.searchParams.delete('headers');
+            u.searchParams.delete('host');
 
             let cdnReferer = 'https://filmboom.top/';
             let cdnOrigin = 'https://filmboom.top';
@@ -189,8 +205,8 @@ export async function getStream(id, s, e) {
             return {
                 url: u.toString(),
                 headers: {
-                    'Referer': `${ORIGIN}/`,
-                    'Origin': ORIGIN,
+                    'Referer': cdnReferer,
+                    'Origin': cdnOrigin,
                 },
             };
         }
