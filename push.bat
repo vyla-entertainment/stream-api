@@ -7,9 +7,10 @@ call :add hf2 https://huggingface.co/spaces/MissouriMonster/ugh
 call :add hf3 https://huggingface.co/spaces/MissouriMonster/popr
 call :add hf4 https://huggingface.co/spaces/MissouriMonster/peaktv
 call :add hf5 https://huggingface.co/spaces/MissouriMonster/movieslay
+call :add hf6 https://huggingface.co/spaces/MissouriMonster/momo
 
 echo Pushing...
-for %%R in (github hf hf2 hf3 hf4 hf5) do git push %%R main --force
+for %%R in (github hf hf2 hf3 hf4 hf5 hf6) do git push %%R main --force
 
 echo Done!
 exit /b
