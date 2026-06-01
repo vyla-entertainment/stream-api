@@ -306,6 +306,17 @@ async function verifyStream(rawUrl, sourceKey) {
 }
 
 async function verifyPlayable(proxiedUrl, extraHeaders = {}, skipProxyCheck = false) {
+    if (IS_HF && proxiedUrl.includes('.hf.space/api?url=')) {
+        try {
+            const inner = new URL(proxiedUrl);
+            const rawUrl = decodeURIComponent(inner.searchParams.get('url') || '');
+            const ph = inner.searchParams.get('proxyHeaders');
+            if (ph) try { Object.assign(extraHeaders, JSON.parse(decodeURIComponent(ph))); } catch { }
+            if (rawUrl) proxiedUrl = rawUrl;
+        } catch { }
+        skipProxyCheck = true;
+    }
+
     const cached = hlsVerifyCache.get(proxiedUrl);
     if (cached !== undefined) return cached;
 
@@ -438,14 +449,16 @@ async function handleTestSource(sourceKey, id, s, e, clientIP, host) {
         }
 
         if (mod.SKIP_VERIFY || mod.MULTI_URL) {
-            const playableCheck = await verifyPlayable(wrappedUrl, {}, false);
+            const checkUrl = IS_HF ? candidate.url : wrappedUrl;
+            const checkHeaders = IS_HF ? (candidate.headers || {}) : {};
+            const playableCheck = await verifyPlayable(checkUrl, checkHeaders, IS_HF);
             if (playableCheck.ok || /timeout|aborted/.test(playableCheck.error)) {
                 const result = { ok: true, url: wrappedUrl, raw_url: candidate.url };
                 testResultCache.set(cacheKey, result);
                 return respond(true, wrappedUrl, candidate.url);
             }
             try {
-                const headRes = await _originalFetch(wrappedUrl, { method: 'HEAD', headers: { 'User-Agent': getUA() }, signal: AbortSignal.timeout(8000), redirect: 'follow' });
+                const headRes = await _originalFetch(candidate.url, { method: 'HEAD', headers: { 'User-Agent': getUA(), ...(candidate.headers || {}) }, signal: AbortSignal.timeout(8000), redirect: 'follow' });
                 headRes.body?.cancel();
                 const ct = (headRes.headers.get('content-type') || '').toLowerCase();
                 if (headRes.status < 400 && /video|octet-stream|mp4/.test(ct)) {
@@ -456,12 +469,14 @@ async function handleTestSource(sourceKey, id, s, e, clientIP, host) {
             } catch { }
         } else {
             if (!(await verifyStream(candidate.url, sourceKey))) continue;
-            const playableCheck = await verifyPlayable(wrappedUrl);
+            const verifyUrl = IS_HF ? candidate.url : wrappedUrl;
+            const verifyHeaders = IS_HF ? (candidate.headers || {}) : {};
+            const playableCheck = await verifyPlayable(verifyUrl, verifyHeaders, IS_HF);
             if (!playableCheck.ok) {
                 const rawHeaders = candidate?.headers || {};
                 const [proxiedBody, rawCheck] = await Promise.all([
                     _originalFetch(wrappedUrl, { signal: AbortSignal.timeout(20000), headers: { 'User-Agent': getUA() } }).then(r => r.text()).then(t => t.slice(0, 200)).catch(e => e.message),
-                    verifyPlayable(candidate.url, rawHeaders),
+                    verifyPlayable(candidate.url, rawHeaders, true),
                 ]);
                 return respond(false, null, candidate.url, playableCheck.error, { proxy_failed: true, proxy_error: playableCheck.error, proxy_body_preview: proxiedBody, raw_reachable: rawCheck.ok, raw_error: rawCheck.error, raw_headers_used: rawHeaders, proxied_url: wrappedUrl });
             }
