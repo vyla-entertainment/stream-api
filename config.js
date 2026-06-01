@@ -24,7 +24,7 @@ export const SOURCES = [
     { key: 'movsrc', sourceFile: 'movsrc', label: 'MovSrc', proxyParam: 'ms', timeout: 20000, jitter: 500, retries: 2 },
     { key: 'flixtrz', sourceFile: 'flixtrz', label: 'FlixTrz', proxyParam: 'fz', timeout: 30000, jitter: 500, retries: 2 },
     { key: 'toustream', sourceFile: 'toustream', label: 'TouStream', proxyParam: 'ts', timeout: 20000, jitter: 400, retries: 1 },
-    { key: 'flaxmovies', sourceFile: 'flaxmovies', label: 'FlaxMovies', proxyParam: 'fx', timeout: 20000, jitter: 500, retries: 2 },
+    { key: 'flaxmovies', sourceFile: 'flaxmovies', label: 'FlaxMovies', proxyParam: 'fx', timeout: 20000, jitter: 500, retries: 2, disabled: true },
     { key: 'vapor', sourceFile: 'vapor', label: 'Vapor', proxyParam: 'vp', timeout: 20000, jitter: 500, retries: 2 },
     { key: 'vidsrc', sourceFile: 'vidsrc', label: 'VidSrc', proxyParam: 'vs', timeout: 20000, jitter: 700, retries: 2, sourcesTimeout: 10000 },
     { key: 'videasy', sourceFile: 'videasy', label: 'Videasy', proxyParam: 'vy', timeout: 40000, jitter: 900, retries: 3, sourcesTimeout: 10000 },
