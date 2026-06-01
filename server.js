@@ -786,15 +786,18 @@ docs: https://vyla.mintlify.app
                 let cleanUrl = url;
 
                 if (matchedSource) {
-                    try {
-                        const qIndex = url.indexOf('?');
-                        if (qIndex !== -1) {
-                            const params = new URLSearchParams(url.slice(qIndex + 1));
-                            params.delete('host');
-                            cleanUrl = `${url.slice(0, qIndex)}${params.toString() ? '?' + params.toString() : ''}`;
-                        }
-                    } catch { }
-                    applyCdnHeaders(cleanUrl, extraHeaders, matchedSource.key);
+                    const isVodvidl = /vodvidl\.site|vidldl\.site|vidldr\.site/i.test(url);
+                    if (!isVodvidl) {
+                        try {
+                            const qIndex = url.indexOf('?');
+                            if (qIndex !== -1) {
+                                const params = new URLSearchParams(url.slice(qIndex + 1));
+                                params.delete('host');
+                                cleanUrl = `${url.slice(0, qIndex)}${params.toString() ? '?' + params.toString() : ''}`;
+                            }
+                        } catch { }
+                    }
+                    applyCdnHeaders(isVodvidl ? url : cleanUrl, extraHeaders, matchedSource.key);
                 }
 
                 const upstream = await fetchUpstream(cleanUrl, extraHeaders, 30000);
