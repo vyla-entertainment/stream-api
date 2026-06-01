@@ -3,7 +3,7 @@ echo Setting up remotes...
 
 call :add github https://github.com/vyla-entertainment/stream-api.git
 call :add hf https://huggingface.co/spaces/MissouriMonster/vyla
-call :add hf2 https://huggingface.co/spaces/MissouriMonster/momo
+call :add hf2 https://huggingface.co/spaces/MissouriMonster/ugh
 call :add hf3 https://huggingface.co/spaces/MissouriMonster/popr
 call :add hf4 https://huggingface.co/spaces/MissouriMonster/peaktv
 call :add hf5 https://huggingface.co/spaces/MissouriMonster/movieslay
