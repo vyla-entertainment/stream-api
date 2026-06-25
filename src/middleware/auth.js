@@ -10,7 +10,6 @@ if (!getApps().length) {
 }
 
 const db = getFirestore();
-
 const API_KEYS = new Map();
 const rateLimitMap = new Map();
 
@@ -21,14 +20,10 @@ async function loadKeysFromFirestore() {
         for (const doc of snap.docs) {
             const data = doc.data();
             if (data.enabled) {
-                API_KEYS.set(doc.id, {
-                    type: data.type,
-                    rpm: data.requests_per_minute ?? 100,
-                });
+                API_KEYS.set(doc.id, { type: data.type, rpm: data.requests_per_minute ?? 100 });
             }
         }
-    } catch {
-    }
+    } catch { }
 }
 
 await loadKeysFromFirestore();
@@ -36,6 +31,8 @@ setInterval(loadKeysFromFirestore, 5 * 60 * 1000);
 
 const TOKEN_SECRET = process.env.TOKEN_SECRET;
 const TOKEN_TTL_MS = 30 * 60 * 1000;
+
+const BLOCKED_PATHS_FOR_PUBLIC = new Set(['/movie', '/api/movie', '/tv', '/api/tv', '/test', '/api/test']);
 
 export function issueSessionToken() {
     const expires = Date.now() + TOKEN_TTL_MS;
@@ -59,65 +56,9 @@ export function validateSessionToken(token) {
     }
 }
 
-export function validateApiKey(apiKey) {
-    if (!apiKey) {
-        return { valid: false, error: 'Missing API key', type: null };
-    }
-
-    let cleanKey = apiKey;
-    if (apiKey.includes(':')) {
-        const parts = apiKey.split(':');
-        cleanKey = parts[parts.length - 1].trim();
-    }
-
-    const entry = API_KEYS.get(cleanKey);
-    if (!entry) {
-        return { valid: false, error: 'Invalid API key', type: null };
-    }
-
-    return { valid: true, error: null, type: entry.type };
-}
-
-export function checkRateLimit(apiKey, clientIP) {
-    let cleanKey = apiKey;
-    if (apiKey?.includes(':')) {
-        const parts = apiKey.split(':');
-        cleanKey = parts[parts.length - 1].trim();
-    }
-
-    const entry = API_KEYS.get(cleanKey);
-    if (!entry) return { allowed: false, error: 'Invalid API key' };
-
-    const rpm = entry.rpm;
-    const window = 60000;
-    const now = Date.now();
-    const key = `${cleanKey}:${clientIP}`;
-
-    const current = rateLimitMap.get(key) || { count: 0, resetAt: now + window };
-
-    if (now > current.resetAt) {
-        current.count = 0;
-        current.resetAt = now + window;
-    }
-
-    if (current.count >= rpm) {
-        return {
-            allowed: false,
-            error: 'Rate limit exceeded',
-            resetAt: current.resetAt,
-            limit: rpm,
-            window,
-        };
-    }
-
-    current.count++;
-    rateLimitMap.set(key, current);
-
-    return {
-        allowed: true,
-        remaining: rpm - current.count,
-        resetAt: current.resetAt,
-    };
+function parseKey(apiKey) {
+    if (!apiKey) return null;
+    return apiKey.includes(':') ? apiKey.split(':').pop().trim() : apiKey;
 }
 
 export function authenticateRequest(req) {
@@ -135,21 +76,49 @@ export function authenticateRequest(req) {
     }
 
     const authHeader = req.headers['authorization'];
-    const apiKey = authHeader?.replace('Bearer ', '')?.trim() || req.headers['x-api-key']?.trim();
+    const rawKey = authHeader?.replace('Bearer ', '')?.trim() || req.headers['x-api-key']?.trim();
+    const cleanKey = parseKey(rawKey);
 
-    if (!apiKey) {
+    if (!cleanKey) {
         return { valid: false, error: 'Missing API key. Provide via Authorization header or X-API-Key header.' };
     }
 
-    return validateApiKey(apiKey);
+    const entry = API_KEYS.get(cleanKey);
+    if (!entry) {
+        return { valid: false, error: 'Invalid API key', type: null };
+    }
+
+    return { valid: true, error: null, type: entry.type };
 }
 
-export function canAccessStreaming(keyType) {
-    return keyType === 'standard' || keyType === 'partner' || keyType === 'player';
+export function canAccess(type, pathname) {
+    if (type === 'public') return !BLOCKED_PATHS_FOR_PUBLIC.has(pathname);
+    return type === 'standard' || type === 'partner' || type === 'player';
 }
 
-export function canAccessEverythingElse(keyType) {
-    return keyType === 'standard' || keyType === 'partner' || keyType === 'player' || keyType === 'public';
+export function checkRateLimit(apiKey, clientIP) {
+    const cleanKey = parseKey(apiKey);
+    const entry = API_KEYS.get(cleanKey);
+    if (!entry) return { allowed: false, error: 'Invalid API key' };
+
+    const rpm = entry.rpm;
+    const window = 60000;
+    const now = Date.now();
+    const key = `${cleanKey}:${clientIP}`;
+    const current = rateLimitMap.get(key) || { count: 0, resetAt: now + window };
+
+    if (now > current.resetAt) {
+        current.count = 0;
+        current.resetAt = now + window;
+    }
+
+    if (current.count >= rpm) {
+        return { allowed: false, error: 'Rate limit exceeded', resetAt: current.resetAt, limit: rpm, window };
+    }
+
+    current.count++;
+    rateLimitMap.set(key, current);
+    return { allowed: true, remaining: rpm - current.count, resetAt: current.resetAt };
 }
 
 export function clearRateLimitCache() {
@@ -159,8 +128,6 @@ export function clearRateLimitCache() {
 setInterval(() => {
     const now = Date.now();
     for (const [key, value] of rateLimitMap) {
-        if (now > value.resetAt) {
-            rateLimitMap.delete(key);
-        }
+        if (now > value.resetAt) rateLimitMap.delete(key);
     }
 }, 60000);

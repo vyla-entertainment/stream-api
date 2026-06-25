@@ -9,7 +9,7 @@ import { SOURCES, SOURCE_MAP, CACHE_TTL } from './config.js';
 import { handleSubtitleMovie, handleSubtitleTv, fetchSubtitles, SUBTITLE_BASES } from './src/routes/subtitles.js';
 import { handleDownloadMovie, handleDownloadTv } from './src/routes/downloads/main.js';
 import { handleHealth } from './src/routes/health.js';
-import { authenticateRequest, checkRateLimit, canAccessStreaming, canAccessEverythingElse, issueSessionToken } from './src/middleware/auth.js';
+import { authenticateRequest, checkRateLimit, canAccess, issueSessionToken } from './src/middleware/auth.js';
 import { validateTmdbId } from './src/utils/helpers.js';
 import { wrapUrl } from './src/utils/proxy.js';
 import { handleTestRoute, handleDebugRoute } from './src/routes/test.js';
@@ -817,31 +817,23 @@ async function handleRequest(req, res) {
 
     if (BLOCKED_IPS.has(clientIP)) return respondJson(403, { error: 'forbidden' });
 
-    const publicRoutes = ['/', '/api', '/api/', '/api/auth'];
-    const isPublicRoute = publicRoutes.includes(pathname);
-    pathname.match(/^\/(?:api\/)?subtitles?/) ||
-        pathname.match(/^\/(?:api\/)?downloads?/);
-
     if (req.method === 'OPTIONS') return { status: 204, body: '', headers: CORS_HEADERS };
 
+    const PUBLIC_ROUTES = new Set(['/', '', '/health', '/api/health', '/api/auth']);
+    const isPublicRoute = PUBLIC_ROUTES.has(pathname);
+
+    const authResult = authenticateRequest(req);
+
     if (!isPublicRoute) {
-        const authResult = authenticateRequest(req);
-        if (!authResult.valid) {
-            return respondJson(401, { error: authResult.error });
-        }
+        if (!authResult.valid) return respondJson(401, { error: authResult.error });
+        if (!canAccess(authResult.type, pathname)) return respondJson(403, { error: 'Access denied' });
 
         if (!authResult.bypassed) {
             const authHeader = req.headers['authorization'];
             const apiKey = authHeader?.replace('Bearer ', '')?.trim() || req.headers['x-api-key']?.trim();
-
             const rateLimitResult = checkRateLimit(apiKey, clientIP);
             if (!rateLimitResult.allowed) {
-                return respondJson(429, {
-                    error: rateLimitResult.error,
-                    resetAt: rateLimitResult.resetAt,
-                    limit: rateLimitResult.limit,
-                    window: rateLimitResult.window
-                });
+                return respondJson(429, { error: rateLimitResult.error, resetAt: rateLimitResult.resetAt, limit: rateLimitResult.limit, window: rateLimitResult.window });
             }
         }
     }
@@ -859,21 +851,13 @@ async function handleRequest(req, res) {
     }
 
     if (pathname === '/test' || pathname === '/api/test') {
-        const authResult = authenticateRequest(req);
-
-        if (!authResult.valid) {
-            return respondJson(401, { error: authResult.error });
-        }
-
         const tests = {};
-
         ACTIVE_SOURCES.forEach(s => {
             tests[s.key] = {
                 movie: `/api/test/155?source=${s.key}`,
                 tv: `/api/test/1396?season=1&episode=1&source=${s.key}`
             };
         });
-
         return respondJson(200, tests);
     }
 
@@ -914,15 +898,7 @@ async function handleRequest(req, res) {
             return respondJson(400, { error: tmdbValidation.error });
         }
 
-        const authHeader = req.headers['authorization'];
-        const apiKey = authHeader?.replace('Bearer ', '')?.trim() || req.headers['x-api-key']?.trim();
-        const authResult = authenticateRequest(req);
-        if (authResult.valid && !canAccessStreaming(authResult.type)) {
-            return respondJson(403, { error: 'Public keys cannot access streaming endpoints' });
-        }
-
         res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive', 'X-Accel-Buffering': 'no', ...CORS_HEADERS });
-
         const [meta, subtitles] = await Promise.all([
             getMetadata(id, null, null),
             fetchSubtitles([
@@ -951,13 +927,6 @@ async function handleRequest(req, res) {
         const tmdbValidation = await validateTmdbId(id, 'tv');
         if (!tmdbValidation.valid) {
             return respondJson(400, { error: tmdbValidation.error });
-        }
-
-        const authHeader = req.headers['authorization'];
-        const apiKey = authHeader?.replace('Bearer ', '')?.trim() || req.headers['x-api-key']?.trim();
-        const authResult = authenticateRequest(req);
-        if (authResult.valid && !canAccessStreaming(authResult.type)) {
-            return respondJson(403, { error: 'Public keys cannot access streaming endpoints' });
         }
 
         res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive', 'X-Accel-Buffering': 'no', ...CORS_HEADERS });
@@ -995,56 +964,36 @@ async function handleRequest(req, res) {
 
     match = ROUTE_PATTERNS.subtitleMovie.exec(pathname);
     if (match) {
-        const authResult = authenticateRequest(req);
-        if (!authResult.valid) return respondJson(401, { error: authResult.error });
-        if (!canAccessEverythingElse(authResult.type)) return respondJson(403, { error: 'Public keys cannot access subtitle endpoints' });
         googleAnalytic('subtitles-movie', { id: match[1] });
         return handleSubtitleMovie(match[1], CORS_HEADERS);
     }
 
     match = ROUTE_PATTERNS.subtitleTv.exec(pathname);
     if (match) {
-        const authResult = authenticateRequest(req);
-        if (!authResult.valid) return respondJson(401, { error: authResult.error });
-        if (!canAccessEverythingElse(authResult.type)) return respondJson(403, { error: 'Public keys cannot access subtitle endpoints' });
         googleAnalytic('subtitles-tv', { id: match[1], season: match[2], episode: match[3] });
         return handleSubtitleTv(match[1], match[2], match[3], CORS_HEADERS);
     }
 
     match = ROUTE_PATTERNS.downloadMovie.exec(pathname);
     if (match) {
-        const authResult = authenticateRequest(req);
-        if (!authResult.valid) return respondJson(401, { error: authResult.error });
-        if (!canAccessEverythingElse(authResult.type)) return respondJson(403, { error: 'Public keys cannot access download endpoints' });
         googleAnalytic('downloads-movie', { id: match[1] });
         return handleDownloadMovie(match[1], CORS_HEADERS);
     }
 
     match = ROUTE_PATTERNS.downloadTv.exec(pathname);
     if (match) {
-        const authResult = authenticateRequest(req);
-        if (!authResult.valid) return respondJson(401, { error: authResult.error });
-        if (!canAccessEverythingElse(authResult.type)) return respondJson(403, { error: 'Public keys cannot access download endpoints' });
         googleAnalytic('downloads-tv', { id: match[1], season: match[2], episode: match[3] });
         return handleDownloadTv(match[1], match[2], match[3], CORS_HEADERS);
     }
 
     match = ROUTE_PATTERNS.test.exec(pathname);
     if (match) {
-        const authResult = authenticateRequest(req);
-        if (authResult.valid && !canAccessStreaming(authResult.type)) {
-            return respondJson(403, { error: 'Public keys cannot access test endpoints' });
-        }
         const result = await handleTestRoute(match, searchParams, clientIP, reqUrl.host, handleTestSource, googleAnalytic);
         return { status: result.status, body: result.body, headers: JSON_CORS };
     }
 
     match = ROUTE_PATTERNS.debug.exec(pathname);
     if (match) {
-        const authResult = authenticateRequest(req);
-        if (authResult.valid && !canAccessStreaming(authResult.type)) {
-            return respondJson(403, { error: 'Public keys cannot access debug endpoints' });
-        }
         const result = await handleDebugRoute(match, searchParams, absoluteBase, _nativeFetch, verifyPlayable, SOURCE_MODULES);
         return { status: result.status, body: result.body, headers: JSON_CORS };
     }
