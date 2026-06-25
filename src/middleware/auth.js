@@ -106,6 +106,7 @@ export function canAccess(type, req, pathname) {
 }
 
 export function checkRateLimit(apiKey, clientIP) {
+    if (!apiKey) return { allowed: true };
     const cleanKey = parseKey(apiKey);
     const entry = API_KEYS.get(cleanKey);
     if (!entry) return { allowed: false, error: 'Invalid API key' };

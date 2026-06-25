@@ -827,6 +827,17 @@ async function handleRequest(req, res) {
     if (!isPublicRoute) {
         if (!authResult.valid) return respondJson(401, { error: authResult.error });
         if (!canAccess(authResult.type, req, pathname)) return respondJson(403, { error: 'Access denied' });
+
+        const authHeader = req.headers['authorization'];
+        const apiKey = authHeader?.replace('Bearer ', '')?.trim() || req.headers['x-api-key']?.trim();
+
+        if (apiKey) {
+            const rateLimitResult = checkRateLimit(apiKey, clientIP);
+            if (!rateLimitResult.allowed) {
+                return respondJson(429, { error: rateLimitResult.error, resetAt: rateLimitResult.resetAt, limit: rateLimitResult.limit, window: rateLimitResult.window });
+            }
+        }
+        
         if (!authResult.bypassed) {
             const authHeader = req.headers['authorization'];
             const apiKey = authHeader?.replace('Bearer ', '')?.trim() || req.headers['x-api-key']?.trim();
