@@ -91,7 +91,7 @@ export function authenticateRequest(req) {
         return { valid: false, error: 'Invalid API key', type: null };
     }
 
-    return { valid: true, error: null, type: entry.type };
+    return { valid: true, error: null, type: entry.type, key: cleanKey };
 }
 
 function isStreamProxy(req, pathname) {
@@ -105,8 +105,9 @@ export function canAccess(type, req, pathname) {
     return type === 'standard' || type === 'partner' || type === 'player';
 }
 
-export function checkRateLimit(apiKey, clientIP) {
+export function checkRateLimit(apiKey) {
     if (!apiKey) return { allowed: true };
+
     const cleanKey = parseKey(apiKey);
     const entry = API_KEYS.get(cleanKey);
     if (!entry) return { allowed: false, error: 'Invalid API key' };
@@ -114,20 +115,19 @@ export function checkRateLimit(apiKey, clientIP) {
     const rpm = entry.rpm;
     const window = 60000;
     const now = Date.now();
-    const key = `${cleanKey}:${clientIP}`;
-    const current = rateLimitMap.get(key) || { count: 0, resetAt: now + window };
 
-    if (now > current.resetAt) {
-        current.count = 0;
-        current.resetAt = now + window;
+    let current = rateLimitMap.get(cleanKey);
+    if (!current || now > current.resetAt) {
+        current = { count: 0, resetAt: now + window };
     }
 
     if (current.count >= rpm) {
+        rateLimitMap.set(cleanKey, current);
         return { allowed: false, error: 'Rate limit exceeded', resetAt: current.resetAt, limit: rpm, window };
     }
 
     current.count++;
-    rateLimitMap.set(key, current);
+    rateLimitMap.set(cleanKey, current);
     return { allowed: true, remaining: rpm - current.count, resetAt: current.resetAt };
 }
 
