@@ -5,8 +5,8 @@
 const API_KEY = "WDNUNBUB3HR983Y9ISBADK4O82";
 const BASE_URL = "https://dulo.tv";
 
-const MOVIE_PROVIDERS = ["event-edge", "vidrock", "moviesapi", "uniquestream", "artemis", "purstream", "goodstream", "xpass", "vixsrc", "vidnest"];
-const TV_PROVIDERS = ["event-edge", "vidrock", "uniquestream", "videasy", "artemis", "purstream", "xpass", "vixsrc", "vidnest"];
+const MOVIE_PROVIDERS = ["event-edge", "vidrock", "moviesapi", "uniquestream", "purstream", "goodstream", "xpass", "vixsrc", "vidnest"];
+const TV_PROVIDERS = ["event-edge", "vidrock", "uniquestream", "videasy", "purstream", "xpass", "vixsrc", "vidnest"];
 
 const BASE_HEADERS = {
     "X-API-Key": API_KEY,
