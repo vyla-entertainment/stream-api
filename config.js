@@ -407,6 +407,16 @@ export const SOURCES = [
         multiUrl: true,
     },
 
+    {
+        key: 'lordflix',
+        label: 'Lordflix',
+        sourceFile: 'lordflix',
+        proxyParam: 'lf',
+        timeout: 20000,
+        retries: 1,
+        jitter: 0,
+        multiUrl: true,
+    },
 
 ];
 
