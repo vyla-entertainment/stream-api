@@ -157,33 +157,52 @@ if (cluster.isPrimary) {
 
 const _nativeFetch = globalThis.fetch;
 
-const sendGaEvent = (clientId, eventName, params = {}) => {
+async function sendGAEvent(eventName, params = {}, clientId = null) {
+    if (!GA_MEASUREMENT_ID || !GA_API_SECRET) return;
+    const cid = clientId || `server.${Date.now()}.${Math.random().toString(36).slice(2)}`;
+    const payload = {
+        client_id: cid,
+        timestamp_micros: String(Date.now() * 1000),
+        non_personalized_ads: false,
+        events: [{
+            name: eventName,
+            params: {
+                engagement_time_msec: 100,
+                session_id: cid,
+                ...params,
+            },
+        }],
+    };
+    try {
+        const res = await fetch(
+            `https://www.google-analytics.com/mp/collect?measurement_id=${GA_MEASUREMENT_ID}&api_secret=${GA_API_SECRET}`,
+            { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }
+        );
+    } catch (err) {
+    }
+}
+
+async function validateGAConfig() {
     if (!GA_MEASUREMENT_ID || !GA_API_SECRET) {
         return;
     }
-    const safeClientId = clientId && /^[A-Za-z0-9._-]{1,50}$/.test(clientId) ? clientId : `${Date.now()}.${Math.floor(Math.random() * 1e10)}`;
-    const cleanParams = {};
-    for (const [k, v] of Object.entries(params)) {
-        if (v === null || v === undefined) continue;
-        cleanParams[k] = v;
-    }
     const payload = {
-        client_id: safeClientId,
-        events: [{ name: eventName, params: cleanParams }],
+        client_id: 'debug.startup',
+        events: [{ name: 'server_start', params: { engagement_time_msec: 100, session_id: 'debug.startup' } }],
     };
-    _nativeFetch(
-        `https://www.google-analytics.com/mp/collect?measurement_id=${GA_MEASUREMENT_ID}&api_secret=${GA_API_SECRET}`,
-        {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-            signal: AbortSignal.timeout(3000),
+    try {
+        const validateRes = await fetch(
+            `https://www.google-analytics.com/debug/mp/collect?measurement_id=${GA_MEASUREMENT_ID}&api_secret=${GA_API_SECRET}`,
+            { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }
+        );
+        const body = await validateRes.json();
+        const issues = body?.validationMessages ?? [];
+        if (issues.length === 0) {
+            await sendGAEvent('server_start', { uptime: 0 }, 'debug.startup');
         }
-    ).then(async res => {
-        await res.text().catch(() => '');
-    }).catch(() => {
-    });
-};
+    } catch (err) {
+    }
+}
 
 globalThis.fetch = (url, opts) => {
     const signal = opts?.signal ?? AbortSignal.timeout(HF_FETCH_TIMEOUT);
@@ -885,21 +904,32 @@ async function handleRequest(req, res) {
         return raw.length ? ACTIVE_SOURCES.filter(s => raw.includes(s.key)) : ACTIVE_SOURCES;
     };
 
-    const getRequestMeta = () => ({
-        ip: clientIP,
-        referer: req.headers['referer'] || null,
-        origin: req.headers['origin'] || null,
-        user_agent: req.headers['user-agent'] || null,
-        host: req.headers['host'] || null,
-        country: req.headers['cf-ipcountry'] || null,
-        path: pathname,
-        query: reqUrl.search || null,
-    });
+    const getRequestMeta = () => {
+        const raw = {
+            ip: clientIP,
+            referer: req.headers['referer'] || null,
+            origin: req.headers['origin'] || null,
+            user_agent: req.headers['user-agent'] || null,
+            host: req.headers['host'] || null,
+            country: req.headers['cf-ipcountry'] || null,
+            path: pathname,
+            query: reqUrl.search || null,
+        };
+        return Object.fromEntries(Object.entries(raw).filter(([, v]) => v !== null && v !== undefined));
+    };
+
+    const gaClientId = (() => {
+        if (clientIP && clientIP !== '127.0.0.1' && clientIP !== '::1' && clientIP !== '::ffff:127.0.0.1') {
+            return clientIP;
+        }
+        return `local.${Date.now()}.${Math.random().toString(36).slice(2, 9)}`;
+    })();
 
     const googleAnalytic = (event, extra = {}) => {
         if (!GA_MEASUREMENT_ID || !GA_API_SECRET) return;
+        const safeName = event.replace(/-/g, '_');
         const meta = getRequestMeta();
-        sendGaEvent(clientIP || 'anonymous', event, { ...meta, ...extra });
+        sendGAEvent(safeName, { ...meta, ...extra }, gaClientId);
     };
 
     if (pathname === '/movie' || pathname === '/api/movie') {
@@ -925,7 +955,7 @@ async function handleRequest(req, res) {
             try { res.write(`data: ${JSON.stringify({ type: 'meta', meta, subtitles })}\n\n`); } catch { return null; }
         }
 
-        googleAnalytic('stream-movie', { id });
+        googleAnalytic('stream_movie', { id });
         const total = await streamSources(getRequestedSources(), id, null, null, clientIP, absoluteBase, res);
         if (!res.writableEnded && !res.destroyed) {
             try { res.write(`data: ${JSON.stringify({ type: 'done', total })}\n\n`); res.end(); } catch { }
@@ -957,7 +987,7 @@ async function handleRequest(req, res) {
             try { res.write(`data: ${JSON.stringify({ type: 'meta', meta, subtitles })}\n\n`); } catch { return null; }
         }
 
-        googleAnalytic('stream-tv', { id, season: s, episode: e });
+        googleAnalytic('stream_tv', { id, season: s, episode: e });
         const total = await streamSources(getRequestedSources(), id, s, e, clientIP, absoluteBase, res);
         if (!res.writableEnded && !res.destroyed) {
             try { res.write(`data: ${JSON.stringify({ type: 'done', total })}\n\n`); res.end(); } catch { }
@@ -977,25 +1007,25 @@ async function handleRequest(req, res) {
 
     match = ROUTE_PATTERNS.subtitleMovie.exec(pathname);
     if (match) {
-        googleAnalytic('subtitles-movie', { id: match[1] });
+        googleAnalytic('subtitles_movie', { id: match[1] });
         return handleSubtitleMovie(match[1], CORS_HEADERS);
     }
 
     match = ROUTE_PATTERNS.subtitleTv.exec(pathname);
     if (match) {
-        googleAnalytic('subtitles-tv', { id: match[1], season: match[2], episode: match[3] });
+        googleAnalytic('subtitles_tv', { id: match[1], season: match[2], episode: match[3] });
         return handleSubtitleTv(match[1], match[2], match[3], CORS_HEADERS);
     }
 
     match = ROUTE_PATTERNS.downloadMovie.exec(pathname);
     if (match) {
-        googleAnalytic('downloads-movie', { id: match[1] });
+        googleAnalytic('downloads_movie', { id: match[1] });
         return handleDownloadMovie(match[1], CORS_HEADERS);
     }
 
     match = ROUTE_PATTERNS.downloadTv.exec(pathname);
     if (match) {
-        googleAnalytic('downloads-tv', { id: match[1], season: match[2], episode: match[3] });
+        googleAnalytic('downloads_tv', { id: match[1], season: match[2], episode: match[3] });
         return handleDownloadTv(match[1], match[2], match[3], CORS_HEADERS);
     }
 
@@ -1174,4 +1204,5 @@ server.maxHeadersCount = 100;
 server.timeout = 90_000;
 
 server.on('error', err => { if (err.code !== 'EADDRINUSE') console.error('server error', err.message); });
+await validateGAConfig();
 server.listen(PORT, '0.0.0.0', () => console.log(`http://localhost:${PORT}`));

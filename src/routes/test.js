@@ -23,7 +23,7 @@ export async function handleTestRoute(match, searchParams, clientIP, host, handl
         host
     );
 
-    googleAnalytic('test', { source, id: match[1], ok: JSON.parse(result.body).ok });
+    googleAnalytic('source_test', { source, id: match[1], ok: JSON.parse(result.body).ok });
     return { status: result.status, body: result.body };
 }
 
