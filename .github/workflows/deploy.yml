@@ -1,23 +1,28 @@
-name: Deploy to VPS
+name: Deploy API
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy via SSH
+      - name: Deploy API
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
+            set -e
+
             cd /var/www/valya/api
-            git pull origin main
-            cd /var/www/valya
-            docker compose up -d --build
+
+            git remote set-url origin git@github.com:vyla-entertainment/stream-api.git || true
+
+            git fetch origin
+            git reset --hard origin/main
+
+            pm2 reload api --update-env || pm2 restart api
