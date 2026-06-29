@@ -6,7 +6,6 @@
     "type": "module",
     "dependencies": {
         "crypto-js": "^4.2.0",
-        "dotenv": "^17.4.2",
-        "firebase-admin": "^14.1.0"
+        "dotenv": "^17.4.2"
     }
 }
