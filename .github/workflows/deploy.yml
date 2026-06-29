@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy API
+      - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.VPS_HOST }}
@@ -22,7 +22,7 @@ jobs:
 
             git remote set-url origin git@github.com:vyla-entertainment/stream-api.git || true
 
-            git fetch origin
+            git fetch origin main
             git reset --hard origin/main
 
             pm2 reload api --update-env || pm2 restart api
