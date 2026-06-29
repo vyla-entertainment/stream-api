@@ -94,6 +94,10 @@ function isLocalRequest(req) {
     );
 }
 
+console.log("RAW HEADER:", req.headers.authorization);
+console.log("CLEAN KEY:", cleanKey);
+console.log("MAP KEYS:", [...API_KEYS.keys()]);
+
 export function authenticateRequest(req) {
     if (BYPASS_LOCALHOST && isLocalRequest(req)) {
         return {
