@@ -1,4 +1,6 @@
-import cluster from 'cluster';
+console.log("INCOMING:", req.method, req.url, req.headers.authorization, req.headers.host, req.socket.remoteAddress);
+
+import cluster from 'cluster'
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
