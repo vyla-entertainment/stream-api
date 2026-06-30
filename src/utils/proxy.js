@@ -5,10 +5,26 @@ export function wrapUrl(rawUrl, sourceKey, absoluteBase, SOURCE_MAP) {
     if (!rawUrl) return null;
 
     const raw = typeof rawUrl === "object" ? rawUrl.url : rawUrl;
-    const cfg = SOURCE_MAP[sourceKey];
+    const cfg = SOURCE_MAP?.[sourceKey];
 
     if (!cfg || cfg.skipProxy || rawUrl?.skipProxy) {
         return raw;
+    }
+
+    const headers =
+        typeof rawUrl === "object" && rawUrl.headers
+            ? rawUrl.headers
+            : null;
+
+    const params = new URLSearchParams();
+    params.set("url", raw);
+
+    if (cfg?.proxyParam) {
+        params.set(cfg.proxyParam, "1");
+    }
+
+    if (headers) {
+        params.set("proxyHeaders", encodeURIComponent(JSON.stringify(headers)));
     }
 
     if (PROXY_STREAMS) {
@@ -16,45 +32,15 @@ export function wrapUrl(rawUrl, sourceKey, absoluteBase, SOURCE_MAP) {
             absoluteBase.includes("localhost") ||
             absoluteBase.includes("127.0.0.1");
 
-        const safeBase = isLocal
+        const base = isLocal
             ? absoluteBase.replace(/^https:\/\//, "http://")
             : absoluteBase.replace(/^http:\/\//, "https://");
 
-        const normalized = isLocal
-            ? raw
-            : raw.replace(/^http:\/\//, "https://");
-
-        const params = new URLSearchParams({
-            url: normalized,
-            [cfg.proxyParam]: "1"
-        });
-
-        if (typeof rawUrl === "object" && rawUrl.headers) {
-            params.set(
-                "proxyHeaders",
-                JSON.stringify(rawUrl.headers)
-            );
-        }
-
-        return `${safeBase}/api?${params.toString()}`;
+        return `${base}/api?${params.toString()}`;
     }
 
     if (EXTERNAL_PROXY_URL) {
-        const normalized = raw.replace(/^http:\/\//, "https://");
-
-        const params = new URLSearchParams({
-            url: normalized,
-            [cfg.proxyParam]: "1"
-        });
-
-        if (typeof rawUrl === "object" && rawUrl.headers) {
-            params.set(
-                "proxyHeaders",
-                JSON.stringify(rawUrl.headers)
-            );
-        }
-
-        return `${EXTERNAL_PROXY_URL}/?${params.toString()}`;
+        return `${EXTERNAL_PROXY_URL}/api?${params.toString()}`;
     }
 
     return raw;
