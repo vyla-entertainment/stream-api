@@ -147,7 +147,7 @@ export function authenticateRequest(req) {
     if (!cleanKey) {
         return {
             valid: false,
-            error: 'Missing API key. Provide via Authorization or X-API-Key.'
+            error: 'Missing API key. Provide via Authorization or X-API-Key. You can get one at https://vyla.mintlify.app/authentication'
         };
     }
 
