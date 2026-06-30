@@ -67,7 +67,7 @@ const ROUTE_PATTERNS = {
 
 if (cluster.isPrimary) {
     const cpus = (await import('os')).default.cpus().length;
-    const workerCount = IS_HF ? Math.min(cpus, 2) : Math.max(1, cpus - 1);
+    const workerCount = IS_HF ? Math.min(cpus, 2) : (process.env.WORKER_COUNT ? Math.max(1, parseInt(process.env.WORKER_COUNT, 10)) : 1);
     const sharedCache = new Map();
     const SHARED_CACHE_MAX = 1500;
 
@@ -458,6 +458,7 @@ async function fetchUpstream(url, extraHeaders = {}, timeoutMs = 30_000, allowWe
     let current = url.startsWith('http://') ? 'https://' + url.slice(7) : url;
     const headers = { 'User-Agent': getUA(), ...extraHeaders };
     const opts = { headers, redirect: 'manual', signal: AbortSignal.timeout(timeoutMs) };
+    let viaWebshare = false;
 
     for (let i = 0; i <= 5; i++) {
         let res = await _nativeFetch(current, opts);
@@ -466,12 +467,16 @@ async function fetchUpstream(url, extraHeaders = {}, timeoutMs = 30_000, allowWe
             res.body?.cancel();
             try {
                 res = await fetchViaWebshare(current, { headers, redirect: 'manual' }, timeoutMs);
+                viaWebshare = true;
             } catch {
                 throw new Error('upstream 403, proxy retry failed');
             }
         }
 
-        if (res.status < 300 || res.status >= 400 || !res.headers.has('location')) return res;
+        if (res.status < 300 || res.status >= 400 || !res.headers.has('location')) {
+            res.viaWebshare = viaWebshare;
+            return res;
+        }
         res.body?.cancel();
         const loc = res.headers.get('location');
         current = loc.startsWith('http')
@@ -1125,7 +1130,7 @@ async function handleRequest(req, res) {
                     applyCdnHeaders(cleanUrl, extraHeaders, matchedSource.key);
                 }
 
-                const upstream = await fetchUpstream(cleanUrl, extraHeaders, 30_000, false);
+                const upstream = await fetchUpstream(cleanUrl, extraHeaders, 30_000, true);
                 const ct = (upstream.headers.get('content-type') || '').toLowerCase();
                 const looksLikeM3u8 = M3U8_REGEX.test(cleanUrl) || cleanUrl.includes('/playlist/') || cleanUrl.includes('/streamsvr/') || ct.includes('mpegurl') || ct.includes('m3u8');
 
@@ -1163,6 +1168,11 @@ async function handleRequest(req, res) {
                     }
 
                     if (!upstream.ok) return { status: upstream.status, body: `upstream ${upstream.status}`, headers: { 'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*' } };
+
+                    if (upstream.viaWebshare) {
+                        upstream.body?.cancel();
+                        return { status: 403, body: 'upstream blocked, refusing to stream via proxy', headers: { 'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*' } };
+                    }
 
                     const rangeHeader = req.headers['range'];
                     const streamUpstream = rangeHeader
