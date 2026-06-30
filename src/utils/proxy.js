@@ -1,46 +1,60 @@
 const PROXY_STREAMS = process.env.PROXY_STREAMS === "true";
 const EXTERNAL_PROXY_URL = (process.env.PROXY_URL || "").replace(/\/+$/, "");
 
+function buildProxyUrl(base, params) {
+    return `${base}?${params.toString()}`;
+}
+
 export function wrapUrl(rawUrl, sourceKey, absoluteBase, SOURCE_MAP) {
     if (!rawUrl) return null;
 
-    const raw = typeof rawUrl === "object" ? rawUrl.url : rawUrl;
-    const cfg = SOURCE_MAP?.[sourceKey];
+    const raw = typeof rawUrl === "object" ? rawUrl.url : raw;
+    const cfg = SOURCE_MAP[sourceKey];
 
     if (!cfg || cfg.skipProxy || rawUrl?.skipProxy) {
         return raw;
     }
 
-    const headers =
-        typeof rawUrl === "object" && rawUrl.headers
-            ? rawUrl.headers
-            : null;
-
-    const params = new URLSearchParams();
-    params.set("url", raw);
-
-    if (cfg?.proxyParam) {
-        params.set(cfg.proxyParam, "1");
-    }
-
-    if (headers) {
-        params.set("proxyHeaders", encodeURIComponent(JSON.stringify(headers)));
-    }
+    const proxyParam = cfg.proxyParam || "proxy";
 
     if (PROXY_STREAMS) {
         const isLocal =
             absoluteBase.includes("localhost") ||
             absoluteBase.includes("127.0.0.1");
 
-        const base = isLocal
+        const safeBase = isLocal
             ? absoluteBase.replace(/^https:\/\//, "http://")
             : absoluteBase.replace(/^http:\/\//, "https://");
 
-        return `${base}/api?${params.toString()}`;
+        const normalized = isLocal
+            ? raw
+            : raw.replace(/^http:\/\//, "https://");
+
+        const params = new URLSearchParams({
+            url: normalized,
+            [proxyParam]: "1"
+        });
+
+        if (typeof rawUrl === "object" && rawUrl.headers) {
+            params.set("proxyHeaders", JSON.stringify(rawUrl.headers));
+        }
+
+        return buildProxyUrl(`${safeBase}/api`, params);
     }
 
     if (EXTERNAL_PROXY_URL) {
-        return `${EXTERNAL_PROXY_URL}/api?${params.toString()}`;
+        const normalized = raw.replace(/^http:\/\//, "https://");
+
+        const params = new URLSearchParams({
+            url: normalized,
+            [proxyParam]: "1"
+        });
+
+        if (typeof rawUrl === "object" && rawUrl.headers) {
+            params.set("proxyHeaders", JSON.stringify(rawUrl.headers));
+        }
+
+        return buildProxyUrl(EXTERNAL_PROXY_URL, params);
     }
 
     return raw;

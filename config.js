@@ -1,3 +1,7 @@
+// Currently active sources reported on  11:04:55 PM PST 6/29/2026
+// Tested ID for all non anime: 936075
+// Tested ID for anime: 37854
+
 export const SOURCES = [
     {
         key: 'icefy',
@@ -9,6 +13,7 @@ export const SOURCES = [
         jitter: 500,
         retries: 2,
         skipVerify: false,
+        skipProxy: true,
         verifyHeaders: {
             Referer: 'https://streams.icefy.top/',
             Origin: 'https://streams.icefy.top',
@@ -25,6 +30,7 @@ export const SOURCES = [
         retries: 3,
         skipVerify: true,
         multiUrl: true,
+        disabled: true, // Their streams aren't working ( 403's/502's )
         cdnHeaders: [{
             pattern: /./,
             headers: {
@@ -109,7 +115,7 @@ export const SOURCES = [
         timeout: 20000,
         jitter: 500,
         retries: 2,
-        // skipProxy: true,
+        skipProxy: true,
         skipVerify: true,
         multiUrl: true,
         verifyHeaders: {
@@ -145,7 +151,7 @@ export const SOURCES = [
         jitter: 500,
         retries: 2,
         disabled: true, // Temporarily disabled due to took too long to respond
-        // skipProxy: true,
+        skipProxy: true,
         skipVerify: true,
     },
 
@@ -165,32 +171,6 @@ export const SOURCES = [
             Referer: 'https://player.videasy.net/',
             Origin: 'https://player.videasy.net',
         },
-    },
-
-    {
-        key: 'vidify',
-        label: 'Vidify',
-        sourceFile: 'vidify',
-        proxyParam: 'vdy',
-        timeout: 20000,
-        jitter: 700,
-        retries: 2,
-        skipVerify: true,
-        disabled: true, // Temporarily disabled due to Connection timed out Error code 522
-        multiUrl: true,
-        verifyHeaders: {
-            Referer: 'https://cloudnestra.com/',
-            Origin: 'https://cloudnestra.com',
-            Accept: '*/*',
-        },
-        cdnHeaders: [{
-            pattern: /xenialxenogenesis\.website/,
-            headers: {
-                'Referer': 'https://cloudorchestranova.com/',
-                'Origin': 'https://cloudorchestranova.com',
-                'Accept': '*/*',
-            },
-        }],
     },
 
     {
@@ -226,18 +206,6 @@ export const SOURCES = [
     },
 
     {
-        key: 'apexmovies',
-        label: 'ApexMovies',
-        sourceFile: 'apexmovies',
-        proxyParam: 'ax',
-        timeout: 20000,
-        jitter: 400,
-        retries: 2,
-        skipVerify: true,
-        disabled: true, // Temporarily disabled due to the website has been temporarily rate limited
-    },
-
-    {
         key: 'vidcore',
         sourceFile: 'vidcore',
         label: 'Vidcore',
@@ -266,7 +234,8 @@ export const SOURCES = [
         proxyParam: 'ps',
         timeout: 20000,
         jitter: 500,
-        retries: 2
+        retries: 2,
+        skipProxy: true,
     },
 
     {
@@ -286,7 +255,8 @@ export const SOURCES = [
         proxyParam: 'sd',
         timeout: 30000,
         jitter: 500,
-        retries: 2
+        retries: 2,
+        disabled: true, // Temporarily disabled due to website being down
     },
 
     {
@@ -310,18 +280,6 @@ export const SOURCES = [
     },
 
     {
-        key: 'zxcstream',
-        sourceFile: 'zxcstream',
-        label: 'ZxcStream',
-        proxyParam: 'zs',
-        timeout: 15000,
-        jitter: 500,
-        retries: 2,
-        // skipProxy: true,
-        skipVerify: true,
-    },
-
-    {
         key: 'biavox',
         sourceFile: 'biavox',
         label: 'BiaVox',
@@ -329,7 +287,7 @@ export const SOURCES = [
         timeout: 40000,
         jitter: 600,
         retries: 2,
-        // skipProxy: true,
+        skipProxy: true,
         skipVerify: true,
     },
 
@@ -341,7 +299,7 @@ export const SOURCES = [
         timeout: 20000,
         jitter: 500,
         retries: 2,
-        // skipProxy: true,
+        skipProxy: true,
         skipVerify: true,
     },
 
@@ -355,6 +313,7 @@ export const SOURCES = [
         retries: 2,
         skipVerify: true,
         multiUrl: true,
+        disabled: true, // Temporarily disabled due to this being hard asf to fix, well done
     },
 
     {
@@ -367,7 +326,7 @@ export const SOURCES = [
         jitter: 0,
         multiUrl: true,
         skipVerify: true,
-        // skipProxy: true
+        skipProxy: true
     },
 
     {
@@ -380,7 +339,7 @@ export const SOURCES = [
         jitter: 0,
         multiUrl: true,
         skipVerify: true,
-        // skipProxy: true
+        skipProxy: true
     },
 
     {
@@ -393,7 +352,7 @@ export const SOURCES = [
         jitter: 0,
         multiUrl: true,
         skipVerify: true,
-        // skipProxy: true
+        skipProxy: true
     },
 
 

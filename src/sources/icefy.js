@@ -11,7 +11,6 @@ async function getIcefyStream({ id, s, e }) {
         return {
             url: data.stream,
             headers: { 'Referer': 'https://streams.icefy.top/', 'Origin': 'https://streams.icefy.top' },
-            skipProxy: false,
         };
     } catch (err) { return null; }
 }
