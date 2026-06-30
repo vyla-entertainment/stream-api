@@ -157,6 +157,34 @@ if (cluster.isPrimary) {
 
 const _nativeFetch = globalThis.fetch;
 
+import { ProxyAgent } from 'undici';
+
+const WEBSHARE_PROXIES = (process.env.WEBSHARE_PROXIES || '').split(',').map(s => s.trim()).filter(Boolean);
+
+let webshareIdx = 0;
+const nextWebshareProxy = () => {
+    if (!WEBSHARE_PROXIES.length) return null;
+    const p = WEBSHARE_PROXIES[webshareIdx % WEBSHARE_PROXIES.length];
+    webshareIdx++;
+    return p;
+};
+
+const buildProxyAgent = (proxyStr) => {
+    const parts = proxyStr.split(':');
+    const [host, port, user, pass] = parts;
+    const url = user && pass
+        ? `http://${encodeURIComponent(user)}:${encodeURIComponent(pass)}@${host}:${port}`
+        : `http://${host}:${port}`;
+    return new ProxyAgent(url);
+};
+
+async function fetchViaWebshare(url, opts, timeoutMs) {
+    const proxyStr = nextWebshareProxy();
+    if (!proxyStr) throw new Error('no webshare proxies configured');
+    const dispatcher = buildProxyAgent(proxyStr);
+    return _nativeFetch(url, { ...opts, dispatcher, signal: AbortSignal.timeout(timeoutMs) });
+}
+
 async function sendGAEvent(eventName, params = {}, clientId = null) {
     if (!GA_MEASUREMENT_ID || !GA_API_SECRET) return;
     const cid = clientId || `server.${Date.now()}.${Math.random().toString(36).slice(2)}`;
@@ -432,7 +460,17 @@ async function fetchUpstream(url, extraHeaders = {}, timeoutMs = 30_000) {
     const opts = { headers, redirect: 'manual', signal: AbortSignal.timeout(timeoutMs) };
 
     for (let i = 0; i <= 5; i++) {
-        const res = await _nativeFetch(current, opts);
+        let res = await _nativeFetch(current, opts);
+
+        if (res.status === 403 && WEBSHARE_PROXIES.length) {
+            res.body?.cancel();
+            try {
+                res = await fetchViaWebshare(current, { headers, redirect: 'manual' }, timeoutMs);
+            } catch {
+                throw new Error('upstream 403, proxy retry failed');
+            }
+        }
+
         if (res.status < 300 || res.status >= 400 || !res.headers.has('location')) return res;
         res.body?.cancel();
         const loc = res.headers.get('location');
