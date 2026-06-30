@@ -850,7 +850,7 @@ async function handleRequest(req, res) {
     if (req.method === 'OPTIONS') return { status: 204, body: '', headers: CORS_HEADERS };
 
     const PUBLIC_ROUTES = new Set(['/', '']);
-    const isPublicRoute = PUBLIC_ROUTES.has(pathname);
+    const isPublicRoute = PUBLIC_ROUTES.has(pathname) && req.method === 'GET';
 
     const authResult = authenticateRequest(req);
 
@@ -871,6 +871,9 @@ async function handleRequest(req, res) {
     }
 
     if (pathname === '/api/auth' && req.method === 'POST') {
+        if (authResult.bypassed || authResult.type === 'player') {
+            return respondJson(401, { error: 'API key required for session token generation' });
+        }
         return respondJson(200, { token: issueSessionToken(authResult.type) });
     }
 

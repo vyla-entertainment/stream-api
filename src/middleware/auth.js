@@ -1,10 +1,10 @@
 import dotenv from 'dotenv';
 import crypto from 'crypto';
-import { ensureApiKeysTable, fetchActiveApiKeys } from '../../db.js';
+import { ensureApiKeysTable, fetchActiveApiKeys, ensurePublicKey } from '../../db.js';
 
 dotenv.config();
 
-const BYPASS_LOCALHOST = true;
+const BYPASS_LOCALHOST = false;
 
 const API_KEYS = new Map();
 const rateLimitMap = new Map();
@@ -35,6 +35,7 @@ export async function loadKeysFromDB() {
 
 export async function initAuth() {
     await ensureApiKeysTable();
+    await ensurePublicKey();
     await loadKeysFromDB();
 
     setInterval(() => {
@@ -183,7 +184,14 @@ function isStreamProxy(req, pathname) {
 
 export function canAccess(type, req, pathname) {
     if (type === 'public') {
-        return !isStreamProxy(req, pathname);
+        if (pathname === '/movie' || pathname === '/api/movie' ||
+            pathname === '/tv' || pathname === '/api/tv') {
+            return false;
+        }
+        if (isStreamProxy(req, pathname)) {
+            return false;
+        }
+        return true;
     }
 
     return (

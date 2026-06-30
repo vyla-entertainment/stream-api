@@ -33,4 +33,17 @@ export async function fetchActiveApiKeys() {
     return rows;
 }
 
+export async function ensurePublicKey() {
+    const existing = await sql`
+        SELECT key FROM api_keys WHERE key = 'public_api_key'
+    `;
+
+    if (existing.length === 0) {
+        await sql`
+            INSERT INTO api_keys (key, type, rpm, active)
+            VALUES ('public_api_key', 'public', 10, true)
+        `;
+    }
+}
+
 export default sql;
