@@ -902,7 +902,7 @@ async function handleRequest(req, res) {
         if (!canAccess(authResult.type, req, pathname)) return respondJson(403, { error: 'Access denied' });
 
         const authHeader = req.headers['authorization'];
-        const apiKey = authHeader?.replace('Bearer ', '')?.trim() || req.headers['x-api-key']?.trim();
+        const apiKey = authHeader?.replace('Bearer ', '')?.trim() || req.headers['x-api-key']?.trim() || authResult.key;
 
         if (apiKey && !authResult.bypassed) {
             const rateLimitResult = checkRateLimit(apiKey, clientIP);
@@ -917,7 +917,7 @@ async function handleRequest(req, res) {
         if (authResult.bypassed || authResult.type === 'player') {
             return respondJson(401, { error: 'API key required for session token generation' });
         }
-        return respondJson(200, { token: issueSessionToken(authResult.type) });
+        return respondJson(200, { token: issueSessionToken(authResult.type, authResult.key) });
     }
 
     if (pathname === '/' || pathname === '') {

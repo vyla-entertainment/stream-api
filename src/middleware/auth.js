@@ -46,15 +46,15 @@ export async function initAuth() {
 const TOKEN_SECRET = process.env.TOKEN_SECRET;
 const TOKEN_TTL_MS = 30 * 60 * 1000;
 
-export function issueSessionToken(type = 'player') {
+export function issueSessionToken(type = 'player', sourceKey = '') {
     const expires = Date.now() + TOKEN_TTL_MS;
-    const payload = `${expires}.${type}`;
+    const payload = `${expires}.${type}.${sourceKey}`;
     const sig = crypto
         .createHmac('sha256', TOKEN_SECRET)
         .update(payload)
         .digest('hex');
 
-    return `${expires}.${type}.${sig}`;
+    return `${expires}.${type}.${sourceKey}.${sig}`;
 }
 
 export function validateSessionToken(token) {
@@ -62,13 +62,13 @@ export function validateSessionToken(token) {
 
     try {
         const parts = token.split('.');
-        if (parts.length !== 3) return false;
+        if (parts.length !== 4) return false;
 
-        const [expires, type, sig] = parts;
+        const [expires, type, sourceKey, sig] = parts;
 
         if (Date.now() > Number(expires)) return false;
 
-        const payload = `${expires}.${type}`;
+        const payload = `${expires}.${type}.${sourceKey}`;
         const expected = crypto
             .createHmac('sha256', TOKEN_SECRET)
             .update(payload)
@@ -80,7 +80,7 @@ export function validateSessionToken(token) {
             Buffer.from(sig, 'hex'),
             Buffer.from(expected, 'hex')
         )
-            ? type
+            ? { type, sourceKey }
             : false;
     } catch {
         return false;
@@ -120,13 +120,14 @@ export function authenticateRequest(req) {
     const sessionToken = req.headers['x-session-token']?.trim();
 
     if (sessionToken) {
-        const tokenType = validateSessionToken(sessionToken);
+        const decoded = validateSessionToken(sessionToken);
 
-        if (tokenType) {
+        if (decoded) {
             return {
                 valid: true,
                 error: null,
-                type: tokenType,
+                type: decoded.type,
+                key: decoded.sourceKey || null,
                 bypassed: false
             };
         }
