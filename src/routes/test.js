@@ -12,7 +12,7 @@ const getUA = () => UA_LIST[Math.floor(Math.random() * UA_LIST.length)];
 
 export async function handleTestRoute(match, searchParams, clientIP, host, handleTestSource, googleAnalytic) {
     const source = searchParams.get('source');
-    if (!source || !SOURCE_MAP[source]) return { status: 400, body: JSON.stringify({ error: 'invalid or missing source' }) };
+    if (!source || !SOURCE_MAP[source]) return { status: 400, body: JSON.stringify({ error: 'Invalid or Missing Source' }) };
 
     const result = await handleTestSource(
         source,
