@@ -67,7 +67,7 @@ const ROUTE_PATTERNS = {
 
 if (cluster.isPrimary) {
     const cpus = (await import('os')).default.cpus().length;
-    const workerCount = IS_HF ? Math.min(cpus, 2) : 1;
+    const workerCount = IS_HF ? Math.min(cpus, 2) : Math.max(1, cpus - 1);
     const sharedCache = new Map();
     const SHARED_CACHE_MAX = 1500;
 
@@ -454,7 +454,7 @@ function buildM3u8Rewriter(rewriteSegments) {
 const rewriteM3u8 = buildM3u8Rewriter(true);
 const rewriteM3u8KeyOnly = buildM3u8Rewriter(false);
 
-async function fetchUpstream(url, extraHeaders = {}, timeoutMs = 30_000) {
+async function fetchUpstream(url, extraHeaders = {}, timeoutMs = 30_000, allowWebshareFallback = false) {
     let current = url.startsWith('http://') ? 'https://' + url.slice(7) : url;
     const headers = { 'User-Agent': getUA(), ...extraHeaders };
     const opts = { headers, redirect: 'manual', signal: AbortSignal.timeout(timeoutMs) };
@@ -462,7 +462,7 @@ async function fetchUpstream(url, extraHeaders = {}, timeoutMs = 30_000) {
     for (let i = 0; i <= 5; i++) {
         let res = await _nativeFetch(current, opts);
 
-        if (res.status === 403 && WEBSHARE_PROXIES.length) {
+        if (res.status === 403 && allowWebshareFallback && WEBSHARE_PROXIES.length) {
             res.body?.cancel();
             try {
                 res = await fetchViaWebshare(current, { headers, redirect: 'manual' }, timeoutMs);
@@ -1125,7 +1125,7 @@ async function handleRequest(req, res) {
                     applyCdnHeaders(cleanUrl, extraHeaders, matchedSource.key);
                 }
 
-                const upstream = await fetchUpstream(cleanUrl, extraHeaders, 30_000);
+                const upstream = await fetchUpstream(cleanUrl, extraHeaders, 30_000, false);
                 const ct = (upstream.headers.get('content-type') || '').toLowerCase();
                 const looksLikeM3u8 = M3U8_REGEX.test(cleanUrl) || cleanUrl.includes('/playlist/') || cleanUrl.includes('/streamsvr/') || ct.includes('mpegurl') || ct.includes('m3u8');
 
