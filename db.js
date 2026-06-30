@@ -23,6 +23,16 @@ export async function ensureApiKeysTable() {
     `;
 }
 
+export async function fetchDisabledApiKeys() {
+    const rows = await sql`
+        SELECT key
+        FROM api_keys
+        WHERE active = false
+    `;
+
+    return rows;
+}
+
 export async function fetchActiveApiKeys() {
     const rows = await sql`
         SELECT key, type, rpm

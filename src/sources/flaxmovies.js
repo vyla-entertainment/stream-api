@@ -10,5 +10,5 @@ export async function getStream({ id, s, e }) {
     if (!res.ok) { res.body?.cancel(); return null; }
     const data = await res.json();
     if (!data?.signed_url) return null;
-    return { allUrls: [{ url: data.signed_url, headers: { 'Referer': 'https://flaxmovies.xyz/', 'Origin': 'https://flaxmovies.xyz' }, skipProxy: false, skipHlsCheck: true }] };
+    return { allUrls: [{ url: data.signed_url, headers: { 'Referer': 'https://flaxmovies.xyz/', 'Origin': 'https://flaxmovies.xyz' } }] };
 }

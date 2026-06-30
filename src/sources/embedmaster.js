@@ -164,9 +164,6 @@ export async function getStream(args) {
             url: resolved.url,
             headers: resolved.headers,
             server: serverName,
-            skipVerify: true,
-            skipProxy: false,
-            skipCache: true
         };
     }
 

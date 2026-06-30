@@ -87,8 +87,6 @@ export async function getStream(args) {
                 url: topStream.playlist,
                 server: `Phoenix`,
                 headers: LORDFLIX_HEADERS,
-                skipVerify: true,
-                skipHlsCheck: true
             };
         }
         return null;

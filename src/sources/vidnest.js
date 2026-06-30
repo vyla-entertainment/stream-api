@@ -170,9 +170,6 @@ export async function getStream(args) {
             url: c.url,
             server: c.server,
             headers: REQUEST_HEADERS,
-            skipProxy: false,
-            skipVerify: true,
-            skipHlsCheck: true
         }))
     };
 }

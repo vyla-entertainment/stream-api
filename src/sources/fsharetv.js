@@ -106,7 +106,6 @@ export async function getStream({ id, s }) {
             url,
             headers: HEADERS,
             skipProxy: false,
-            skipHlsCheck: true,
         }));
 
         return { allUrls };

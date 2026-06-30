@@ -2,6 +2,8 @@
 // Tested ID for all non anime: 936075
 // Tested ID for anime: 37854
 
+// fsharetv/fsonic tested: 155 ( they don't have Michael )
+
 export const SOURCES = [
     {
         key: 'icefy',
@@ -12,8 +14,7 @@ export const SOURCES = [
         sourcesTimeout: 10000,
         jitter: 500,
         retries: 2,
-        skipVerify: false,
-        skipProxy: true,
+        // skipProxy: true,
         verifyHeaders: {
             Referer: 'https://streams.icefy.top/',
             Origin: 'https://streams.icefy.top',
@@ -28,7 +29,6 @@ export const SOURCES = [
         timeout: 20000,
         jitter: 800,
         retries: 3,
-        skipVerify: true,
         multiUrl: true,
         disabled: true, // Their streams aren't working ( 403's/502's )
         cdnHeaders: [{
@@ -51,7 +51,6 @@ export const SOURCES = [
         sourcesTimeout: 10000,
         jitter: 400,
         retries: 3,
-        skipVerify: true,
         verifyHeaders: {
             Accept: '/',
             'Accept-Language': 'en-US,en;q=0.9',
@@ -68,7 +67,6 @@ export const SOURCES = [
         timeout: 35000,
         jitter: 0,
         retries: 2,
-        skipVerify: false,
         multiUrl: false,
         verifyHeaders: {
             Accept: 'application/json, text/javascript, /; q=0.01',
@@ -86,7 +84,6 @@ export const SOURCES = [
         timeout: 25000,
         jitter: 600,
         retries: 2,
-        skipVerify: true,
         multiUrl: false,
         verifyHeaders: {
             Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,/;q=0.8',
@@ -103,7 +100,6 @@ export const SOURCES = [
         timeout: 35000,
         jitter: 600,
         retries: 1,
-        skipVerify: true,
         multiUrl: true,
     },
 
@@ -115,8 +111,7 @@ export const SOURCES = [
         timeout: 20000,
         jitter: 500,
         retries: 2,
-        skipProxy: true,
-        skipVerify: true,
+        // skipProxy: true,
         multiUrl: true,
         verifyHeaders: {
             'Accept-Language': 'en-US,en;q=0.9',
@@ -131,7 +126,6 @@ export const SOURCES = [
         timeout: 20000,
         jitter: 500,
         retries: 2,
-        skipVerify: true,
         multiUrl: true,
         cdnHeaders: [{
             pattern: /flix2watch\.pro/i,
@@ -151,8 +145,7 @@ export const SOURCES = [
         jitter: 500,
         retries: 2,
         disabled: true, // Temporarily disabled due to took too long to respond
-        skipProxy: true,
-        skipVerify: true,
+        // skipProxy: true,
     },
 
     {
@@ -164,7 +157,6 @@ export const SOURCES = [
         sourcesTimeout: 10000,
         jitter: 900,
         retries: 3,
-        skipVerify: true,
         multiUrl: true,
         verifyHeaders: {
             Accept: 'application/json, /; q=0.01',
@@ -181,7 +173,6 @@ export const SOURCES = [
         timeout: 25000,
         jitter: 500,
         retries: 2,
-        skipVerify: true,
         multiUrl: false,
         cdnHeaders: [{
             pattern: /hlsx\d+cdn\.|burntburst\d+\.store|echovideo\.ru/i,
@@ -200,9 +191,8 @@ export const SOURCES = [
         timeout: 20000,
         jitter: 400,
         retries: 2,
-        skipProxy: true,
-        skipVerify: true,
-        disabled: true,
+        // skipProxy: true,
+        disabled: true, // Temporarily disabled because you have to login to watch streams
     },
 
     {
@@ -235,7 +225,7 @@ export const SOURCES = [
         timeout: 20000,
         jitter: 500,
         retries: 2,
-        skipProxy: true,
+        // skipProxy: true,
     },
 
     {
@@ -287,8 +277,7 @@ export const SOURCES = [
         timeout: 40000,
         jitter: 600,
         retries: 2,
-        skipProxy: true,
-        skipVerify: true,
+        // skipProxy: true,
     },
 
     {
@@ -299,8 +288,7 @@ export const SOURCES = [
         timeout: 20000,
         jitter: 500,
         retries: 2,
-        skipProxy: true,
-        skipVerify: true,
+        // skipProxy: true,
     },
 
     {
@@ -311,7 +299,6 @@ export const SOURCES = [
         timeout: 30000,
         jitter: 500,
         retries: 2,
-        skipVerify: true,
         multiUrl: true,
         disabled: true, // Temporarily disabled due to this being hard asf to fix, well done
     },
@@ -325,8 +312,7 @@ export const SOURCES = [
         retries: 1,
         jitter: 0,
         multiUrl: true,
-        skipVerify: true,
-        skipProxy: true
+        // skipProxy: true,
     },
 
     {
@@ -338,8 +324,7 @@ export const SOURCES = [
         retries: 1,
         jitter: 0,
         multiUrl: true,
-        skipVerify: true,
-        skipProxy: true
+        // skipProxy: true,
     },
 
     {
@@ -351,8 +336,7 @@ export const SOURCES = [
         retries: 1,
         jitter: 0,
         multiUrl: true,
-        skipVerify: true,
-        skipProxy: true
+        // skipProxy: true,
     },
 
 

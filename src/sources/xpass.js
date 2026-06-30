@@ -85,8 +85,6 @@ export async function getStream(args) {
                         "Referer": XPASS_HEADERS.Referrer,
                         "User-Agent": XPASS_HEADERS["User-Agent"]
                     },
-                    skipVerify: true,
-                    skipHlsCheck: true
                 });
             } catch (e) { }
         }

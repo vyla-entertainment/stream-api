@@ -25,7 +25,7 @@ function normalizeSources(data) {
             const fixed = fixUrl(src.url);
             if (!fixed || seen.has(fixed)) continue;
             seen.add(fixed);
-            urls.push({ url: fixed, skipHlsCheck: true });
+            urls.push({ url: fixed });
         }
     }
 
@@ -34,12 +34,12 @@ function normalizeSources(data) {
             || (data.data && data.data.url);
         if (streamUrl) {
             const fixed = fixUrl(streamUrl);
-            if (fixed) urls.push({ url: fixed, skipHlsCheck: true });
+            if (fixed) urls.push({ url: fixed });
         }
     }
 
     if (urls.length === 0) return null;
-    return { url: urls[0].url, skipHlsCheck: true, allUrls: urls };
+    return { url: urls[0].url, allUrls: urls };
 }
 
 export async function getStream({ id, s, e }) {

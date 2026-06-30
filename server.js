@@ -487,7 +487,7 @@ async function fetchUpstream(url, extraHeaders = {}, timeoutMs = 30_000, allowWe
     throw new Error('redirect loop');
 }
 
-async function verifyStream(rawUrl, sourceKey) {
+async function verifyStream(rawUrl, sourceKey, extraHeaders = {}) {
     const cfg = SOURCE_MAP[sourceKey];
     if (cfg?.skipVerify) return true;
 
@@ -498,7 +498,7 @@ async function verifyStream(rawUrl, sourceKey) {
     try {
         const res = await _nativeFetch(rawUrl, {
             method: 'HEAD',
-            headers: { 'User-Agent': getUA(), ...(cfg?.verifyHeaders ?? {}) },
+            headers: { 'User-Agent': getUA(), ...(cfg?.verifyHeaders ?? {}), ...extraHeaders },
             redirect: 'follow',
             signal: AbortSignal.timeout(6_000),
         });
@@ -799,7 +799,7 @@ async function handleTestSource(sourceKey, id, s, e, clientIP, host) {
                     continue;
                 }
 
-                if (!(await verifyStream(candidate.url, sourceKey))) continue;
+                if (!(await verifyStream(candidate.url, sourceKey, candidate?.headers ?? {}))) continue;
 
                 const verifyUrl = IS_HF ? candidate.url : wrappedUrl;
                 const verifyHeaders = IS_HF ? (candidate.headers ?? {}) : {};
@@ -904,7 +904,7 @@ async function handleRequest(req, res) {
         const authHeader = req.headers['authorization'];
         const apiKey = authHeader?.replace('Bearer ', '')?.trim() || req.headers['x-api-key']?.trim() || authResult.key;
 
-        if (apiKey && !authResult.bypassed) {
+        if (apiKey && !authResult.bypassed && !authResult.internal) {
             const rateLimitResult = checkRateLimit(apiKey, clientIP);
             if (!rateLimitResult.allowed) {
                 return respondJson(429, { error: rateLimitResult.error, resetAt: rateLimitResult.resetAt, limit: rateLimitResult.limit, window: rateLimitResult.window });

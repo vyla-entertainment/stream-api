@@ -61,9 +61,6 @@ async function fetchFromProvider(provider, type, id, s, e, cookie) {
                 "User-Agent": BASE_HEADERS["User-Agent"],
                 "Referer": src.url.includes('mediacache') ? "https://hls.uniquestream.net/" : BASE_HEADERS["Referer"]
             },
-            skipVerify: true,
-            skipHlsCheck: true,
-            skipProxy: false
         }));
     } catch (err) {
         return null;

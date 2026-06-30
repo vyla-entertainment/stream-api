@@ -1,12 +1,13 @@
 import dotenv from 'dotenv';
 import crypto from 'crypto';
-import { ensureApiKeysTable, fetchActiveApiKeys, ensurePublicKey } from '../../db.js';
+import { ensureApiKeysTable, fetchActiveApiKeys, fetchDisabledApiKeys, ensurePublicKey } from '../../db.js';
 
 dotenv.config();
 
-const BYPASS_LOCALHOST = false;
+const BYPASS_LOCALHOST = true;
 
 const API_KEYS = new Map();
+const DISABLED_KEYS = new Set();
 const rateLimitMap = new Map();
 
 const KEY_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
@@ -24,8 +25,17 @@ function setKeysFromRows(rows) {
 
 export async function loadKeysFromDB() {
     try {
-        const rows = await fetchActiveApiKeys();
-        setKeysFromRows(rows);
+        const [activeRows, disabledRows] = await Promise.all([
+            fetchActiveApiKeys(),
+            fetchDisabledApiKeys()
+        ]);
+
+        setKeysFromRows(activeRows);
+
+        DISABLED_KEYS.clear();
+        for (const row of disabledRows) {
+            DISABLED_KEYS.add(row.key);
+        }
     } catch (err) {
         if (API_KEYS.size === 0) {
             throw err;
@@ -117,6 +127,32 @@ export function authenticateRequest(req) {
         };
     }
 
+    let internalToken = null;
+    try {
+        const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+        internalToken = url.searchParams.get('internal_token');
+    } catch { }
+
+    if (internalToken) {
+        const decoded = validateSessionToken(internalToken);
+
+        if (decoded && decoded.type === 'internal') {
+            return {
+                valid: true,
+                error: null,
+                type: 'standard',
+                key: decoded.sourceKey || null,
+                bypassed: false,
+                internal: true
+            };
+        }
+
+        return {
+            valid: false,
+            error: 'Invalid or expired internal token'
+        };
+    }
+
     const sessionToken = req.headers['x-session-token']?.trim();
 
     if (sessionToken) {
@@ -149,6 +185,13 @@ export function authenticateRequest(req) {
         return {
             valid: false,
             error: 'Missing API key. Provide via Authorization or X-API-Key. You can get one at https://vyla.mintlify.app/authentication'
+        };
+    }
+
+    if (DISABLED_KEYS.has(cleanKey)) {
+        return {
+            valid: false,
+            error: 'This API key has been disabled. If you believe this is an error, please contact support at https://vyla.cc/discord for assistance.'
         };
     }
 

@@ -1,13 +1,3 @@
----
-title: Vyla API
-emoji: 🎥
-colorFrom: gray
-colorTo: gray
-sdk: docker
-pinned: false
-license: other
----
-
 # [./DOCUMENTATION/DMCA.md](./DOCUMENTATION/DMCA.md)
 
 This project is developed and maintained by [Vyla Entertainment](https://github.com/vyla-entertainment) (@vyla-entertainment).

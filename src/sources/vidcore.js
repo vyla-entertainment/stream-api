@@ -103,7 +103,6 @@ export async function getStream(args) {
                             subtitles,
                             headers: { ...HEADERS, 'Origin': 'https://vidcore.net' },
                             server: srv.name,
-                            skipVerify: true
                         };
                     }
                 }

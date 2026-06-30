@@ -88,7 +88,6 @@ export async function getStream(args) {
                             headers: { 'Origin': 'https://spencerdevs.xyz' },
                             server: source.server,
                             type: source.type,
-                            skipVerify: true
                         };
                     }
                 }
