@@ -109,7 +109,7 @@ export const SOURCES = [
         timeout: 20000,
         jitter: 500,
         retries: 2,
-        skipProxy: true,
+        // skipProxy: true,
         skipVerify: true,
         multiUrl: true,
         verifyHeaders: {
@@ -145,7 +145,7 @@ export const SOURCES = [
         jitter: 500,
         retries: 2,
         disabled: true, // Temporarily disabled due to took too long to respond
-        skipProxy: true,
+        // skipProxy: true,
         skipVerify: true,
     },
 
@@ -220,7 +220,7 @@ export const SOURCES = [
         timeout: 20000,
         jitter: 400,
         retries: 2,
-        skipProxy: true,
+        // skipProxy: true,
         skipVerify: true,
     },
 
@@ -316,7 +316,7 @@ export const SOURCES = [
         timeout: 15000,
         jitter: 500,
         retries: 2,
-        skipProxy: true,
+        // skipProxy: true,
         skipVerify: true,
     },
 
@@ -328,7 +328,7 @@ export const SOURCES = [
         timeout: 40000,
         jitter: 600,
         retries: 2,
-        skipProxy: true,
+        // skipProxy: true,
         skipVerify: true,
     },
 
@@ -340,7 +340,7 @@ export const SOURCES = [
         timeout: 20000,
         jitter: 500,
         retries: 2,
-        skipProxy: true,
+        // skipProxy: true,
         skipVerify: true,
     },
 
