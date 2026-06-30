@@ -1,5 +1,3 @@
-console.log("INCOMING:", req.method, req.url, req.headers.authorization, req.headers.host, req.socket.remoteAddress);
-
 import cluster from 'cluster'
 import fs from 'fs';
 import path from 'path';
@@ -11,7 +9,7 @@ import { SOURCES, SOURCE_MAP, CACHE_TTL } from './config.js';
 import { handleSubtitleMovie, handleSubtitleTv, fetchSubtitles, SUBTITLE_BASES } from './src/routes/subtitles.js';
 import { handleDownloadMovie, handleDownloadTv } from './src/routes/downloads/main.js';
 import { handleHealth } from './src/routes/health.js';
-import { authenticateRequest, checkRateLimit, canAccess, issueSessionToken } from './src/middleware/auth.js';
+import { authenticateRequest, checkRateLimit, canAccess, issueSessionToken, initAuth } from './src/middleware/auth.js';
 import { validateTmdbId } from './src/utils/helpers.js';
 import { wrapUrl } from './src/utils/proxy.js';
 import { handleTestRoute, handleDebugRoute } from './src/routes/test.js';
@@ -1207,4 +1205,5 @@ server.timeout = 90_000;
 
 server.on('error', err => { if (err.code !== 'EADDRINUSE') console.error('server error', err.message); });
 await validateGAConfig();
+await initAuth();
 server.listen(PORT, '0.0.0.0', () => console.log(`http://localhost:${PORT}`));

@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 import crypto from 'crypto';
+import { ensureApiKeysTable, fetchActiveApiKeys } from '../../db.js';
 
 dotenv.config();
 
@@ -8,27 +9,38 @@ const BYPASS_LOCALHOST = false;
 const API_KEYS = new Map();
 const rateLimitMap = new Map();
 
-function loadKeysFromEnv() {
+const KEY_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+
+function setKeysFromRows(rows) {
     API_KEYS.clear();
 
-    const entries = process.env.API_KEYS?.split(',') ?? [];
-
-    for (const entry of entries) {
-        const [key, type = 'standard', rpm = '100'] = entry
-            .trim()
-            .split(':')
-            .map(v => v.trim());
-
-        if (!key) continue;
-
-        API_KEYS.set(key, {
-            type,
-            rpm: Number(rpm) || 100
+    for (const row of rows) {
+        API_KEYS.set(row.key, {
+            type: row.type,
+            rpm: Number(row.rpm) || 100
         });
     }
 }
 
-loadKeysFromEnv();
+export async function loadKeysFromDB() {
+    try {
+        const rows = await fetchActiveApiKeys();
+        setKeysFromRows(rows);
+    } catch (err) {
+        if (API_KEYS.size === 0) {
+            throw err;
+        }
+    }
+}
+
+export async function initAuth() {
+    await ensureApiKeysTable();
+    await loadKeysFromDB();
+
+    setInterval(() => {
+        loadKeysFromDB();
+    }, KEY_REFRESH_INTERVAL_MS);
+}
 
 const TOKEN_SECRET = process.env.TOKEN_SECRET;
 const TOKEN_TTL_MS = 30 * 60 * 1000;
@@ -93,10 +105,6 @@ function isLocalRequest(req) {
         ip === '::ffff:127.0.0.1'
     );
 }
-
-console.log("RAW HEADER:", req.headers.authorization);
-console.log("CLEAN KEY:", cleanKey);
-console.log("MAP KEYS:", [...API_KEYS.keys()]);
 
 export function authenticateRequest(req) {
     if (BYPASS_LOCALHOST && isLocalRequest(req)) {
