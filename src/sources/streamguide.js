@@ -72,7 +72,7 @@ export async function getStream({ id, s, e }) {
                     .filter(r => r.status === 'fulfilled')
                     .map(r => r.value)
                     .find(url => !isHoneypot(url));
-                if (file) return { url: file, headers: REQUEST_HEADERS, skipProxy: true };
+                if (file) return { url: file, headers: REQUEST_HEADERS };
             }
         }
     }
@@ -92,5 +92,5 @@ export async function getStream({ id, s, e }) {
         .find(url => !isHoneypot(url));
 
     if (!file) return null;
-    return { url: file, headers: REQUEST_HEADERS, skipProxy: true };
+    return { url: file, headers: REQUEST_HEADERS };
 }

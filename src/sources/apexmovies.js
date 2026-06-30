@@ -39,6 +39,5 @@ export async function getStream({ id, s, e }) {
         url: allUrls[0].url,
         headers: FETCH_HEADERS,
         allUrls,
-        skipProxy: true,
     };
 }

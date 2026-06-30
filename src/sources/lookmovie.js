@@ -114,7 +114,7 @@ async function getStreams(base, type, streamId, hash, expires, clientIP) {
         const data = await res.json();
         const streams = data?.streams ?? data?.result?.streams ?? data?.data?.streams ?? data;
         if (!streams || typeof streams !== 'object') return null;
-        const allUrls = Object.entries(streams).filter(([, v]) => typeof v === 'string' && v.includes('.m3u8')).map(([quality, url]) => ({ url, quality, skipProxy: true, skipHlsCheck: true }));
+        const allUrls = Object.entries(streams).filter(([, v]) => typeof v === 'string' && v.includes('.m3u8')).map(([quality, url]) => ({ url, quality, skipHlsCheck: true }));
         if (!allUrls.length) return null;
         return { allUrls };
     } catch { return null; }

@@ -222,6 +222,7 @@ export const SOURCES = [
         retries: 2,
         // skipProxy: true,
         skipVerify: true,
+        disabled: true,
     },
 
     {
@@ -366,7 +367,7 @@ export const SOURCES = [
         jitter: 0,
         multiUrl: true,
         skipVerify: true,
-        skipProxy: true
+        // skipProxy: true
     },
 
     {
@@ -379,7 +380,7 @@ export const SOURCES = [
         jitter: 0,
         multiUrl: true,
         skipVerify: true,
-        skipProxy: true
+        // skipProxy: true
     },
 
     {
@@ -392,7 +393,7 @@ export const SOURCES = [
         jitter: 0,
         multiUrl: true,
         skipVerify: true,
-        skipProxy: true
+        // skipProxy: true
     },
 
 

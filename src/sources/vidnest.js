@@ -140,7 +140,7 @@ export async function getStream(args) {
                         const file = data?.sources?.[0]?.file;
                         if (file) {
                             const proxiedUrl = `https://megacloud.animanga.fun/proxy?url=${encodeURIComponent(file)}&headers=${encodeURIComponent(JSON.stringify(CDN_PROXY_HEADERS))}`;
-                            return { url: proxiedUrl, headers: REQUEST_HEADERS, skipProxy: true };
+                            return { url: proxiedUrl, headers: REQUEST_HEADERS };
                         }
                     }
                 } catch { }

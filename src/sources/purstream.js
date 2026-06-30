@@ -56,7 +56,6 @@ export async function getStream(args) {
             server: 'purstream',
             quality: 'Auto',
             type: 'hls',
-            skipProxy: true
         };
     } catch (err) {
         return null;

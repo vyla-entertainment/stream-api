@@ -26,7 +26,6 @@ async function getNebulaStream({ id, s, e }) {
         return {
             url: data.stream_url,
             headers: null,
-            skipProxy: true,
         };
     } catch (err) { return null; }
 }

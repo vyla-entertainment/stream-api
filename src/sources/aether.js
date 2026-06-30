@@ -61,8 +61,6 @@ export async function getStream(args) {
                             type: 'hls',
                             headers: actualHeaders,
                             server: server.name,
-                            skipProxy: true,
-                            skipVerify: true
                         };
                     }
                 } catch (err) { }
@@ -71,8 +69,6 @@ export async function getStream(args) {
             return {
                 url: streamRaw,
                 type: 'hls',
-                skipVerify: true,
-                skipProxy: server.name === 'nebula' || server.name === 'tiki',
                 headers: BASE_HEADERS,
                 server: server.name
             };
