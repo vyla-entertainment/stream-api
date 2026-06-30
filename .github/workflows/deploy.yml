@@ -25,4 +25,6 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
 
+            npm install --omit=dev
+
             pm2 reload api --update-env || pm2 restart api
