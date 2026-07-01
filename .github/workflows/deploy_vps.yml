@@ -19,18 +19,15 @@ jobs:
           script: |
             cd /var/www/api
 
-            # Update code
-            git pull origin main
+            git fetch origin main
+            git reset --hard origin/main
+            git clean -fd
 
-            # Install dependencies
             npm install
 
-            # Fix permissions (optional but fine)
             chown -R www-data:www-data /var/www/api
             chmod -R 755 /var/www/api
 
-            # Start or restart with PM2
             pm2 restart api || pm2 start server.js --name api
 
-            # Save PM2 process list so it survives reboot
             pm2 save
