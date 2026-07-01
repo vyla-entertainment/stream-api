@@ -12,7 +12,7 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Push to Hugging Face
+      - name: Configure Git auth
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
@@ -21,22 +21,30 @@ jobs:
           git config --global user.email "github-actions@github.com"
           git config --global user.name "github-actions"
 
+          # force correct HF credential format
+          git config --global credential.helper store
+          echo "https://hf:${HF_TOKEN}@huggingface.co" > ~/.git-credentials
+
+      - name: Clone HF Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          set -e
           rm -rf hf-space
+          git clone https://huggingface.co/spaces/1c34/y hf-space
 
-          echo "Cloning HF Space..."
-          git clone https://hf:${HF_TOKEN}@huggingface.co/spaces/1c34/y hf-space
-
-          echo "Copying files..."
+      - name: Sync files
+        run: |
           rsync -av --exclude='.git' ./ hf-space/
 
+      - name: Commit changes
+        run: |
           cd hf-space
-
-          echo "Status:"
-          git status
-
           git add .
 
           git commit -m "deploy" || echo "no changes"
 
-          echo "Pushing..."
-          git push -v
+      - name: Push to Hugging Face
+        run: |
+          cd hf-space
+          git push https://hf:${{ secrets.HF_TOKEN }}@huggingface.co/spaces/1c34/y main
