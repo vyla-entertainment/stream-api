@@ -1,5 +1,3 @@
-// dulo if u want this disabled hmu
-
 'use strict';
 
 const API_KEY = "WDNUNBUB3HR983Y9ISBADK4O82";

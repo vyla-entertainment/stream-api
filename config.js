@@ -349,6 +349,7 @@ export const SOURCES = [
         retries: 1,
         jitter: 0,
         multiUrl: true,
+        disabled: true, // Disabled due to owner asking me to do so
     },
 
     {
