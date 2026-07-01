@@ -8,16 +8,29 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
       - name: Deploy via SSH
-        uses: appleboy/ssh-action@master
+        uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.VPS_HOST }}
           username: root
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd /var/www/api
+
+            # Update code
             git pull origin main
-            sudo chown -R www-data:www-data /var/www/api
-            sudo chmod -R 755 /var/www/api
-            # Add any build steps here if needed, like 'npm install'
+
+            # Install dependencies
+            npm install
+
+            # Fix permissions (optional but fine)
+            chown -R www-data:www-data /var/www/api
+            chmod -R 755 /var/www/api
+
+            # Start or restart with PM2
+            pm2 restart api || pm2 start server.js --name api
+
+            # Save PM2 process list so it survives reboot
+            pm2 save
