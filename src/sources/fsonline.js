@@ -23,7 +23,6 @@ async function resolveFileSuN(embedUrl) {
         if (!res.ok) return null;
         const html = await res.text();
 
-        // FileSuN usually hides the m3u8 in a script block
         const m3u8Match = html.match(/file:\s*["'](https?:\/\/[^"']+\.m3u8[^"']*)["']/) ||
             html.match(/["']?file["']?:\s*["'](https?:\/\/[^"']+)["']/);
 

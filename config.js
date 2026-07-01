@@ -270,6 +270,60 @@ export const SOURCES = [
     },
 
     {
+        key: 'nekowatch-sub',
+        sourceFile: 'nekowatch',
+        label: 'NekoWatch (Sub)',
+        proxyParam: 'nwsub',
+        timeout: 30000,
+        jitter: 500,
+        retries: 2
+    },
+
+    {
+        key: 'nekowatch-dub',
+        sourceFile: 'nekowatch',
+        label: 'NekoWatch (Dub)',
+        proxyParam: 'nwdub',
+        timeout: 30000,
+        jitter: 500,
+        retries: 2
+    },
+
+    {
+        key: 'anipm-sub',
+        sourceFile: 'anipm',
+        label: 'AniPM (Sub)',
+        proxyParam: 'apsub',
+        timeout: 25000,
+        jitter: 500,
+        retries: 2,
+        skipProxy: true,
+        skipVerify: true,
+        multiUrl: true,
+        verifyHeaders: {
+            Referer: 'https://ani.pm/',
+            Origin: 'https://ani.pm',
+        },
+    },
+
+    {
+        key: 'anipm-dub',
+        sourceFile: 'anipm',
+        label: 'AniPM (Dub)',
+        proxyParam: 'apdub',
+        timeout: 25000,
+        jitter: 500,
+        retries: 2,
+        skipProxy: true,
+        skipVerify: true,
+        multiUrl: true,
+        verifyHeaders: {
+            Referer: 'https://ani.pm/',
+            Origin: 'https://ani.pm',
+        },
+    },
+
+    {
         key: 'biavox',
         sourceFile: 'biavox',
         label: 'BiaVox',
