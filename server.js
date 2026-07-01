@@ -883,7 +883,7 @@ async function handleRequest(req, res) {
     if (pathname === '/' || pathname === '') {
         return {
             status: 200,
-            body: `${LOGO_TEXT}\n\ndeveloped_by: @vyla-entertainment\ngithub: https://github.com/vyla-entertainment\ndocs: https://vyla.mintlify.app\ndmca: https://vyla.mintlify.app/misc/dmca`,
+            body: `${LOGO_TEXT}\n\ndeveloped_by: @vyla-entertainment\ngithub: https://github.com/vyla-entertainment\ndocs: https://docs.vyla.cc\ndmca: https://docs.vyla.cc/misc/dmca`,
             headers: { 'Content-Type': 'text/plain; charset=utf-8', ...CORS_HEADERS },
         };
     }

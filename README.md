@@ -14,4 +14,4 @@ This project is developed and maintained by [Vyla Entertainment](https://github.
 Original work and core authorship: [@endoverdosing](https://github.com/EndOverdosing)
 
 Full credits and acknowledgements:
-https://vyla.mintlify.app/misc/credit
+https://docs.vyla.cc/misc/credit

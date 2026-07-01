@@ -1,1 +1,1 @@
-# https://vyla.mintlify.app/misc/dmca
+# https://docs.vyla.cc/misc/dmca
