@@ -14,7 +14,7 @@ export const SOURCES = [
         sourcesTimeout: 10000,
         jitter: 500,
         retries: 2,
-        // skipProxy: true,
+        skipProxy: true,
         verifyHeaders: {
             Referer: 'https://streams.icefy.top/',
             Origin: 'https://streams.icefy.top',
@@ -111,7 +111,7 @@ export const SOURCES = [
         timeout: 20000,
         jitter: 500,
         retries: 2,
-        // skipProxy: true,
+        skipProxy: true,
         multiUrl: true,
         verifyHeaders: {
             'Accept-Language': 'en-US,en;q=0.9',
@@ -145,7 +145,7 @@ export const SOURCES = [
         jitter: 500,
         retries: 2,
         disabled: true, // Temporarily disabled due to took too long to respond
-        // skipProxy: true,
+        skipProxy: true,
     },
 
     {
@@ -191,7 +191,7 @@ export const SOURCES = [
         timeout: 20000,
         jitter: 400,
         retries: 2,
-        // skipProxy: true,
+        skipProxy: true,
         disabled: true, // Temporarily disabled because you have to login to watch streams
     },
 
@@ -225,7 +225,7 @@ export const SOURCES = [
         timeout: 20000,
         jitter: 500,
         retries: 2,
-        // skipProxy: true,
+        skipProxy: true,
     },
 
     {
@@ -277,7 +277,7 @@ export const SOURCES = [
         timeout: 40000,
         jitter: 600,
         retries: 2,
-        // skipProxy: true,
+        skipProxy: true,
     },
 
     {
@@ -288,7 +288,7 @@ export const SOURCES = [
         timeout: 20000,
         jitter: 500,
         retries: 2,
-        // skipProxy: true,
+        skipProxy: true,
     },
 
     {
@@ -312,7 +312,7 @@ export const SOURCES = [
         retries: 1,
         jitter: 0,
         multiUrl: true,
-        // skipProxy: true,
+        skipProxy: true,
     },
 
     {
@@ -324,7 +324,7 @@ export const SOURCES = [
         retries: 1,
         jitter: 0,
         multiUrl: true,
-        // skipProxy: true,
+        skipProxy: true,
     },
 
     {
@@ -336,7 +336,7 @@ export const SOURCES = [
         retries: 1,
         jitter: 0,
         multiUrl: true,
-        // skipProxy: true,
+        skipProxy: true,
     },
 
 
@@ -360,6 +360,18 @@ export const SOURCES = [
         retries: 1,
         jitter: 0,
         multiUrl: true,
+    },
+
+    {
+        key: 'fsonline',
+        label: 'FSOnline',
+        sourceFile: 'fsonline',
+        proxyParam: 'fo',
+        timeout: 20000,
+        retries: 1,
+        jitter: 0,
+        multiUrl: true,
+        skipProxy: true,
     },
 
 ];

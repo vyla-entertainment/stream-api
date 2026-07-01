@@ -4,7 +4,7 @@ import { ensureApiKeysTable, fetchActiveApiKeys, fetchDisabledApiKeys, ensurePub
 
 dotenv.config();
 
-const BYPASS_LOCALHOST = false;
+const BYPASS_LOCALHOST = true;
 
 const API_KEYS = new Map();
 const DISABLED_KEYS = new Set();
