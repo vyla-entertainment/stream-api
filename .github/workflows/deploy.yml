@@ -21,7 +21,6 @@ jobs:
           git config --global user.email "github-actions@github.com"
           git config --global user.name "github-actions"
 
-          # force correct HF credential format
           git config --global credential.helper store
           echo "https://hf:${HF_TOKEN}@huggingface.co" > ~/.git-credentials
 

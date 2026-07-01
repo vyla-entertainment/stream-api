@@ -1,8 +1,8 @@
 ---
 title: y
 emoji: 🎬
-colorFrom: grey
-colorTo: grey
+colorFrom: gray
+colorTo: gray
 sdk: docker
 pinned: false
 ---
