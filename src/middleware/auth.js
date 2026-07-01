@@ -200,7 +200,7 @@ export function authenticateRequest(req) {
     if (!entry) {
         return {
             valid: false,
-            error: 'Invalid API key'
+            error: 'Invalid API key. If you believe this is an error, please contact support at https://vyla.cc/discord for assistance.'
         };
     }
 
@@ -256,7 +256,7 @@ export function checkRateLimit(apiKey) {
     if (!entry) {
         return {
             allowed: false,
-            error: 'Invalid API key'
+            error: 'Invalid API key. If you believe this is an error, please contact support at https://vyla.cc/discord for assistance.'
         };
     }
 
@@ -278,7 +278,7 @@ export function checkRateLimit(apiKey) {
 
         return {
             allowed: false,
-            error: 'Rate limit exceeded',
+            error: 'Rate limit exceeded. If you believe this is an error, please contact support at https://vyla.cc/discord for assistance.',
             resetAt: current.resetAt,
             limit: rpm,
             window
