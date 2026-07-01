@@ -30,7 +30,7 @@ jobs:
         run: |
           set -e
           rm -rf hf-space
-          git clone https://huggingface.co/spaces/1c34/y hf-space
+          git clone https://huggingface.co/spaces/MissouriMonster/x hf-space
 
       - name: Sync files
         run: |
@@ -46,4 +46,4 @@ jobs:
       - name: Push to Hugging Face
         run: |
           cd hf-space
-          git push https://hf:${{ secrets.HF_TOKEN }}@huggingface.co/spaces/1c34/y main
+          git push https://hf:${{ secrets.HF_TOKEN }}@huggingface.co/spaces/MissouriMonster/x main
