@@ -157,34 +157,6 @@ if (cluster.isPrimary) {
 
 const _nativeFetch = globalThis.fetch;
 
-import { ProxyAgent } from 'undici';
-
-const WEBSHARE_PROXIES = (process.env.WEBSHARE_PROXIES || '').split(',').map(s => s.trim()).filter(Boolean);
-
-let webshareIdx = 0;
-const nextWebshareProxy = () => {
-    if (!WEBSHARE_PROXIES.length) return null;
-    const p = WEBSHARE_PROXIES[webshareIdx % WEBSHARE_PROXIES.length];
-    webshareIdx++;
-    return p;
-};
-
-const buildProxyAgent = (proxyStr) => {
-    const parts = proxyStr.split(':');
-    const [host, port, user, pass] = parts;
-    const url = user && pass
-        ? `http://${encodeURIComponent(user)}:${encodeURIComponent(pass)}@${host}:${port}`
-        : `http://${host}:${port}`;
-    return new ProxyAgent(url);
-};
-
-async function fetchViaWebshare(url, opts, timeoutMs) {
-    const proxyStr = nextWebshareProxy();
-    if (!proxyStr) throw new Error('no webshare proxies configured');
-    const dispatcher = buildProxyAgent(proxyStr);
-    return _nativeFetch(url, { ...opts, dispatcher, signal: AbortSignal.timeout(timeoutMs) });
-}
-
 async function sendGAEvent(eventName, params = {}, clientId = null) {
     if (!GA_MEASUREMENT_ID || !GA_API_SECRET) return;
     const cid = clientId || `server.${Date.now()}.${Math.random().toString(36).slice(2)}`;
@@ -454,27 +426,15 @@ function buildM3u8Rewriter(rewriteSegments) {
 const rewriteM3u8 = buildM3u8Rewriter(true);
 const rewriteM3u8KeyOnly = buildM3u8Rewriter(false);
 
-async function fetchUpstream(url, extraHeaders = {}, timeoutMs = 30_000, allowWebshareFallback = false) {
+async function fetchUpstream(url, extraHeaders = {}, timeoutMs = 30_000) {
     let current = url.startsWith('http://') ? 'https://' + url.slice(7) : url;
     const headers = { 'User-Agent': getUA(), ...extraHeaders };
     const opts = { headers, redirect: 'manual', signal: AbortSignal.timeout(timeoutMs) };
-    let viaWebshare = false;
 
     for (let i = 0; i <= 5; i++) {
-        let res = await _nativeFetch(current, opts);
-
-        if (res.status === 403 && allowWebshareFallback && WEBSHARE_PROXIES.length) {
-            res.body?.cancel();
-            try {
-                res = await fetchViaWebshare(current, { headers, redirect: 'manual' }, timeoutMs);
-                viaWebshare = true;
-            } catch {
-                throw new Error('upstream 403, proxy retry failed');
-            }
-        }
+        const res = await _nativeFetch(current, opts);
 
         if (res.status < 300 || res.status >= 400 || !res.headers.has('location')) {
-            res.viaWebshare = viaWebshare;
             return res;
         }
         res.body?.cancel();
@@ -1130,7 +1090,7 @@ async function handleRequest(req, res) {
                     applyCdnHeaders(cleanUrl, extraHeaders, matchedSource.key);
                 }
 
-                const upstream = await fetchUpstream(cleanUrl, extraHeaders, 30_000, true);
+                const upstream = await fetchUpstream(cleanUrl, extraHeaders, 30_000);
                 const ct = (upstream.headers.get('content-type') || '').toLowerCase();
                 const looksLikeM3u8 = M3U8_REGEX.test(cleanUrl) || cleanUrl.includes('/playlist/') || cleanUrl.includes('/streamsvr/') || ct.includes('mpegurl') || ct.includes('m3u8');
 
@@ -1168,11 +1128,6 @@ async function handleRequest(req, res) {
                     }
 
                     if (!upstream.ok) return { status: upstream.status, body: `upstream ${upstream.status}`, headers: { 'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*' } };
-
-                    if (upstream.viaWebshare) {
-                        upstream.body?.cancel();
-                        return { status: 403, body: 'upstream blocked, refusing to stream via proxy', headers: { 'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*' } };
-                    }
 
                     const rangeHeader = req.headers['range'];
                     const streamUpstream = rangeHeader
