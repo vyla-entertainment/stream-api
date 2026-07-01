@@ -1,30 +1,42 @@
-name: Deploy API
+name: Deploy to Hugging Face Space
 
 on:
   push:
-    branches: [main]
+    branches: ["main"]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          script: |
-            set -e
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
-            cd /var/www/valya/api
+      - name: Push to Hugging Face
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          set -e
 
-            git remote set-url origin git@github.com:vyla-entertainment/stream-api.git || true
+          git config --global user.email "github-actions@github.com"
+          git config --global user.name "github-actions"
 
-            git fetch origin main
-            git reset --hard origin/main
+          rm -rf hf-space
 
-            npm install --omit=dev
+          echo "Cloning HF Space..."
+          git clone https://oauth2:$HF_TOKEN@huggingface.co/spaces/1c34/y hf-space
 
-            pm2 reload api --update-env || pm2 restart api
+          echo "Copying files..."
+          rsync -av --exclude='.git' ./ hf-space/
+
+          cd hf-space
+
+          echo "Status:"
+          git status
+
+          git add .
+
+          git commit -m "deploy" || echo "no changes"
+
+          echo "Pushing..."
+          git push -v
