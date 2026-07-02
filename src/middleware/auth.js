@@ -4,7 +4,7 @@ import { ensureApiKeysTable, fetchActiveApiKeys, fetchDisabledApiKeys, ensurePub
 
 dotenv.config();
 
-const BYPASS_LOCALHOST = false;
+const BYPASS_AUTH = true;
 
 const API_KEYS = new Map();
 const DISABLED_KEYS = new Set();
@@ -118,7 +118,7 @@ function isLocalRequest(req) {
 }
 
 export function authenticateRequest(req) {
-    if (BYPASS_LOCALHOST && isLocalRequest(req)) {
+    if (BYPASS_AUTH && isLocalRequest(req)) {
         return {
             valid: true,
             error: null,

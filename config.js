@@ -4,6 +4,8 @@
 
 // fsharetv/fsonic tested: 155 ( they don't have Michael )
 
+// kisskh tested: 112888 ( their an asian drama source )
+
 export const SOURCES = [
     {
         key: 'icefy',
@@ -30,7 +32,6 @@ export const SOURCES = [
         jitter: 800,
         retries: 3,
         multiUrl: true,
-        disabled: true, // Their streams aren't working ( 403's/502's )
         cdnHeaders: [{
             pattern: /./,
             headers: {
@@ -57,6 +58,27 @@ export const SOURCES = [
             Referer: 'https://player.vidzee.wtf',
             Origin: 'https://player.vidzee.wtf',
         },
+    },
+
+    {
+        key: 'vidlink',
+        label: 'Vidlink',
+        sourceFile: 'vidlink',
+        proxyParam: 'vl',
+        timeout: 20000,
+        jitter: 500,
+        retries: 2,
+        skipProxy: true,
+    },
+
+    {
+        key: 'vidfast',
+        label: 'Vidfast',
+        sourceFile: 'vidfast',
+        proxyParam: 'vf',
+        timeout: 35000,
+        jitter: 500,
+        retries: 1,
     },
 
     {
@@ -427,6 +449,27 @@ export const SOURCES = [
         jitter: 0,
         multiUrl: true,
         skipProxy: true,
+    },
+
+
+    {
+        key: 'kisskh',
+        label: 'KissKH',
+        sourceFile: 'kisskh',
+        proxyParam: 'kk',
+        timeout: 30000,
+        jitter: 500,
+        retries: 1,
+    },
+
+    {
+        key: 'hexa',
+        label: 'Hexa',
+        sourceFile: 'hexa',
+        proxyParam: 'hx',
+        timeout: 20000,
+        jitter: 500,
+        retries: 2,
     },
 
 ];
