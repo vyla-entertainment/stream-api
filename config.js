@@ -82,17 +82,6 @@ export const SOURCES = [
     },
 
     {
-        key: 'vidsuper',
-        label: 'VidSuper',
-        sourceFile: 'vidsuper',
-        proxyParam: 'vs',
-        timeout: 30000,
-        jitter: 500,
-        retries: 2,
-        multiUrl: true,
-    },
-
-    {
         key: 'vixsrc',
         label: 'VixSrc',
         sourceFile: 'vixsrc',
