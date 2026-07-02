@@ -8,22 +8,6 @@
 
 export const SOURCES = [
     {
-        key: 'icefy',
-        label: 'Icefy',
-        sourceFile: 'icefy',
-        proxyParam: 'iy',
-        timeout: 20000,
-        sourcesTimeout: 10000,
-        jitter: 500,
-        retries: 2,
-        skipProxy: true,
-        verifyHeaders: {
-            Referer: 'https://streams.icefy.top/',
-            Origin: 'https://streams.icefy.top',
-        },
-    },
-
-    {
         key: 'vidrock',
         label: 'VidRock',
         sourceFile: 'vidrock',
@@ -52,6 +36,7 @@ export const SOURCES = [
         sourcesTimeout: 10000,
         jitter: 400,
         retries: 3,
+        disabled: true, // Their site is down, all streams are returning 403's
         verifyHeaders: {
             Accept: '/',
             'Accept-Language': 'en-US,en;q=0.9',
@@ -236,7 +221,8 @@ export const SOURCES = [
         proxyParam: 'em',
         timeout: 30000,
         jitter: 500,
-        retries: 2
+        retries: 2,
+        disabled: true, // Their site is down, all streams are returning 403's
     },
 
     {
@@ -248,6 +234,7 @@ export const SOURCES = [
         jitter: 500,
         retries: 2,
         skipProxy: true,
+        disabled: true, // Their site is down, all streams are blocked
     },
 
     {
@@ -357,17 +344,6 @@ export const SOURCES = [
     },
 
     {
-        key: 'aether',
-        sourceFile: 'aether',
-        label: 'Aether',
-        proxyParam: 'ae',
-        timeout: 20000,
-        jitter: 500,
-        retries: 2,
-        skipProxy: true,
-    },
-
-    {
         key: 'peachify',
         sourceFile: 'peachify',
         label: 'Peachify',
@@ -376,7 +352,6 @@ export const SOURCES = [
         jitter: 500,
         retries: 2,
         multiUrl: true,
-        disabled: true, // Temporarily disabled due to this being hard asf to fix, well done
     },
 
     {
@@ -470,6 +445,30 @@ export const SOURCES = [
         timeout: 20000,
         jitter: 500,
         retries: 2,
+    },
+
+    {
+        key: 'notorrent',
+        label: 'NoTorrent',
+        sourceFile: 'notorrent',
+        proxyParam: 'nt',
+        timeout: 20000,
+        jitter: 500,
+        retries: 2,
+        multiUrl: true,
+    },
+
+    {
+        key: 'streamvault',
+        label: 'StreamVault',
+        sourceFile: 'streamvault',
+        proxyParam: 'sv',
+        timeout: 20000,
+        jitter: 500,
+        retries: 2,
+        multiUrl: true,
+        skipProxy: true,
+        disabled: true, // Their soooo slow
     },
 
 ];
