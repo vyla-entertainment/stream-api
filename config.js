@@ -8,7 +8,7 @@
 
 // purstream does work but use this ID: 550, 155 they don't support :/
 
-const STATIC_SOURCES = [
+const SOURCES = [
     {
         key: 'vidrock',
         label: 'VidRock',
@@ -64,6 +64,7 @@ const STATIC_SOURCES = [
         timeout: 35000,
         jitter: 500,
         retries: 1,
+        disabled: true, // Temporarily disabled due to their streams aren't working
     },
 
     {
@@ -75,6 +76,7 @@ const STATIC_SOURCES = [
         jitter: 0,
         retries: 2,
         multiUrl: false,
+        alwaysProxy: true,
         verifyHeaders: {
             Accept: 'application/json, text/javascript, /; q=0.01',
             'Accept-Language': 'en-US,en;q=0.9',
@@ -133,6 +135,7 @@ const STATIC_SOURCES = [
         jitter: 500,
         retries: 2,
         multiUrl: true,
+        alwaysProxy: true,
         cdnHeaders: [{
             pattern: /flix2watch\.pro/i,
             headers: {
@@ -163,6 +166,7 @@ const STATIC_SOURCES = [
         jitter: 900,
         retries: 3,
         multiUrl: true,
+        alwaysProxy: true,
         verifyHeaders: {
             Accept: 'application/json, /; q=0.01',
             Referer: 'https://player.videasy.net/',
@@ -208,6 +212,7 @@ const STATIC_SOURCES = [
         jitter: 500,
         retries: 2,
         sourcesTimeout: 10000,
+        disabled: true, // Temporarily disabled due to their streams aren't working
     },
 
     {
@@ -389,6 +394,7 @@ const STATIC_SOURCES = [
         retries: 1,
         jitter: 0,
         multiUrl: true,
+        disabled: true, // Temporarily disabled due to their streams aren't working
     },
 
     {
@@ -455,47 +461,52 @@ const STATIC_SOURCES = [
         jitter: 500,
         retries: 2,
         multiUrl: true,
+        alwaysProxy: true,
+    },
+
+    {
+        key: 'goated',
+        label: 'Goated',
+        sourceFile: 'goated',
+        proxyParam: 'gt',
+        timeout: 20000,
+        jitter: 500,
+        retries: 2,
+        multiUrl: false,
+        skipVerify: true,
+        skipProxy: true,
+        disabled: true, // Temporarily disabled due to their streams aren't working
+    },
+
+    {
+        key: 'vsembed',
+        label: 'vsembed',
+        sourceFile: 'vsembed',
+        proxyParam: 'vs',
+        timeout: 20000,
+        jitter: 500,
+        retries: 2,
+        multiUrl: false,
+        skipVerify: true,
+        skipProxy: true,
+    },
+
+    {
+        key: 'aether',
+        label: 'aether',
+        sourceFile: 'aether',
+        proxyParam: 'ae',
+        timeout: 20000,
+        jitter: 500,
+        retries: 2,
+        multiUrl: false,
+        skipVerify: true,
+        skipProxy: true,
     },
 
 ];
 
-const PARTNER_DISCOVERY_URL = 'https://api.khophim.indevs.in/test';
-
-async function fetchPartnerKeys() {
-    try {
-        const res = await fetch(PARTNER_DISCOVERY_URL, { signal: AbortSignal.timeout(8000) });
-        if (!res.ok) return [];
-        const data = await res.json();
-        return Object.keys(data).filter(k => k !== 'all');
-    } catch {
-        return [];
-    }
-}
-
-export async function buildSources() {
-    const existingKeys = new Set(STATIC_SOURCES.map(s => s.key));
-    const partnerKeys = await fetchPartnerKeys();
-
-    const filteredKeys = partnerKeys.filter(k =>
-        k !== 'toustream' && !existingKeys.has(k)
-    );
-
-    const partnerSources = filteredKeys.map(key => ({
-        key,
-        label: key,
-        sourceFile: 'partner',
-        partnerKey: key,
-        proxyParam: `pt_${key}`.slice(0, 16),
-        timeout: 20000,
-        jitter: 500,
-        retries: 2,
-        skipVerify: true,
-    }));
-
-    return [...STATIC_SOURCES, ...partnerSources];
-}
-
-export const SOURCES = await buildSources();
+export { SOURCES };
 export const SOURCE_MAP = Object.fromEntries(SOURCES.map(s => [s.key, s]));
 export const ALLOWED_ORIGINS = [''];
 export const HEALTH_PROBE_ID = '155';

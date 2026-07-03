@@ -40,17 +40,10 @@ function buildCheckHeaders(cfg, url, extraHeaders) {
     const cdnMatch = matchCdnHeaders(cfg, url);
     if (cdnMatch) Object.assign(headers, cdnMatch);
     if (extraHeaders) Object.assign(headers, extraHeaders);
-    if (!headers.Referer && !headers.Origin) {
-        try {
-            const origin = new URL(url).origin;
-            headers.Referer = `${origin}/`;
-            headers.Origin = origin;
-        } catch { }
-    }
     return headers;
 }
 
-function extractFirstSegmentUrl(manifestText, manifestUrl) {
+function extractFirstMediaLine(manifestText, manifestUrl) {
     const lines = manifestText.split("\n").map(l => l.trim()).filter(Boolean);
     for (const line of lines) {
         if (line.startsWith("#")) continue;
@@ -63,7 +56,7 @@ function extractFirstSegmentUrl(manifestText, manifestUrl) {
     return null;
 }
 
-async function isRawPlayable(rawUrl, headers) {
+export async function isRawPlayable(rawUrl, headers) {
     const cacheKey = `${rawUrl}::${headers.Referer ?? ""}`;
     const cached = cacheGet(cacheKey);
     if (cached !== undefined) return cached;
@@ -95,43 +88,61 @@ async function isRawPlayable(rawUrl, headers) {
 
             const isHls = ct.includes("mpegurl") || rawUrl.includes(".m3u8");
 
-            if (isHls) {
-                const acao = res.headers.get("access-control-allow-origin");
-                if (acao !== "*") {
-                    res.body?.cancel();
+            if (!isHls) {
+                res.body?.cancel();
+                cacheSet(cacheKey, true);
+                return true;
+            }
+
+            const text = await res.text().catch(() => "");
+            if (!text.trim().startsWith("#EXTM3U")) {
+                cacheSet(cacheKey, false);
+                return false;
+            }
+
+            let mediaUrl = extractFirstMediaLine(text, res.url || rawUrl);
+            let hops = 0;
+
+            while (mediaUrl && hops < 3) {
+                hops++;
+                const mediaRes = await _nativeFetch(mediaUrl, {
+                    method: "GET",
+                    headers: { ...headers, Range: "bytes=0-2048" },
+                    redirect: "follow",
+                    signal: AbortSignal.timeout(RAW_CHECK_TIMEOUT),
+                });
+
+                if (!mediaRes.ok && mediaRes.status !== 206) {
+                    mediaRes.body?.cancel();
                     cacheSet(cacheKey, false);
                     return false;
                 }
 
-                const text = await res.text().catch(() => "");
-                if (!text.trim().startsWith("#EXTM3U")) {
-                    cacheSet(cacheKey, false);
-                    return false;
-                }
+                const mediaCt = (mediaRes.headers.get("content-type") || "").toLowerCase();
+                const isNestedManifest = mediaCt.includes("mpegurl") || mediaUrl.includes(".m3u8");
 
-                const nextUrl = extractFirstSegmentUrl(text, res.url || rawUrl);
-                if (nextUrl && nextUrl !== rawUrl) {
-                    const nextRes = await _nativeFetch(nextUrl, {
-                        method: "GET",
-                        headers: { ...headers, Range: "bytes=0-1024" },
-                        redirect: "follow",
-                        signal: AbortSignal.timeout(RAW_CHECK_TIMEOUT),
-                    });
-                    const nextAcao = nextRes.headers.get("access-control-allow-origin");
-                    nextRes.body?.cancel();
-                    if (nextAcao !== "*") {
+                if (isNestedManifest) {
+                    const nestedText = await mediaRes.text().catch(() => "");
+                    if (!nestedText.trim().startsWith("#EXTM3U")) {
                         cacheSet(cacheKey, false);
                         return false;
                     }
+                    mediaUrl = extractFirstMediaLine(nestedText, mediaRes.url || mediaUrl);
+                    continue;
+                }
+
+                const buf = await mediaRes.arrayBuffer().catch(() => null);
+                if (!buf || buf.byteLength === 0) {
+                    cacheSet(cacheKey, false);
+                    return false;
                 }
 
                 cacheSet(cacheKey, true);
                 return true;
             }
 
-            res.body?.cancel();
-            cacheSet(cacheKey, true);
-            return true;
+            cacheSet(cacheKey, false);
+            return false;
         } catch {
             cacheSet(cacheKey, false);
             return false;

@@ -1,5 +1,5 @@
 import { SOURCE_MAP } from '../../config.js';
-import { resolveStreamUrl } from '../utils/proxy.js';
+import { resolveStreamUrl, isRawPlayable } from '../utils/proxy.js';
 
 const UA_LIST = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
@@ -88,6 +88,10 @@ export async function handleDebugRoute(match, searchParams, absoluteBase, _nativ
             } else {
                 m3u8Preview = (await r.text()).slice(0, 400);
                 playable_check = await verifyPlayable(fetchUrl, fetchHeaders, isDirect);
+                if (playable_check.ok && isDirect) {
+                    const corsOk = await isRawPlayable(rawUrl, fetchHeaders);
+                    if (!corsOk) playable_check = { ok: false, error: 'raw url fails browser CORS check' };
+                }
             }
         } catch (err) { playable_check = { ok: false, error: err.message }; }
 

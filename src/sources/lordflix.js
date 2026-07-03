@@ -9,10 +9,43 @@ const LORDFLIX_HEADERS = {
 
 const LORDFLIX_API = 'https://snowhouse.lordflix.club';
 const MULTI_DECRYPT_API = 'https://enc-dec.app/api';
-const SERVERS = ['Phoenix'];
 
-function encodeQuote(str) {
-    return encodeURIComponent(str).replace(/%20/g, '+').replace(/\+/g, '%20');
+async function sha256Hex(str) {
+    const data = new TextEncoder().encode(str);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function solveChallenge() {
+    const res = await fetch(`${LORDFLIX_API}/challenge`, { headers: LORDFLIX_HEADERS, signal: AbortSignal.timeout(8000) });
+    if (!res?.ok) return null;
+    const challenge = await res.json();
+
+    let number = null;
+    for (let n = 0; n <= challenge.maxnumber; n++) {
+        const digest = await sha256Hex(`${challenge.salt}${n}`);
+        if (digest === challenge.challenge) { number = n; break; }
+    }
+    if (number === null) return null;
+
+    const payload = {
+        algorithm: challenge.algorithm,
+        challenge: challenge.challenge,
+        number,
+        salt: challenge.salt,
+        signature: challenge.signature,
+    };
+
+    return Buffer.from(JSON.stringify(payload)).toString('base64');
+}
+
+async function getServers() {
+    try {
+        const res = await fetch(`${LORDFLIX_API}/servers`, { headers: LORDFLIX_HEADERS, signal: AbortSignal.timeout(8000) });
+        if (!res?.ok) return [];
+        const json = await res.json();
+        return (json?.servers || []).map(s => s.name).filter(Boolean);
+    } catch { return []; }
 }
 
 export async function getStream(args) {
@@ -44,11 +77,15 @@ export async function getStream(args) {
 
     if (!info.title || !info.imdbId) return null;
 
-    const typeParam = mediaType === 'tv' ? 'series' : 'movie';
-    const titleEnc = encodeQuote(info.title);
-    const streams = [];
+    const servers = await getServers();
+    if (!servers.length) return null;
 
-    const settled = await Promise.allSettled(SERVERS.map(async (server) => {
+    const typeParam = mediaType === 'tv' ? 'series' : 'movie';
+    const titleEnc = encodeURIComponent(info.title);
+    const attest = await solveChallenge();
+    if (!attest) return null;
+
+    const settled = await Promise.allSettled(servers.map(async (server) => {
         let serverUrl = `${LORDFLIX_API}/?title=${titleEnc}&type=${typeParam}&year=${info.year || ''}` +
             `&imdb=${info.imdbId}&tmdb=${tmdbId}&server=${server}`;
 
@@ -56,22 +93,25 @@ export async function getStream(args) {
             serverUrl += `&season=${seasonNum}&episode=${episodeNum}`;
         }
 
-        const encBridgeRes = await fetch(`${MULTI_DECRYPT_API}/enc-lordflix?url=${encodeQuote(serverUrl)}`, { signal: AbortSignal.timeout(8000) });
+        const encBridgeRes = await fetch(`${MULTI_DECRYPT_API}/enc-lordflix?url=${encodeURIComponent(serverUrl)}`, { signal: AbortSignal.timeout(8000) });
         if (!encBridgeRes?.ok) return null;
         const encBridgeJson = await encBridgeRes.json();
         if (!encBridgeJson || encBridgeJson.status !== 200 || !encBridgeJson.result) return null;
 
-        const { url: proxyEncUrl, sign: signature } = encBridgeJson.result;
-        if (!proxyEncUrl || !signature) return null;
+        const { url: proxyEncUrl } = encBridgeJson.result;
+        if (!proxyEncUrl) return null;
 
-        const remoteEncRes = await fetch(proxyEncUrl, { headers: LORDFLIX_HEADERS, signal: AbortSignal.timeout(8000) });
+        const remoteEncRes = await fetch(proxyEncUrl, {
+            headers: { ...LORDFLIX_HEADERS, 'x-attest': attest },
+            signal: AbortSignal.timeout(8000)
+        });
         if (!remoteEncRes?.ok) return null;
         const remoteEncData = await remoteEncRes.text();
 
         const decRes = await fetch(`${MULTI_DECRYPT_API}/dec-lordflix`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: remoteEncData, sign: signature }),
+            body: JSON.stringify({ text: remoteEncData }),
             signal: AbortSignal.timeout(8000)
         });
         if (!decRes?.ok) return null;
@@ -85,7 +125,7 @@ export async function getStream(args) {
         if (topStream.type === 'hls' && topStream.playlist) {
             return {
                 url: topStream.playlist,
-                server: `Phoenix`,
+                server,
                 headers: LORDFLIX_HEADERS,
             };
         }
@@ -104,7 +144,8 @@ export async function getStream(args) {
 }
 
 export async function getSources(args) {
-    return SERVERS.map(s => `Lordflix[${s}]`);
+    const servers = await getServers();
+    return servers.map(s => `Lordflix[${s}]`);
 }
 
 export const SKIP_VERIFY = true;
