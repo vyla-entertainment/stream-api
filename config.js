@@ -521,19 +521,6 @@ export const SOURCES = [
         skipProxy: true,
     },
 
-    {
-        key: 'youplex',
-        label: 'Youplex',
-        sourceFile: 'youplex',
-        proxyParam: 'yp',
-        timeout: 20000,
-        jitter: 500,
-        retries: 2,
-        multiUrl: false,
-        skipVerify: true,
-        skipProxy: true,
-    },
-
 ];
 
 export const SOURCE_MAP = Object.fromEntries(SOURCES.map(s => [s.key, s]));
