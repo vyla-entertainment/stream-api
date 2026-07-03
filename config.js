@@ -471,6 +471,69 @@ export const SOURCES = [
         disabled: true, // Their soooo slow
     },
 
+    {
+        key: 'goated',
+        label: 'Goated',
+        sourceFile: 'goated',
+        proxyParam: 'gt',
+        timeout: 20000,
+        jitter: 500,
+        retries: 2,
+        multiUrl: false,
+        skipVerify: true,
+        skipProxy: true,
+    },
+
+    {
+        key: 'netmirror',
+        label: 'NetMirror',
+        sourceFile: 'netmirror',
+        proxyParam: 'nm',
+        timeout: 20000,
+        jitter: 500,
+        retries: 2,
+        multiUrl: true,
+    },
+
+    {
+        key: 'vsembed',
+        label: 'vsembed',
+        sourceFile: 'vsembed',
+        proxyParam: 'vs',
+        timeout: 20000,
+        jitter: 500,
+        retries: 2,
+        multiUrl: false,
+        skipVerify: true,
+        skipProxy: true,
+    },
+
+    {
+        key: 'aether',
+        label: 'aether',
+        sourceFile: 'aether',
+        proxyParam: 'ae',
+        timeout: 20000,
+        jitter: 500,
+        retries: 2,
+        multiUrl: false,
+        skipVerify: true,
+        skipProxy: true,
+    },
+
+    {
+        key: 'youplex',
+        label: 'Youplex',
+        sourceFile: 'youplex',
+        proxyParam: 'yp',
+        timeout: 20000,
+        jitter: 500,
+        retries: 2,
+        multiUrl: false,
+        skipVerify: true,
+        skipProxy: true,
+    },
+
 ];
 
 export const SOURCE_MAP = Object.fromEntries(SOURCES.map(s => [s.key, s]));
