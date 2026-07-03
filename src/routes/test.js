@@ -1,5 +1,5 @@
 import { SOURCE_MAP } from '../../config.js';
-import { resolveStreamUrl, isRawPlayable } from '../utils/proxy.js';
+import { wrapUrl } from '../utils/proxy.js';
 
 const UA_LIST = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
@@ -71,13 +71,13 @@ export async function handleDebugRoute(match, searchParams, absoluteBase, _nativ
     const checks = await Promise.all(candidates.slice(0, 3).map(async (raw, i) => {
         const rawUrl = typeof raw === 'object' ? raw.url : raw;
         const rawHeaders = (typeof raw === 'object' && raw.headers) ? raw.headers : {};
-        const wrappedUrl = await resolveStreamUrl(typeof raw === 'object' ? raw : { url: raw }, sourceKey, absoluteBase, SOURCE_MAP);
-        const isDirect = wrappedUrl === rawUrl;
+        const wrappedUrl = wrapUrl(typeof raw === 'object' ? raw : { url: raw }, sourceKey, absoluteBase, SOURCE_MAP);
 
         let m3u8Preview = null, mp4Preview = null, playable_check = null;
         try {
+            if (raw?.skipProxy) return { index: i, raw_url: rawUrl, proxy_url: rawUrl, playable_check: { ok: true, error: null }, m3u8_preview: 'skipped: direct client playback', mp4_preview: null };
             const fetchUrl = wrappedUrl || rawUrl;
-            const fetchHeaders = isDirect ? { 'User-Agent': getUA(), ...rawHeaders } : { 'User-Agent': getUA() };
+            const fetchHeaders = wrappedUrl ? { 'User-Agent': getUA() } : { 'User-Agent': getUA(), ...rawHeaders };
             const r = await _nativeFetch(fetchUrl, { signal: AbortSignal.timeout(15_000), headers: { ...fetchHeaders, 'Range': 'bytes=0-511' } });
             const ct = (r.headers.get('content-type') || '').toLowerCase();
             const isMp4 = /\.mp4(\?|$)/i.test(fetchUrl) || ct.includes('video/mp4') || ct.includes('video/mp2t') || ct.includes('octet-stream');
@@ -87,11 +87,7 @@ export async function handleDebugRoute(match, searchParams, absoluteBase, _nativ
                 playable_check = { ok: r.ok || r.status === 206, error: (r.ok || r.status === 206) ? null : `mp4 fetch failed: ${r.status}` };
             } else {
                 m3u8Preview = (await r.text()).slice(0, 400);
-                playable_check = await verifyPlayable(fetchUrl, fetchHeaders, isDirect);
-                if (playable_check.ok && isDirect) {
-                    const corsOk = await isRawPlayable(rawUrl, fetchHeaders);
-                    if (!corsOk) playable_check = { ok: false, error: 'raw url fails browser CORS check' };
-                }
+                playable_check = await verifyPlayable(fetchUrl, fetchHeaders, !wrappedUrl);
             }
         } catch (err) { playable_check = { ok: false, error: err.message }; }
 

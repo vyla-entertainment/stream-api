@@ -1,5 +1,4 @@
-// Currently active sources reported on  3:34:25 PM PST 7/3/2026
-
+// Currently active sources reported on  11:04:55 PM PST 6/29/2026
 // Tested ID for all non anime: 936075
 // Tested ID for anime: 37854
 
@@ -7,9 +6,7 @@
 
 // kisskh tested: 112888 ( their an asian drama source )
 
-// purstream does work but use this ID: 550, 155 they don't support :/
-
-const SOURCES = [
+export const SOURCES = [
     {
         key: 'vidrock',
         label: 'VidRock',
@@ -39,6 +36,7 @@ const SOURCES = [
         sourcesTimeout: 10000,
         jitter: 400,
         retries: 3,
+        disabled: true, // Their site is down, all streams are returning 403's
         verifyHeaders: {
             Accept: '/',
             'Accept-Language': 'en-US,en;q=0.9',
@@ -55,6 +53,7 @@ const SOURCES = [
         timeout: 20000,
         jitter: 500,
         retries: 2,
+        skipProxy: true,
     },
 
     {
@@ -65,7 +64,6 @@ const SOURCES = [
         timeout: 35000,
         jitter: 500,
         retries: 1,
-        disabled: true, // Temporarily disabled due to their streams aren't working
     },
 
     {
@@ -77,7 +75,6 @@ const SOURCES = [
         jitter: 0,
         retries: 2,
         multiUrl: false,
-        alwaysProxy: true,
         verifyHeaders: {
             Accept: 'application/json, text/javascript, /; q=0.01',
             'Accept-Language': 'en-US,en;q=0.9',
@@ -121,6 +118,7 @@ const SOURCES = [
         timeout: 20000,
         jitter: 500,
         retries: 2,
+        skipProxy: true,
         multiUrl: true,
         verifyHeaders: {
             'Accept-Language': 'en-US,en;q=0.9',
@@ -136,7 +134,6 @@ const SOURCES = [
         jitter: 500,
         retries: 2,
         multiUrl: true,
-        alwaysProxy: true,
         cdnHeaders: [{
             pattern: /flix2watch\.pro/i,
             headers: {
@@ -155,6 +152,7 @@ const SOURCES = [
         jitter: 500,
         retries: 2,
         disabled: true, // Temporarily disabled due to took too long to respond
+        skipProxy: true,
     },
 
     {
@@ -167,7 +165,6 @@ const SOURCES = [
         jitter: 900,
         retries: 3,
         multiUrl: true,
-        alwaysProxy: true,
         verifyHeaders: {
             Accept: 'application/json, /; q=0.01',
             Referer: 'https://player.videasy.net/',
@@ -201,6 +198,7 @@ const SOURCES = [
         timeout: 20000,
         jitter: 400,
         retries: 2,
+        skipProxy: true,
         disabled: true, // Temporarily disabled because you have to login to watch streams
     },
 
@@ -213,17 +211,18 @@ const SOURCES = [
         jitter: 500,
         retries: 2,
         sourcesTimeout: 10000,
-        disabled: true, // Temporarily disabled due to their streams aren't working
     },
 
     {
         key: 'purstream',
         sourceFile: 'purstream',
-        label: 'Purstream - French',
+        label: 'Purstream',
         proxyParam: 'ps',
         timeout: 20000,
         jitter: 500,
         retries: 2,
+        skipProxy: true,
+        disabled: true, // Their site is down, all streams are blocked
     },
 
     {
@@ -295,6 +294,7 @@ const SOURCES = [
         timeout: 25000,
         jitter: 500,
         retries: 2,
+        skipProxy: true,
         skipVerify: true,
         multiUrl: true,
         verifyHeaders: {
@@ -311,6 +311,7 @@ const SOURCES = [
         timeout: 25000,
         jitter: 500,
         retries: 2,
+        skipProxy: true,
         skipVerify: true,
         multiUrl: true,
         verifyHeaders: {
@@ -327,6 +328,7 @@ const SOURCES = [
         timeout: 40000,
         jitter: 600,
         retries: 2,
+        skipProxy: true,
     },
 
     {
@@ -349,6 +351,7 @@ const SOURCES = [
         retries: 1,
         jitter: 0,
         multiUrl: true,
+        skipProxy: true,
     },
 
     {
@@ -360,6 +363,7 @@ const SOURCES = [
         retries: 1,
         jitter: 0,
         multiUrl: true,
+        skipProxy: true,
     },
 
     {
@@ -371,6 +375,7 @@ const SOURCES = [
         retries: 1,
         jitter: 0,
         multiUrl: true,
+        skipProxy: true,
     },
 
 
@@ -395,7 +400,6 @@ const SOURCES = [
         retries: 1,
         jitter: 0,
         multiUrl: true,
-        disabled: true, // Temporarily disabled due to their streams aren't working
     },
 
     {
@@ -407,6 +411,7 @@ const SOURCES = [
         retries: 1,
         jitter: 0,
         multiUrl: true,
+        skipProxy: true,
     },
 
 
@@ -450,19 +455,8 @@ const SOURCES = [
         jitter: 500,
         retries: 2,
         multiUrl: true,
+        skipProxy: true,
         disabled: true, // Their soooo slow
-    },
-
-    {
-        key: 'netmirror',
-        label: 'NetMirror',
-        sourceFile: 'netmirror',
-        proxyParam: 'nm',
-        timeout: 20000,
-        jitter: 500,
-        retries: 2,
-        multiUrl: true,
-        alwaysProxy: true,
     },
 
     {
@@ -476,7 +470,17 @@ const SOURCES = [
         multiUrl: false,
         skipVerify: true,
         skipProxy: true,
-        disabled: true, // Temporarily disabled due to their streams aren't working
+    },
+
+    {
+        key: 'netmirror',
+        label: 'NetMirror',
+        sourceFile: 'netmirror',
+        proxyParam: 'nm',
+        timeout: 20000,
+        jitter: 500,
+        retries: 2,
+        multiUrl: true,
     },
 
     {
@@ -507,7 +511,6 @@ const SOURCES = [
 
 ];
 
-export { SOURCES };
 export const SOURCE_MAP = Object.fromEntries(SOURCES.map(s => [s.key, s]));
 export const ALLOWED_ORIGINS = [''];
 export const HEALTH_PROBE_ID = '155';
