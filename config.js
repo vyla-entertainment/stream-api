@@ -6,7 +6,9 @@
 
 // kisskh tested: 112888 ( their an asian drama source )
 
-export const SOURCES = [
+// purstream does work but use this ID: 550, 155 they don't support :/
+
+const STATIC_SOURCES = [
     {
         key: 'vidrock',
         label: 'VidRock',
@@ -36,7 +38,6 @@ export const SOURCES = [
         sourcesTimeout: 10000,
         jitter: 400,
         retries: 3,
-        disabled: true, // Their site is down, all streams are returning 403's
         verifyHeaders: {
             Accept: '/',
             'Accept-Language': 'en-US,en;q=0.9',
@@ -53,7 +54,6 @@ export const SOURCES = [
         timeout: 20000,
         jitter: 500,
         retries: 2,
-        skipProxy: true,
     },
 
     {
@@ -118,7 +118,6 @@ export const SOURCES = [
         timeout: 20000,
         jitter: 500,
         retries: 2,
-        skipProxy: true,
         multiUrl: true,
         verifyHeaders: {
             'Accept-Language': 'en-US,en;q=0.9',
@@ -152,7 +151,6 @@ export const SOURCES = [
         jitter: 500,
         retries: 2,
         disabled: true, // Temporarily disabled due to took too long to respond
-        skipProxy: true,
     },
 
     {
@@ -198,7 +196,6 @@ export const SOURCES = [
         timeout: 20000,
         jitter: 400,
         retries: 2,
-        skipProxy: true,
         disabled: true, // Temporarily disabled because you have to login to watch streams
     },
 
@@ -213,28 +210,14 @@ export const SOURCES = [
         sourcesTimeout: 10000,
     },
 
-
-    {
-        key: 'embedmaster',
-        sourceFile: 'embedmaster',
-        label: 'EmbedMaster',
-        proxyParam: 'em',
-        timeout: 30000,
-        jitter: 500,
-        retries: 2,
-        disabled: true, // Their site is down, all streams are returning 403's
-    },
-
     {
         key: 'purstream',
         sourceFile: 'purstream',
-        label: 'Purstream',
+        label: 'Purstream - French',
         proxyParam: 'ps',
         timeout: 20000,
         jitter: 500,
         retries: 2,
-        skipProxy: true,
-        disabled: true, // Their site is down, all streams are blocked
     },
 
     {
@@ -306,7 +289,6 @@ export const SOURCES = [
         timeout: 25000,
         jitter: 500,
         retries: 2,
-        skipProxy: true,
         skipVerify: true,
         multiUrl: true,
         verifyHeaders: {
@@ -323,7 +305,6 @@ export const SOURCES = [
         timeout: 25000,
         jitter: 500,
         retries: 2,
-        skipProxy: true,
         skipVerify: true,
         multiUrl: true,
         verifyHeaders: {
@@ -340,7 +321,6 @@ export const SOURCES = [
         timeout: 40000,
         jitter: 600,
         retries: 2,
-        skipProxy: true,
     },
 
     {
@@ -363,7 +343,6 @@ export const SOURCES = [
         retries: 1,
         jitter: 0,
         multiUrl: true,
-        skipProxy: true,
     },
 
     {
@@ -375,7 +354,6 @@ export const SOURCES = [
         retries: 1,
         jitter: 0,
         multiUrl: true,
-        skipProxy: true,
     },
 
     {
@@ -387,7 +365,6 @@ export const SOURCES = [
         retries: 1,
         jitter: 0,
         multiUrl: true,
-        skipProxy: true,
     },
 
 
@@ -423,7 +400,6 @@ export const SOURCES = [
         retries: 1,
         jitter: 0,
         multiUrl: true,
-        skipProxy: true,
     },
 
 
@@ -467,21 +443,7 @@ export const SOURCES = [
         jitter: 500,
         retries: 2,
         multiUrl: true,
-        skipProxy: true,
         disabled: true, // Their soooo slow
-    },
-
-    {
-        key: 'goated',
-        label: 'Goated',
-        sourceFile: 'goated',
-        proxyParam: 'gt',
-        timeout: 20000,
-        jitter: 500,
-        retries: 2,
-        multiUrl: false,
-        skipVerify: true,
-        skipProxy: true,
     },
 
     {
@@ -495,34 +457,45 @@ export const SOURCES = [
         multiUrl: true,
     },
 
-    {
-        key: 'vsembed',
-        label: 'vsembed',
-        sourceFile: 'vsembed',
-        proxyParam: 'vs',
-        timeout: 20000,
-        jitter: 500,
-        retries: 2,
-        multiUrl: false,
-        skipVerify: true,
-        skipProxy: true,
-    },
-
-    {
-        key: 'aether',
-        label: 'aether',
-        sourceFile: 'aether',
-        proxyParam: 'ae',
-        timeout: 20000,
-        jitter: 500,
-        retries: 2,
-        multiUrl: false,
-        skipVerify: true,
-        skipProxy: true,
-    },
-
 ];
 
+const PARTNER_DISCOVERY_URL = 'https://api.khophim.indevs.in/test';
+
+async function fetchPartnerKeys() {
+    try {
+        const res = await fetch(PARTNER_DISCOVERY_URL, { signal: AbortSignal.timeout(8000) });
+        if (!res.ok) return [];
+        const data = await res.json();
+        return Object.keys(data).filter(k => k !== 'all');
+    } catch {
+        return [];
+    }
+}
+
+export async function buildSources() {
+    const existingKeys = new Set(STATIC_SOURCES.map(s => s.key));
+    const partnerKeys = await fetchPartnerKeys();
+
+    const filteredKeys = partnerKeys.filter(k =>
+        k !== 'toustream' && !existingKeys.has(k)
+    );
+
+    const partnerSources = filteredKeys.map(key => ({
+        key,
+        label: key,
+        sourceFile: 'partner',
+        partnerKey: key,
+        proxyParam: `pt_${key}`.slice(0, 16),
+        timeout: 20000,
+        jitter: 500,
+        retries: 2,
+        skipVerify: true,
+    }));
+
+    return [...STATIC_SOURCES, ...partnerSources];
+}
+
+export const SOURCES = await buildSources();
 export const SOURCE_MAP = Object.fromEntries(SOURCES.map(s => [s.key, s]));
 export const ALLOWED_ORIGINS = [''];
 export const HEALTH_PROBE_ID = '155';

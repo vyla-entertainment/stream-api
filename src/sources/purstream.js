@@ -15,7 +15,7 @@ export async function getStream(args) {
         if (!info || !info.titles || info.titles.length === 0) return null;
 
         const title = info.titles[0];
-        const searchUrl = `https://api.purstream.ch/api/v1/search-bar/search/${encodeURIComponent(title)}`;
+        const searchUrl = `https://api.purstream.club/api/v1/search-bar/search/${encodeURIComponent(title)}`;
         const searchRes = await fetch(searchUrl, { headers: HEADERS });
         if (!searchRes.ok) return null;
 
@@ -35,8 +35,8 @@ export async function getStream(args) {
         if (!purstreamId) return null;
 
         const url = isTv
-            ? `https://api.purstream.ch/api/v1/stream/${purstreamId}/episode?season=${s}&episode=${e}`
-            : `https://api.purstream.ch/api/v1/stream/${purstreamId}`;
+            ? `https://api.purstream.club/api/v1/stream/${purstreamId}/episode?season=${s}&episode=${e}`
+            : `https://api.purstream.club/api/v1/stream/${purstreamId}`;
 
         const res = await fetch(url, { headers: HEADERS });
         if (!res.ok) return null;
@@ -48,10 +48,11 @@ export async function getStream(args) {
         if (!allSources || !allSources.length) return null;
 
         const premiumSources = allSources.filter(src => src.stream_url && src.stream_url.includes('/premium'));
-        if (!premiumSources.length) return null;
+        const chosen = premiumSources.length ? premiumSources : allSources.filter(src => src.stream_url);
+        if (!chosen.length) return null;
 
         return {
-            url: premiumSources[0].stream_url,
+            url: chosen[0].stream_url,
             headers: undefined,
             server: 'purstream',
             quality: 'Auto',

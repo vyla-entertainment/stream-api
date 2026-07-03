@@ -22,11 +22,14 @@ function decrypt(responseText, key = process.env.DC_KEY) {
 }
 
 export async function getStream(args) {
-    const { id, s, e } = args;
+    const { id, s, e, config } = args;
+    const partnerKey = config?.partnerKey || config?.key;
+    if (!partnerKey) return null;
+
     try {
         const url = s
-            ? `${BASE}/${id}?season=${s}&episode=${e || 1}&source=vsembed`
-            : `${BASE}/${id}?source=vsembed`;
+            ? `${BASE}/${id}?season=${s}&episode=${e || 1}&source=${partnerKey}`
+            : `${BASE}/${id}?source=${partnerKey}`;
 
         const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
         if (!res.ok) return null;
@@ -44,7 +47,7 @@ export async function getStream(args) {
             url: streamUrl,
             type: isHls ? 'hls' : 'mp4',
             audio: 'sub',
-            server: `vsembed-${data.server || 'unknown'}`,
+            server: `${partnerKey}-${data.server || 'unknown'}`,
             headers: data.headers || undefined,
             skipProxy: false,
         }];

@@ -108,7 +108,6 @@ export async function getStream(args) {
                     audio: aud,
                     server: s.provider ? `AniPM-${s.provider}` : "AniPM",
                     headers: { Referer: `${BASE}/` },
-                    skipProxy: true
                 }))
                 .filter(s => s.url);
 

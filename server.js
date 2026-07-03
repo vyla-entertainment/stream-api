@@ -11,7 +11,7 @@ import { handleDownloadMovie, handleDownloadTv } from './src/routes/downloads/ma
 import { handleHealth } from './src/routes/health.js';
 import { authenticateRequest, checkRateLimit, canAccess, issueSessionToken, refreshSessionToken, initAuth } from './src/middleware/auth.js';
 import { validateTmdbId } from './src/utils/helpers.js';
-import { wrapUrl } from './src/utils/proxy.js';
+import { resolveStreamUrl } from './src/utils/proxy.js';
 import { handleTestRoute, handleDebugRoute } from './src/routes/test.js';
 dotenv.config();
 
@@ -28,6 +28,10 @@ const FALLBACK_BASE = '';
 
 const LOGO_TEXT = (() => {
     try { return fs.readFileSync(path.join(__dirname, 'public/assets/title.txt'), 'utf8'); } catch { return ''; }
+})();
+
+const VERSION_TEXT = (() => {
+    try { return fs.readFileSync(path.join(__dirname, 'public/assets/version.txt'), 'utf8'); } catch { return ''; }
 })();
 
 const GA_MEASUREMENT_ID = process.env.GA_MEASUREMENT_ID;
@@ -531,9 +535,9 @@ async function verifyPlayable(proxiedUrl, extraHeaders = {}, skipProxyCheck = fa
                     if (segUrl) {
                         if (!segUrl.startsWith('http')) segUrl = new URL(segUrl, nextUrl).href;
                         const segRes = await _nativeFetch(segUrl, {
-                            method: 'HEAD',
+                            method: 'GET',
                             signal: AbortSignal.timeout(5_000),
-                            headers: { 'User-Agent': getUA(), ...extraHeaders },
+                            headers: { 'User-Agent': getUA(), ...extraHeaders, 'Range': 'bytes=0-1024' },
                         });
                         segRes.body?.cancel();
                         if (!segRes.ok && segRes.status !== 206) return fail(`Segment failed: ${segRes.status}`);
@@ -631,7 +635,7 @@ function normalizeCandidates(rawResult) {
         return rawResult.map(u => typeof u === 'object' ? u : { url: u });
     }
     if (rawResult) {
-        return [{ url: typeof rawResult === 'object' ? rawResult.url : rawResult, headers: rawResult?.headers, skipProxy: rawResult?.skipProxy, skipHlsCheck: rawResult?.skipHlsCheck }];
+        return [{ url: typeof rawResult === 'object' ? rawResult.url : rawResult, headers: rawResult?.headers, skipHlsCheck: rawResult?.skipHlsCheck }];
     }
     return [];
 }
@@ -694,10 +698,10 @@ async function handleTestSource(sourceKey, id, s, e, clientIP, host) {
             const candidates = normalizeCandidates(rawResult);
 
             for (const candidate of candidates) {
-                const wrappedUrl = wrapUrl(candidate, sourceKey, absoluteBase, SOURCE_MAP);
+                const wrappedUrl = await resolveStreamUrl(candidate, sourceKey, absoluteBase, SOURCE_MAP);
                 if (!wrappedUrl) continue;
 
-                if (candidate?.skipProxy) {
+                if (wrappedUrl === candidate.url) {
                     const result = { ok: true, url: wrappedUrl, raw_url: candidate.url };
                     testResultCache.set(cacheKey, result);
                     sharedCacheSet(cacheKey, result, 90_000);
@@ -893,8 +897,8 @@ async function handleRequest(req, res) {
     if (pathname === '/' || pathname === '') {
         return {
             status: 200,
-            body: `${LOGO_TEXT}\n\ndeveloped_by: @vyla-entertainment\ngithub: https://github.com/vyla-entertainment\ndocs: https://docs.vyla.cc\ndmca: https://docs.vyla.cc/misc/dmca`,
-            headers: { 'Content-Type': 'text/plain; charset=utf-8', ...CORS_HEADERS },
+            body: `${LOGO_TEXT}\n\ndeveloped_by: @vyla-entertainment\ngithub: https://github.com/vyla-entertainment\ndocs: https://docs.vyla.cc\ndmca: https://docs.vyla.cc/misc/dmca\n${VERSION_TEXT}`,
+            headers: { 'Content-Type': 'text/plain; charset=utf-8', ...CORS_HEADERS }
         };
     }
 

@@ -119,7 +119,6 @@ async function fetchFromPlatform(platformKey, title, isTv, season, episode) {
 
         const targetEp = episodes.find(ep => ep.s == season && ep.ep == episode);
         if (!targetEp) {
-            // Simple scan first page of other seasons if not found on current
             if (postData.season) {
                 for (let i = 0; i < postData.season.length; i++) {
                     if (i + 1 == season) {

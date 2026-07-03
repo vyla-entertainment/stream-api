@@ -66,7 +66,6 @@ export async function getStream(args) {
                     audio: 'sub',
                     server: 'Vidlink',
                     headers: undefined,
-                    skipProxy: true,
                     skipHlsCheck: true,
                     skipCache: true,
                 });
@@ -78,7 +77,6 @@ export async function getStream(args) {
                 audio: 'sub',
                 server: 'Vidlink',
                 headers: undefined,
-                skipProxy: true,
                 skipHlsCheck: true,
                 skipCache: true,
             });
