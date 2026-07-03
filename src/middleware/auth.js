@@ -54,46 +54,102 @@ export async function initAuth() {
 }
 
 const TOKEN_SECRET = process.env.TOKEN_SECRET;
+if (!TOKEN_SECRET || TOKEN_SECRET.length < 32) {
+    throw new Error('TOKEN_SECRET must be set and at least 32 characters');
+}
+
 const TOKEN_TTL_MS = 30 * 60 * 1000;
+const REFRESH_GRACE_MS = 10 * 60 * 1000;
+const TOKEN_VERSION = 'v1';
+
+function signPayload(payload) {
+    return crypto.createHmac('sha256', TOKEN_SECRET).update(payload).digest('hex');
+}
+
+function buildToken(expires, type, sourceKey, issuedAt) {
+    const payload = `${TOKEN_VERSION}.${expires}.${type}.${sourceKey}.${issuedAt}`;
+    const sig = signPayload(payload);
+    return `${TOKEN_VERSION}.${expires}.${type}.${sourceKey}.${issuedAt}.${sig}`;
+}
 
 export function issueSessionToken(type = 'player', sourceKey = '') {
-    const expires = Date.now() + TOKEN_TTL_MS;
-    const payload = `${expires}.${type}.${sourceKey}`;
-    const sig = crypto
-        .createHmac('sha256', TOKEN_SECRET)
-        .update(payload)
-        .digest('hex');
-
-    return `${expires}.${type}.${sourceKey}.${sig}`;
+    const now = Date.now();
+    const expires = now + TOKEN_TTL_MS;
+    return buildToken(expires, type, sourceKey, now);
 }
 
 export function validateSessionToken(token) {
-    if (!token) return false;
+    if (!token || typeof token !== 'string' || token.length > 512) return false;
 
     try {
         const parts = token.split('.');
-        if (parts.length !== 4) return false;
+        if (parts.length !== 6) return false;
 
-        const [expires, type, sourceKey, sig] = parts;
+        const [version, expires, type, sourceKey, issuedAt, sig] = parts;
 
-        if (Date.now() > Number(expires)) return false;
+        if (version !== TOKEN_VERSION) return false;
+        if (!/^\d+$/.test(expires) || !/^\d+$/.test(issuedAt)) return false;
 
-        const payload = `${expires}.${type}.${sourceKey}`;
-        const expected = crypto
-            .createHmac('sha256', TOKEN_SECRET)
-            .update(payload)
-            .digest('hex');
+        const expiresNum = Number(expires);
+        const issuedAtNum = Number(issuedAt);
 
-        if (sig.length !== expected.length) return false;
+        if (issuedAtNum > Date.now()) return false;
+        if (expiresNum - issuedAtNum !== TOKEN_TTL_MS) return false;
 
-        return crypto.timingSafeEqual(
-            Buffer.from(sig, 'hex'),
-            Buffer.from(expected, 'hex')
-        )
-            ? { type, sourceKey }
-            : false;
+        const payload = `${version}.${expires}.${type}.${sourceKey}.${issuedAt}`;
+        const expected = signPayload(payload);
+
+        const sigBuf = Buffer.from(sig, 'hex');
+        const expectedBuf = Buffer.from(expected, 'hex');
+
+        if (sigBuf.length !== expectedBuf.length) return false;
+        if (!crypto.timingSafeEqual(sigBuf, expectedBuf)) return false;
+
+        if (Date.now() > expiresNum) return false;
+
+        return { type, sourceKey, expires: expiresNum, issuedAt: issuedAtNum };
     } catch {
         return false;
+    }
+}
+
+export function refreshSessionToken(token) {
+    if (!token || typeof token !== 'string' || token.length > 512) return null;
+
+    try {
+        const parts = token.split('.');
+        if (parts.length !== 6) return null;
+
+        const [version, expires, type, sourceKey, issuedAt, sig] = parts;
+
+        if (version !== TOKEN_VERSION) return null;
+        if (!/^\d+$/.test(expires) || !/^\d+$/.test(issuedAt)) return null;
+
+        const expiresNum = Number(expires);
+        const issuedAtNum = Number(issuedAt);
+
+        if (issuedAtNum > Date.now()) return null;
+        if (expiresNum - issuedAtNum !== TOKEN_TTL_MS) return null;
+
+        const payload = `${version}.${expires}.${type}.${sourceKey}.${issuedAt}`;
+        const expected = signPayload(payload);
+
+        const sigBuf = Buffer.from(sig, 'hex');
+        const expectedBuf = Buffer.from(expected, 'hex');
+
+        if (sigBuf.length !== expectedBuf.length) return null;
+        if (!crypto.timingSafeEqual(sigBuf, expectedBuf)) return null;
+
+        if (Date.now() > expiresNum + REFRESH_GRACE_MS) return null;
+
+        if (type !== 'player') {
+            const entry = API_KEYS.get(sourceKey);
+            if (!entry || entry.type !== type || DISABLED_KEYS.has(sourceKey)) return null;
+        }
+
+        return issueSessionToken(type, sourceKey);
+    } catch {
+        return null;
     }
 }
 
@@ -103,18 +159,8 @@ function parseKey(apiKey) {
 }
 
 function isLocalRequest(req) {
-    const host = (req.headers.host || '').toLowerCase();
     const ip = req.socket.remoteAddress || '';
-
-    return (
-        host.startsWith('localhost:') ||
-        host === 'localhost' ||
-        host.startsWith('127.0.0.1:') ||
-        host === '127.0.0.1' ||
-        ip === '127.0.0.1' ||
-        ip === '::1' ||
-        ip === '::ffff:127.0.0.1'
-    );
+    return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1';
 }
 
 export function authenticateRequest(req) {

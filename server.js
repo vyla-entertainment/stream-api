@@ -9,7 +9,7 @@ import { SOURCES, SOURCE_MAP, CACHE_TTL } from './config.js';
 import { handleSubtitleMovie, handleSubtitleTv, fetchSubtitles, SUBTITLE_BASES } from './src/routes/subtitles.js';
 import { handleDownloadMovie, handleDownloadTv } from './src/routes/downloads/main.js';
 import { handleHealth } from './src/routes/health.js';
-import { authenticateRequest, checkRateLimit, canAccess, issueSessionToken, initAuth } from './src/middleware/auth.js';
+import { authenticateRequest, checkRateLimit, canAccess, issueSessionToken, refreshSessionToken, initAuth } from './src/middleware/auth.js';
 import { validateTmdbId } from './src/utils/helpers.js';
 import { wrapUrl } from './src/utils/proxy.js';
 import { handleTestRoute, handleDebugRoute } from './src/routes/test.js';
@@ -878,6 +878,16 @@ async function handleRequest(req, res) {
             return respondJson(401, { error: 'API key required for session token generation' });
         }
         return respondJson(200, { token: issueSessionToken(authResult.type, authResult.key) });
+    }
+
+    if (pathname === '/api/auth/refresh' && req.method === 'POST') {
+        const existingToken = req.headers['x-session-token']?.trim();
+        if (!existingToken) return respondJson(400, { error: 'Missing session token' });
+
+        const refreshed = refreshSessionToken(existingToken);
+        if (!refreshed) return respondJson(401, { error: 'Session token cannot be refreshed. Re-authenticate via /api/auth.' });
+
+        return respondJson(200, { token: refreshed });
     }
 
     if (pathname === '/' || pathname === '') {
