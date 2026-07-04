@@ -126,6 +126,3 @@ export async function getSources(args) {
     if (!res || !res.allUrls) return [];
     return [...new Set(res.allUrls.map(u => u.server))];
 }
-
-export const SKIP_VERIFY = true;
-export const MULTI_URL = true;

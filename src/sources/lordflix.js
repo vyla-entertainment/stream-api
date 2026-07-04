@@ -82,8 +82,6 @@ export async function getStream(args) {
 
     const typeParam = mediaType === 'tv' ? 'series' : 'movie';
     const titleEnc = encodeURIComponent(info.title);
-    const attest = await solveChallenge();
-    if (!attest) return null;
 
     const settled = await Promise.allSettled(servers.map(async (server) => {
         let serverUrl = `${LORDFLIX_API}/?title=${titleEnc}&type=${typeParam}&year=${info.year || ''}` +
@@ -100,6 +98,9 @@ export async function getStream(args) {
 
         const { url: proxyEncUrl } = encBridgeJson.result;
         if (!proxyEncUrl) return null;
+
+        const attest = await solveChallenge();
+        if (!attest) return null;
 
         const remoteEncRes = await fetch(proxyEncUrl, {
             headers: { ...LORDFLIX_HEADERS, 'x-attest': attest },
@@ -147,6 +148,3 @@ export async function getSources(args) {
     const servers = await getServers();
     return servers.map(s => `Lordflix[${s}]`);
 }
-
-export const SKIP_VERIFY = true;
-export const MULTI_URL = true;

@@ -2,9 +2,6 @@
 
 import { getTmdbInfo, tmdbToAnilist } from '../utils/helpers.js';
 
-export const SKIP_VERIFY = true;
-export const MULTI_URL = true;
-
 const BASE = "https://nekowatch.xyz";
 const ANIME_JS_URL = `${BASE}/js/anime.js?v=v263_fast_player_start`;
 

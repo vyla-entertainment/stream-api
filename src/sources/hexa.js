@@ -2,9 +2,6 @@
 
 import crypto from 'node:crypto';
 
-export const SKIP_VERIFY = true;
-export const MULTI_URL = true;
-
 const ENC_API = "https://enc-dec.app/api";
 const DOMAINS = ['hexa.su', 'flixer.su'];
 

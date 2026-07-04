@@ -2,9 +2,6 @@
 
 import { getTmdbInfo } from '../utils/helpers.js';
 
-export const SKIP_VERIFY = true;
-export const MULTI_URL = true;
-
 const BASE = "https://anineko.to";
 
 function stripTags(str) {
