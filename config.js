@@ -400,6 +400,7 @@ export const SOURCES = [
         retries: 1,
         jitter: 0,
         multiUrl: true,
+        disabled: true,  // Their site is down, all streams are blocked
     },
 
     {
