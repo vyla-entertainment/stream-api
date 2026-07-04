@@ -1,10 +1,11 @@
 import dotenv from 'dotenv';
 import crypto from 'crypto';
+
 import { ensureApiKeysTable, fetchActiveApiKeys, fetchDisabledApiKeys, ensurePublicKey } from '../../db.js';
 
 dotenv.config();
 
-const BYPASS_AUTH = true;
+const BYPASS_AUTH = false;
 
 const API_KEYS = new Map();
 const DISABLED_KEYS = new Set();
