@@ -378,6 +378,15 @@ export const SOURCES = [
         skipProxy: true,
     },
 
+    {
+        key: 'vidsync',
+        label: 'VidSync',
+        sourceFile: 'vidsync',
+        proxyParam: 'vs',
+        timeout: 20000,
+        retries: 2,
+        multiUrl: true,
+    },
 
     {
         key: 'dulo',
