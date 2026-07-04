@@ -1,7 +1,5 @@
 'use strict';
 
-import { getTmdbInfo } from '../utils/helpers.js';
-
 const ENC_API = "https://enc-dec.app/api";
 const BASE = "https://vidlink.pro";
 

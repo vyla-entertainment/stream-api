@@ -144,18 +144,6 @@ export const SOURCES = [
     },
 
     {
-        key: 'vapor',
-        label: 'Vapor',
-        sourceFile: 'vapor',
-        proxyParam: 'vp',
-        timeout: 20000,
-        jitter: 500,
-        retries: 2,
-        disabled: true, // Temporarily disabled due to took too long to respond
-        skipProxy: true,
-    },
-
-    {
         key: 'videasy',
         label: 'Videasy',
         sourceFile: 'videasy',
@@ -512,6 +500,19 @@ export const SOURCES = [
         sourceFile: 'aether',
         proxyParam: 'ae',
         timeout: 20000,
+        jitter: 500,
+        retries: 2,
+        multiUrl: false,
+        skipVerify: true,
+        skipProxy: true,
+    },
+
+    {
+        key: 'nextbox',
+        label: 'NextBox',
+        sourceFile: 'nextbox',
+        proxyParam: 'nx',
+        timeout: 25000,
         jitter: 500,
         retries: 2,
         multiUrl: false,
