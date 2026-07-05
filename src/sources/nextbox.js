@@ -32,7 +32,7 @@ export async function getStream({ id, s, e }) {
         const data = await fetchStream({ ...baseParams, server });
         const url = extractUrl(data);
         if (url) {
-            return { url, skipProxy: true };
+            return { url };
         }
     }
 

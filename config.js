@@ -4,8 +4,6 @@
 
 // fsharetv/fsonic tested: 155 ( they don't have Michael )
 
-// kisskh tested: 112888 ( their an asian drama source )
-
 export const SOURCES = [
     {
         key: 'vidrock',
@@ -36,7 +34,7 @@ export const SOURCES = [
         sourcesTimeout: 10000,
         jitter: 400,
         retries: 3,
-        disabled: true, // Their site is down, all streams are returning 403's
+        disabled: true, // Temporarily disabled due to their site being down, all streams are returning 403's
         verifyHeaders: {
             Accept: '/',
             'Accept-Language': 'en-US,en;q=0.9',
@@ -158,6 +156,7 @@ export const SOURCES = [
             Referer: 'https://player.videasy.net/',
             Origin: 'https://player.videasy.net',
         },
+        disabled: true,  // Temporarily disabled because their seed fetcher rate limit is too strict
     },
 
     {
@@ -199,6 +198,7 @@ export const SOURCES = [
         jitter: 500,
         retries: 2,
         sourcesTimeout: 10000,
+        disabled: true,  // Temporarily disabled because their site is down, all streams are returning 403's
     },
 
     {
@@ -210,7 +210,6 @@ export const SOURCES = [
         jitter: 500,
         retries: 2,
         skipProxy: true,
-        disabled: true, // Their site is down, all streams are blocked
     },
 
     {
@@ -320,17 +319,6 @@ export const SOURCES = [
     },
 
     {
-        key: 'peachify',
-        sourceFile: 'peachify',
-        label: 'Peachify',
-        proxyParam: 'py',
-        timeout: 30000,
-        jitter: 500,
-        retries: 2,
-        multiUrl: true,
-    },
-
-    {
         key: 'vidnest',
         label: 'VidNest',
         sourceFile: 'vidnest',
@@ -374,6 +362,7 @@ export const SOURCES = [
         timeout: 20000,
         retries: 2,
         multiUrl: true,
+        disabled: true, // Temporarily disabled due to enc dec issues
     },
 
     {
@@ -397,7 +386,6 @@ export const SOURCES = [
         retries: 1,
         jitter: 0,
         multiUrl: true,
-        disabled: true,  // Their site is down, all streams are blocked
     },
 
     {
@@ -454,7 +442,6 @@ export const SOURCES = [
         retries: 2,
         multiUrl: true,
         skipProxy: true,
-        disabled: true, // Their soooo slow
     },
 
     {
@@ -479,19 +466,7 @@ export const SOURCES = [
         jitter: 500,
         retries: 2,
         multiUrl: true,
-    },
-
-    {
-        key: 'vsembed',
-        label: 'vsembed',
-        sourceFile: 'vsembed',
-        proxyParam: 'vs',
-        timeout: 20000,
-        jitter: 500,
-        retries: 2,
-        multiUrl: false,
-        skipVerify: true,
-        skipProxy: true,
+        disabled: true, // Temporarily disabled due to their site being down, all streams are not working
     },
 
     {
@@ -516,8 +491,7 @@ export const SOURCES = [
         jitter: 500,
         retries: 2,
         multiUrl: false,
-        skipVerify: true,
-        skipProxy: true,
+        disabled: true, // Temporarily disabled due to them adding cloudflare turnstile to all streams.
     },
 
 ];

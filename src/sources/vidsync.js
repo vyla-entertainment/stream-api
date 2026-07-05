@@ -12,86 +12,160 @@ const VIDSYNC_API = 'https://vidsync.xyz';
 const MULTI_DECRYPT_API = 'https://enc-dec.app/api';
 const VIDSYNC_SERVERS = ['cinevault', 'cinedub', 'cinebox', 'cineflix', 'cinevip', 'cinecloud', 'cine4k'];
 
+const DEBUG = true;
+
+async function timedFetch(label, url, options = {}) {
+    const start = Date.now();
+    try {
+        const res = await fetch(url, options);
+        const text = await res.clone().text().catch(() => null);
+
+        return res;
+    } catch (err) {
+        throw err;
+    }
+}
+
 async function getTurnstileToken() {
-    const res = await fetch(`${MULTI_DECRYPT_API}/enc-vidsync`, { signal: AbortSignal.timeout(8000) });
-    if (!res?.ok) return null;
-    const json = await res.json();
-    if (!json || json.status !== 200 || !json.result || !json.result.token) return null;
-    return json.result.token;
+    const url = `${MULTI_DECRYPT_API}/enc-vidsync`;
+
+    const res = await fetch(url, {
+        method: 'GET',
+        headers: {
+            ...VIDSYNC_HEADERS,
+            'Accept': 'application/json'
+        }
+    });
+
+    const text = await res.text();
+
+    try {
+        return JSON.parse(text);
+    } catch {
+        return null;
+    }
 }
 
 export async function getStream(args) {
     const { id: tmdbId, s: season, e: episode } = args;
+
     const mediaType = season ? 'tv' : 'movie';
     const seasonNum = season ? parseInt(season) : null;
     const episodeNum = episode ? parseInt(episode) : null;
 
     const tmdbKey = process.env.TMDB_API_KEY;
-    if (!tmdbKey) return null;
+    if (!tmdbKey) {
+        return null;
+    }
 
     let info;
+
     try {
         const type = mediaType === 'tv' ? 'tv' : 'movie';
-        const res = await fetch(
-            `https://api.themoviedb.org/3/${type}/${tmdbId}?api_key=${tmdbKey}`,
-            { headers: { 'User-Agent': VIDSYNC_HEADERS['User-Agent'] }, signal: AbortSignal.timeout(8000) }
-        );
-        if (!res?.ok) return null;
+
+        const url = `https://api.themoviedb.org/3/${type}/${tmdbId}?api_key=${tmdbKey}`;
+
+        const res = await timedFetch('tmdb_fetch', url, {
+            headers: {
+                'User-Agent': VIDSYNC_HEADERS['User-Agent']
+            },
+            signal: AbortSignal.timeout(8000)
+        });
+
+        if (!res?.ok) {
+            return null;
+        }
+
         const data = await res.json();
+
         info = {
             title: data.title || data.name || '',
             year: (data.release_date || data.first_air_date || '').split('-')[0]
         };
+
     } catch (err) {
         return null;
     }
 
-    if (!info.title) return null;
+    if (!info?.title) {
+        return null;
+    }
 
     const titleEnc = encodeURIComponent(info.title).replace(/%20/g, '+');
 
-    const settled = await Promise.allSettled(VIDSYNC_SERVERS.map(async (server) => {
-        const token = await getTurnstileToken();
-        if (!token) return null;
+    const settled = await Promise.allSettled(
+        VIDSYNC_SERVERS.map(async (server) => {
 
-        let fetchUrl = `${VIDSYNC_API}/api/stream/fetch?title=${titleEnc}&type=${mediaType}&releaseYear=${info.year || ''}` +
-            `&mediaId=${tmdbId}&serverName=${server}`;
+            const token = await getTurnstileToken();
 
-        if (mediaType === 'tv') {
-            fetchUrl += `&season=${seasonNum}&episode=${episodeNum}`;
-        }
+            if (!token) {
+                return null;
+            }
 
-        const streamRes = await fetch(fetchUrl, {
-            headers: { ...VIDSYNC_HEADERS, 'X-Cf-Turnstile': token },
-            signal: AbortSignal.timeout(8000)
-        });
-        if (!streamRes?.ok) return null;
-        const encText = await streamRes.text();
-        if (!encText) return null;
+            let fetchUrl =
+                `${VIDSYNC_API}/api/stream/fetch?title=${titleEnc}` +
+                `&type=${mediaType}&releaseYear=${info.year || ''}` +
+                `&mediaId=${tmdbId}&serverName=${server}`;
 
-        const decRes = await fetch(`${MULTI_DECRYPT_API}/dec-vidsync`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: encText, id: tmdbId }),
-            signal: AbortSignal.timeout(8000)
-        });
-        if (!decRes?.ok) return null;
-        const finalJson = await decRes.json();
-        if (!finalJson || finalJson.status !== 200 || !finalJson.result || finalJson.result.error) return null;
+            if (mediaType === 'tv') {
+                fetchUrl += `&season=${seasonNum}&episode=${episodeNum}`;
+            }
 
-        const streamList = finalJson.result.stream;
-        if (!Array.isArray(streamList) || streamList.length === 0) return null;
+            const streamRes = await timedFetch(`stream_fetch_${server}`, fetchUrl, {
+                headers: {
+                    ...VIDSYNC_HEADERS,
+                    'X-Cf-Turnstile': token
+                },
+                signal: AbortSignal.timeout(8000)
+            });
 
-        const topStream = streamList[0];
-        if (topStream.type === 'hls' && topStream.playlist) {
-            return {
-                url: topStream.playlist,
-                server,
-                headers: VIDSYNC_HEADERS,
-            };
-        }
-        return null;
-    }));
+            if (!streamRes?.ok) {
+                return null;
+            }
+
+            const encText = await streamRes.text();
+
+            if (!encText) {
+                return null;
+            }
+
+            const decRes = await timedFetch(`decrypt_${server}`, `${MULTI_DECRYPT_API}/dec-vidsync`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: encText, id: tmdbId }),
+                signal: AbortSignal.timeout(8000)
+            });
+
+            if (!decRes?.ok) {
+                return null;
+            }
+
+            const finalJson = await decRes.json().catch(() => null);
+
+            if (!finalJson || finalJson.status !== 200 || finalJson.result?.error) {
+                return null;
+            }
+
+            const streamList = finalJson.result?.stream;
+
+            if (!Array.isArray(streamList) || streamList.length === 0) {
+                return null;
+            }
+
+            const topStream = streamList[0];
+
+            if (topStream?.type === 'hls' && topStream?.playlist) {
+
+                return {
+                    url: topStream.playlist,
+                    server,
+                    headers: VIDSYNC_HEADERS
+                };
+            }
+
+            return null;
+        })
+    );
 
     const validResults = settled
         .filter(r => r.status === 'fulfilled' && r.value)

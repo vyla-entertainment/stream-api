@@ -1,73 +1,62 @@
-const BASE_URL = 'https://biavox.com';
-const FOLDER = '2mg51giq8mspc';
+'use strict';
 
-import { getTmdbInfo } from '../utils/helpers.js';
+import crypto from 'node:crypto';
 
-function titleMatch(t1, y1, t2, y2) {
-    if (!t1 || !t2) return false;
-    const clean1 = t1.toLowerCase().replace(/[^a-z0-9]/g, '');
-    const clean2 = t2.toLowerCase().replace(/[^a-z0-9]/g, '');
-    if (clean1 !== clean2 && !clean1.includes(clean2) && !clean2.includes(clean1)) return false;
-    if (y1 && y2 && Math.abs(parseInt(y1) - parseInt(y2)) > 1) return false;
-    return true;
+export const SKIP_VERIFY = true;
+
+const BASE = 'https://api.khophim.indevs.in/api/partner';
+
+function decrypt(responseText, key = process.env.DC_KEY) {
+    try {
+        const [ivBase64, encryptedBase64] = responseText.split(':');
+        if (!ivBase64 || !encryptedBase64) return null;
+        const iv = Buffer.from(ivBase64, 'base64');
+        const keyBuf = crypto.createHash('sha256').update(key).digest();
+        const decipher = crypto.createDecipheriv('aes-256-cbc', keyBuf, iv);
+        let decrypted = decipher.update(encryptedBase64, 'base64', 'utf8');
+        decrypted += decipher.final('utf8');
+        return JSON.parse(decrypted);
+    } catch {
+        return null;
+    }
 }
 
 export async function getStream(args) {
     const { id, s, e } = args;
-    if (s || e) return null;
-
     try {
-        const info = await getTmdbInfo(id, 'movie');
-        if (!info || !info.titles || !info.titles.length) return null;
-        const title = info.titles[0];
-        const year = info.year;
+        const url = s
+            ? `${BASE}/${id}?season=${s}&episode=${e || 1}&source=biavox`
+            : `${BASE}/${id}?source=biavox`;
 
-        let matchLink = null;
-        for (let offset = 0; offset < 300; offset += 30) {
-            const apiRes = await fetch(`${BASE_URL}/${FOLDER}/api_films.php?folder=${FOLDER}&pr=biavox&offset=${offset}&limit=30`);
-            if (!apiRes.ok) break;
-            const data = await apiRes.json();
-            if (!data.films || data.films.length === 0) break;
+        const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+        if (!res.ok) return null;
 
-            for (const film of data.films) {
-                const filmTitle = film.title.replace(/\(\d{4}\)/, '').trim();
-                const filmYearMatch = film.title.match(/\((\d{4})\)/);
-                const filmYear = filmYearMatch ? filmYearMatch[1] : null;
-                if (titleMatch(title, year, filmTitle, filmYear)) {
-                    matchLink = film.link;
-                    break;
-                }
-            }
-            if (matchLink) break;
-        }
+        const raw = await res.text();
+        if (!raw) return null;
 
-        if (!matchLink) return null;
+        const data = decrypt(raw);
+        if (!data || data.ok === false || !data.raw_url) return null;
 
-        const pageRes = await fetch(matchLink.startsWith('/') ? BASE_URL + matchLink : matchLink, {
-            headers: { 'Cookie': 'g=true', 'Referer': `${BASE_URL}/${FOLDER}/` }
-        });
-        const html = await pageRes.text();
-        const iframeMatch = html.match(/src=["'](https?:\/\/sharecloudy\.com\/iframe\/[^"']+)["']/);
-        if (!iframeMatch) return null;
+        const streamUrl = data.proxied_url || data.raw_url;
+        const isHls = data.type === 'hls' || streamUrl.includes('.m3u8');
 
-        const iframeRes = await fetch(iframeMatch[1], {
-            headers: { 'Referer': `${BASE_URL}/${FOLDER}/` }
-        });
-        const iframeHtml = await iframeRes.text();
-        const m3u8Match = iframeHtml.match(/file\s*:\s*["'](https?:\/\/[^"']+\.m3u8[^"']*)["']/);
-        if (!m3u8Match) return null;
+        const allUrls = [{
+            url: streamUrl,
+            type: isHls ? 'hls' : 'mp4',
+            audio: 'sub',
+            server: `Biavox-${data.server || 'unknown'}`,
+            headers: data.headers || undefined,
+            skipProxy: false,
+        }];
 
-        return {
-            url: m3u8Match[1].replace(/\\\//g, '/'),
-            type: 'hls',
-            headers: { 'Referer': iframeMatch[1], 'Origin': 'https://sharecloudy.com' }
-        };
-    } catch (err) {
+        return { allUrls };
+    } catch {
         return null;
     }
 }
 
 export async function getSources(args) {
     const stream = await getStream(args);
-    return stream ? [stream.url] : [];
+    if (!stream || !stream.allUrls) return [];
+    return [...new Set(stream.allUrls.map(u => u.server))];
 }
