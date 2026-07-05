@@ -442,6 +442,7 @@ export const SOURCES = [
         retries: 2,
         multiUrl: true,
         skipProxy: true,
+        disabled: true, // Temporarily disabled due to them being too slow
     },
 
     {
