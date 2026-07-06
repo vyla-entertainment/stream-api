@@ -186,7 +186,6 @@ export const SOURCES = [
         jitter: 400,
         retries: 2,
         skipProxy: true,
-        disabled: true, // Temporarily disabled because you have to login to watch streams
     },
 
     {
