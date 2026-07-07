@@ -1,4 +1,4 @@
-// Currently active sources reported on 7:36:20 PM PST 7/6/2026
+// Currently active sources reported on 7:47:50 PM PST 7/6/2026
 
 // None Anime Tested: 936075
 // Anime Tested: 37854
@@ -171,6 +171,7 @@ export const SOURCES = [
         jitter: 500,
         retries: 2,
         multiUrl: false,
+        skipProxy: true,
         cdnHeaders: [{
             pattern: /hlsx\d+cdn\.|burntburst\d+\.store|echovideo\.ru/i,
             headers: {
