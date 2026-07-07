@@ -17,7 +17,6 @@ export async function getStream({ id, s, e }) {
             url: stream.url,
             type: stream.url.includes('.m3u8') ? 'hls' : 'mp4',
             server: stream.name || 'Xyra',
-            skipHlsCheck: true,
             skipProxy: true
         }));
 

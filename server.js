@@ -698,10 +698,30 @@ async function handleTestSource(sourceKey, id, s, e, clientIP, host) {
                 if (!wrappedUrl) continue;
 
                 if (candidate?.skipProxy) {
-                    const result = { ok: true, url: wrappedUrl, raw_url: candidate.url };
-                    testResultCache.set(cacheKey, result);
-                    sharedCacheSet(cacheKey, result, 90_000);
-                    return result;
+                    const check = await verifyPlayable(candidate.url, candidate.headers ?? {}, true);
+                    if (check.ok || /timeout|aborted/i.test(check.error ?? '')) {
+                        const result = { ok: true, url: wrappedUrl, raw_url: candidate.url };
+                        testResultCache.set(cacheKey, result);
+                        sharedCacheSet(cacheKey, result, 90_000);
+                        return result;
+                    }
+                    try {
+                        const headRes = await _nativeFetch(candidate.url, {
+                            method: 'HEAD',
+                            headers: { 'User-Agent': getUA(), ...(candidate.headers ?? {}) },
+                            signal: AbortSignal.timeout(6_000),
+                            redirect: 'follow',
+                        });
+                        headRes.body?.cancel();
+                        const ct = (headRes.headers.get('content-type') || '').toLowerCase();
+                        if (headRes.status < 400 && (!ct || /video|octet-stream|mp4/.test(ct) && !ct.includes('mpegurl'))) {
+                            const result = { ok: true, url: wrappedUrl, raw_url: candidate.url };
+                            testResultCache.set(cacheKey, result);
+                            sharedCacheSet(cacheKey, result, 90_000);
+                            return result;
+                        }
+                    } catch { }
+                    continue;
                 }
 
                 if (candidate?.skipHlsCheck) {

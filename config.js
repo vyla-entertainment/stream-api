@@ -505,7 +505,6 @@ export const SOURCES = [
         jitter: 500,
         retries: 2,
         multiUrl: true,
-        skipVerify: true,
         skipProxy: true
     }
 

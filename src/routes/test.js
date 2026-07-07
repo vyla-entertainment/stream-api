@@ -74,10 +74,10 @@ export async function handleDebugRoute(match, searchParams, absoluteBase, _nativ
         const wrappedUrl = wrapUrl(typeof raw === 'object' ? raw : { url: raw }, sourceKey, absoluteBase, SOURCE_MAP);
 
         let m3u8Preview = null, mp4Preview = null, playable_check = null;
+        const isSkippedProxy = !!raw?.skipProxy;
         try {
-            if (raw?.skipProxy) return { index: i, raw_url: rawUrl, proxy_url: rawUrl, playable_check: { ok: true, error: null }, m3u8_preview: 'skipped: direct client playback', mp4_preview: null };
-            const fetchUrl = wrappedUrl || rawUrl;
-            const fetchHeaders = wrappedUrl ? { 'User-Agent': getUA() } : { 'User-Agent': getUA(), ...rawHeaders };
+            const fetchUrl = isSkippedProxy ? rawUrl : (wrappedUrl || rawUrl);
+            const fetchHeaders = isSkippedProxy || !wrappedUrl ? { 'User-Agent': getUA(), ...rawHeaders } : { 'User-Agent': getUA() };
             const r = await _nativeFetch(fetchUrl, { signal: AbortSignal.timeout(15_000), headers: { ...fetchHeaders, 'Range': 'bytes=0-511' } });
             const ct = (r.headers.get('content-type') || '').toLowerCase();
             const isMp4 = /\.mp4(\?|$)/i.test(fetchUrl) || ct.includes('video/mp4') || ct.includes('video/mp2t') || ct.includes('octet-stream');
@@ -87,11 +87,12 @@ export async function handleDebugRoute(match, searchParams, absoluteBase, _nativ
                 playable_check = { ok: r.ok || r.status === 206, error: (r.ok || r.status === 206) ? null : `mp4 fetch failed: ${r.status}` };
             } else {
                 m3u8Preview = (await r.text()).slice(0, 400);
-                playable_check = await verifyPlayable(fetchUrl, fetchHeaders, !wrappedUrl);
+                playable_check = await verifyPlayable(fetchUrl, fetchHeaders, isSkippedProxy || !wrappedUrl);
             }
         } catch (err) { playable_check = { ok: false, error: err.message }; }
 
-        return { index: i, raw_url: rawUrl, proxy_url: wrappedUrl, playable_check, m3u8_preview: m3u8Preview, mp4_preview: mp4Preview };
+        return { index: i, raw_url: rawUrl, proxy_url: isSkippedProxy ? rawUrl : wrappedUrl, playable_check, m3u8_preview: m3u8Preview, mp4_preview: mp4Preview };
+
     }));
 
     return {
