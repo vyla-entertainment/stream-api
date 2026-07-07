@@ -624,16 +624,23 @@ function fetchSource(cfg, cacheKey, id, s, e, clientIP, absoluteBase) {
 }
 
 function normalizeCandidates(rawResult) {
+    let candidates = [];
     if (rawResult?.allUrls?.length) {
-        return rawResult.allUrls.map(u => typeof u === 'object' ? u : { url: u });
+        candidates = rawResult.allUrls.map(u => typeof u === 'object' ? u : { url: u });
+    } else if (Array.isArray(rawResult)) {
+        candidates = rawResult.map(u => typeof u === 'object' ? u : { url: u });
+    } else if (rawResult) {
+        candidates = [{ url: typeof rawResult === 'object' ? rawResult.url : rawResult, headers: rawResult?.headers, skipProxy: rawResult?.skipProxy, skipHlsCheck: rawResult?.skipHlsCheck }];
     }
-    if (Array.isArray(rawResult)) {
-        return rawResult.map(u => typeof u === 'object' ? u : { url: u });
+
+    const isLocal = process.env.NODE_ENV === 'local' || (!process.env.NODE_ENV && process.env.SPACE_ID == null);
+    if (isLocal) {
+        candidates.forEach(c => {
+            c.skipProxy = false;
+        });
     }
-    if (rawResult) {
-        return [{ url: typeof rawResult === 'object' ? rawResult.url : rawResult, headers: rawResult?.headers, skipProxy: rawResult?.skipProxy, skipHlsCheck: rawResult?.skipHlsCheck }];
-    }
-    return [];
+
+    return candidates;
 }
 
 async function handleTestSource(sourceKey, id, s, e, clientIP, host) {

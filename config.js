@@ -510,6 +510,15 @@ export const SOURCES = [
 
 ];
 
+const isLocal = process.env.NODE_ENV === 'local' || (!process.env.NODE_ENV && process.env.SPACE_ID == null);
+
+if (isLocal) {
+    SOURCES.forEach(s => {
+        s.disabled = false;
+        s.skipProxy = false;
+    });
+}
+
 export const SOURCE_MAP = Object.fromEntries(SOURCES.map(s => [s.key, s]));
 export const ALLOWED_ORIGINS = [''];
 export const HEALTH_PROBE_ID = '155';
