@@ -1,8 +1,9 @@
-// Currently active sources reported on  11:04:55 PM PST 6/29/2026
-// Tested ID for all non anime: 936075
-// Tested ID for anime: 37854
+// Currently active sources reported on 7:36:20 PM PST 7/6/2026
 
-// fsharetv/fsonic tested: 155 ( they don't have Michael )
+// None Anime Tested: 936075
+// Anime Tested: 37854
+
+// Fshare/Fsonic Tested: 155 ( they don't have Michael )
 
 export const SOURCES = [
     {
@@ -79,6 +80,7 @@ export const SOURCES = [
             Referer: 'https://vixsrc.to/',
             Origin: 'https://vixsrc.to',
         },
+        disabled: true, // Temporarily disabled due to my datacenter IP being blocked
     },
 
     {
@@ -121,6 +123,7 @@ export const SOURCES = [
         verifyHeaders: {
             'Accept-Language': 'en-US,en;q=0.9',
         },
+        disabled: true, // Temporarily disabled due to my datacenter IP being blocked
     },
 
     {
@@ -186,6 +189,7 @@ export const SOURCES = [
         jitter: 400,
         retries: 2,
         skipProxy: true,
+        disabled: true, // Temporarily disabled because you have to login to watch streams
     },
 
     {
@@ -218,7 +222,8 @@ export const SOURCES = [
         proxyParam: 'xp',
         timeout: 20000,
         jitter: 500,
-        retries: 2
+        retries: 2,
+        disabled: true, // Temporarily disabled due to my datacenter IP being blocked
     },
 
     {
@@ -315,6 +320,7 @@ export const SOURCES = [
         jitter: 600,
         retries: 2,
         skipProxy: true,
+
     },
 
     {
@@ -327,6 +333,7 @@ export const SOURCES = [
         jitter: 0,
         multiUrl: true,
         skipProxy: true,
+        disabled: true, // Temporarily disabled due to my datacenter IP being blocked
     },
 
     {
@@ -339,6 +346,7 @@ export const SOURCES = [
         jitter: 0,
         multiUrl: true,
         skipProxy: true,
+        disabled: true, // Temporarily disabled due to my datacenter IP being blocked
     },
 
     {
@@ -351,6 +359,7 @@ export const SOURCES = [
         jitter: 0,
         multiUrl: true,
         skipProxy: true,
+        disabled: true, // Temporarily disabled due to my datacenter IP being blocked
     },
 
     {
@@ -385,6 +394,7 @@ export const SOURCES = [
         retries: 1,
         jitter: 0,
         multiUrl: true,
+        disabled: true, // Temporarily disabled due to my datacenter IP being blocked
     },
 
     {
@@ -397,6 +407,7 @@ export const SOURCES = [
         jitter: 0,
         multiUrl: true,
         skipProxy: true,
+        disabled: true, // Temporarily disabled due to my datacenter IP being blocked
     },
 
 
@@ -455,6 +466,7 @@ export const SOURCES = [
         multiUrl: false,
         skipVerify: true,
         skipProxy: true,
+        disabled: true, // Temporarily disabled due to website being down
     },
 
     {
@@ -480,19 +492,21 @@ export const SOURCES = [
         multiUrl: false,
         skipVerify: true,
         skipProxy: true,
+        disabled: true, // Temporarily disabled due to their site being down, all streams are not working
     },
 
     {
-        key: 'nextbox',
-        label: 'NextBox',
-        sourceFile: 'nextbox',
-        proxyParam: 'nx',
-        timeout: 25000,
+        key: 'xyra',
+        label: 'Xyra',
+        sourceFile: 'xyra',
+        proxyParam: 'xr',
+        timeout: 20000,
         jitter: 500,
         retries: 2,
-        multiUrl: false,
-        disabled: true, // Temporarily disabled due to them adding cloudflare turnstile to all streams.
-    },
+        multiUrl: true,
+        skipVerify: true,
+        skipProxy: true
+    }
 
 ];
 

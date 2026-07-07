@@ -50,9 +50,7 @@ async function fetchProvider(provider, anilistId, audio, episodeNum) {
     try {
         const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
         if (!res.ok) return null;
-        const data = await res.json();
-        if (!data?.ok || !Array.isArray(data.streams) || data.streams.length === 0) return null;
-        return data;
+        return await res.json();
     } catch {
         return null;
     }
@@ -80,14 +78,33 @@ export async function getStream(args) {
             const seenActual = new Set();
             for (const data of results) {
                 if (!data) continue;
-                const actual = data.attempted?.actualProvider || data.provider;
-                if (actual && seenActual.has(actual)) continue;
-                if (actual) seenActual.add(actual);
 
-                const streams = [...data.streams]
+                let streams = [];
+                let actual = data.attempted?.actualProvider || data.provider;
+
+                if (Array.isArray(data.streams)) {
+                    streams = data.streams;
+                } else {
+                    for (const key of Object.keys(data)) {
+                        if (data[key] && Array.isArray(data[key].streams)) {
+                            streams.push(...data[key].streams);
+                            if (!actual) actual = data[key].provider || key;
+                        }
+                    }
+                }
+
+                if (streams.length === 0) continue;
+
+                if (actual) {
+                    if (seenActual.has(actual)) continue;
+                    seenActual.add(actual);
+                }
+
+                const validStreams = streams
                     .filter(s => s.type === "hls" && s.url)
                     .sort((a, b) => (b.priority || 0) - (a.priority || 0));
-                for (const s of streams) {
+
+                for (const s of validStreams) {
                     allUrls.push({
                         url: s.url,
                         type: "hls",

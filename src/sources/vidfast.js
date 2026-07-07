@@ -1,127 +1,123 @@
 'use strict';
 
-const ENC_API = "https://enc-dec.app/api";
-const BASE = "https://vidfast.vc";
+const API_BASE = 'https://enc-dec.app/api';
+const DOMAIN = 'https://vidfast.vc';
 
 const HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36',
-    Referer: `${BASE}/`,
-    'X-Requested-With': 'XMLHttpRequest',
+    'Referer': DOMAIN + '/',
+    'X-Requested-With': 'XMLHttpRequest'
 };
 
-const SERVER_TRY_ORDER = ['vEdge', 'vFast', 'Beta', 'Bravo'];
-
-async function decrypt(text) {
+async function getVidfastMeta(id, s, e) {
     try {
-        const res = await fetch(`${ENC_API}/dec-vidfast`, {
+        const embedUrl = s != null && e != null
+            ? `${DOMAIN}/tv/${id}/${s}/${e}/`
+            : `${DOMAIN}/movie/${id}/`;
+
+        const htmlRes = await fetch(embedUrl, { headers: { 'User-Agent': HEADERS['User-Agent'] } });
+        if (!htmlRes.ok) return null;
+        const html = await htmlRes.text();
+
+        const match = html.match(/\\"en\\":\\"(.*?)\\"/) || html.match(/"en":"(.*?)"/);
+        const enText = match ? match[1] : null;
+        if (!enText) return null;
+
+        const encRes = await fetch(`${API_BASE}/enc-vidfast?text=${encodeURIComponent(enText)}`);
+        if (!encRes.ok) return null;
+        const encData = await encRes.json();
+        if (encData.status !== 200 || !encData.result) return null;
+
+        const { servers: serversUrl, stream: streamUrl, token } = encData.result;
+        const reqHeaders = { ...HEADERS, 'X-CSRF-Token': token };
+
+        const serversEncRes = await fetch(serversUrl, { method: 'POST', headers: reqHeaders });
+        if (!serversEncRes.ok) return null;
+        const serversEncrypted = await serversEncRes.text();
+
+        const decServersRes = await fetch(`${API_BASE}/dec-vidfast`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text }),
-            signal: AbortSignal.timeout(8000),
+            body: JSON.stringify({ text: serversEncrypted }),
         });
-        if (!res.ok) return null;
-        const data = await res.json();
-        if (data?.status !== 200 || data?.result === undefined) return null;
-        return data.result;
-    } catch {
-        return null;
-    }
-}
+        if (!decServersRes.ok) return null;
+        const decServersData = await decServersRes.json();
+        if (decServersData.status !== 200 || !decServersData.result) return null;
 
-async function getEncryptedParts(tmdbId, type, s, e) {
-    const pageUrl = s
-        ? `${BASE}/tv/${tmdbId}/${s}/${e || 1}/`
-        : `${BASE}/movie/${tmdbId}/`;
-
-    let html;
-    try {
-        const res = await fetch(pageUrl, { signal: AbortSignal.timeout(8000) });
-        if (!res.ok) return null;
-        html = await res.text();
-    } catch {
-        return null;
-    }
-
-    const match = html.match(/\\"en\\":\\"(.*?)\\"/);
-    if (!match) return null;
-    const text = match[1];
-
-    try {
-        const res = await fetch(`${ENC_API}/enc-vidfast?text=${encodeURIComponent(text)}`, { signal: AbortSignal.timeout(6000) });
-        if (!res.ok) return null;
-        const data = await res.json();
-        if (data?.status !== 200 || !data?.result) return null;
-        return data.result;
-    } catch {
-        return null;
-    }
-}
-
-export async function getStream(args) {
-    const { id, s, e } = args;
-    try {
-        const parts = await getEncryptedParts(id, s ? 'tv' : 'movie', s, e);
-        if (!parts?.servers || !parts?.stream || !parts?.token) return null;
-
-        const reqHeaders = { ...HEADERS, 'X-CSRF-Token': parts.token };
-
-        let serversRes;
-        try {
-            serversRes = await fetch(parts.servers, { method: 'POST', headers: reqHeaders, signal: AbortSignal.timeout(10000) });
-        } catch {
-            return null;
-        }
-        if (!serversRes.ok) return null;
-        const serversEncrypted = await serversRes.text();
-
-        const serversDecrypted = await decrypt(serversEncrypted);
-        if (!Array.isArray(serversDecrypted) || serversDecrypted.length === 0) return null;
-
-        const ordered = [
-            ...SERVER_TRY_ORDER.map(name => serversDecrypted.find(sv => sv.name === name)).filter(Boolean),
-            ...serversDecrypted.filter(sv => !SERVER_TRY_ORDER.includes(sv.name)),
-        ];
-
-        for (const server of ordered.slice(0, 4)) {
-            if (!server?.data) continue;
-
-            let streamRes;
-            try {
-                streamRes = await fetch(`${parts.stream}/${server.data}`, { method: 'POST', headers: reqHeaders, signal: AbortSignal.timeout(10000) });
-            } catch {
-                continue;
-            }
-            if (!streamRes.ok) continue;
-            const streamEncrypted = await streamRes.text();
-
-            const streamDecrypted = await decrypt(streamEncrypted);
-            if (!streamDecrypted?.url) continue;
-
-            const isHls = streamDecrypted.url.includes('type=hls') || streamDecrypted.url.includes('.m3u8');
-
-            return {
-                allUrls: [{
-                    url: streamDecrypted.url,
-                    type: isHls ? 'hls' : 'mp4',
-                    audio: 'sub',
-                    server: `Vidfast-${server.name}`,
-                    headers: streamDecrypted.noReferrer ? undefined : { Referer: `${BASE}/` },
-                    skipProxy: false,
-                    subtitles: Array.isArray(streamDecrypted.tracks)
-                        ? streamDecrypted.tracks.map(t => ({ url: t.file, label: t.label }))
-                        : [],
-                }],
-            };
-        }
-
-        return null;
+        return {
+            servers: decServersData.result,
+            streamUrl,
+            reqHeaders
+        };
     } catch (err) {
         return null;
     }
 }
 
+async function fetchStreamForServer(srv, streamUrl, reqHeaders) {
+    try {
+        const streamTargetUrl = `${streamUrl}/${srv.data}`;
+        const streamEncRes = await fetch(streamTargetUrl, { method: 'POST', headers: reqHeaders });
+        if (!streamEncRes.ok) return null;
+        const streamEncrypted = await streamEncRes.text();
+
+        const decStreamRes = await fetch(`${API_BASE}/dec-vidfast`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: streamEncrypted }),
+        });
+        if (!decStreamRes.ok) return null;
+        const decStreamData = await decStreamRes.json();
+        if (decStreamData.status !== 200 || !decStreamData.result?.url) return null;
+
+        return decStreamData.result;
+    } catch (err) {
+        return null;
+    }
+}
+
+export async function getStream(args) {
+    const { id, s, e, server: serverName } = args;
+    const meta = await getVidfastMeta(id, s, e);
+    if (!meta || !meta.servers?.length) return null;
+
+    const { servers, streamUrl, reqHeaders } = meta;
+
+    let targets = servers;
+    if (serverName && serverName !== 'all') {
+        const cleanName = serverName.replace('VidFast - ', '');
+        targets = servers.filter(srv => srv.name === cleanName);
+        if (!targets.length) targets = servers;
+    }
+
+    const settled = await Promise.allSettled(
+        targets.map(srv => fetchStreamForServer(srv, streamUrl, reqHeaders))
+    );
+
+    const allUrls = settled
+        .filter(r => r.status === 'fulfilled' && r.value)
+        .map(r => {
+            const streamData = r.value;
+            return {
+                url: streamData.url,
+                server: `VidFast - ${targets.find(t => t.data === streamData.data)?.name || 'Server'}`,
+                type: streamData.url.includes('.m3u8') ? 'hls' : 'mp4',
+                subtitles: (streamData.captions || []).map(c => ({
+                    url: c.file,
+                    lang: c.label || 'Unknown'
+                })),
+                headers: { ...HEADERS, 'Origin': DOMAIN },
+            };
+        });
+
+    if (!allUrls.length) return null;
+
+    return { allUrls };
+}
+
 export async function getSources(args) {
-    const stream = await getStream(args);
-    if (!stream || !stream.allUrls) return [];
-    return [...new Set(stream.allUrls.map(u => u.server))];
+    const { id, s, e } = args;
+    const meta = await getVidfastMeta(id, s, e);
+    if (!meta || !meta.servers) return [];
+    return meta.servers.map(srv => `VidFast - ${srv.name}`);
 }
