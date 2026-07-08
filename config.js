@@ -80,7 +80,7 @@ export const SOURCES = [
             Referer: 'https://vixsrc.to/',
             Origin: 'https://vixsrc.to',
         },
-        disabled: true, // Temporarily disabled due to my datacenter IP being blocked
+        // This is blocked on HF datacenter IP
     },
 
     {
@@ -123,7 +123,7 @@ export const SOURCES = [
         verifyHeaders: {
             'Accept-Language': 'en-US,en;q=0.9',
         },
-        disabled: true, // Temporarily disabled due to my datacenter IP being blocked
+        // This is blocked on HF datacenter IP
     },
 
     {
@@ -224,7 +224,7 @@ export const SOURCES = [
         timeout: 20000,
         jitter: 500,
         retries: 2,
-        disabled: true, // Temporarily disabled due to my datacenter IP being blocked
+        // This is blocked on HF datacenter IP
     },
 
     {
@@ -334,7 +334,7 @@ export const SOURCES = [
         jitter: 0,
         multiUrl: true,
         skipProxy: true,
-        disabled: true, // Temporarily disabled due to my datacenter IP being blocked
+        // This is blocked on HF datacenter IP
     },
 
     {
@@ -347,7 +347,7 @@ export const SOURCES = [
         jitter: 0,
         multiUrl: true,
         skipProxy: true,
-        disabled: true, // Temporarily disabled due to my datacenter IP being blocked
+        // This is blocked on HF datacenter IP
     },
 
     {
@@ -360,7 +360,7 @@ export const SOURCES = [
         jitter: 0,
         multiUrl: true,
         skipProxy: true,
-        disabled: true, // Temporarily disabled due to my datacenter IP being blocked
+        // This is blocked on HF datacenter IP
     },
 
     {
@@ -395,7 +395,7 @@ export const SOURCES = [
         retries: 1,
         jitter: 0,
         multiUrl: true,
-        disabled: true, // Temporarily disabled due to my datacenter IP being blocked
+        // This is blocked on HF datacenter IP
     },
 
     {
@@ -408,7 +408,7 @@ export const SOURCES = [
         jitter: 0,
         multiUrl: true,
         skipProxy: true,
-        disabled: true, // Temporarily disabled due to my datacenter IP being blocked
+        // This is blocked on HF datacenter IP
     },
 
 
