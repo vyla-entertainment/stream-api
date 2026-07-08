@@ -506,18 +506,43 @@ export const SOURCES = [
         retries: 2,
         multiUrl: true,
         skipProxy: true
-    }
+    },
+
+    {
+        key: '1embed',
+        label: '1Embed',
+        sourceFile: '1embed',
+        proxyParam: '1e',
+        timeout: 20000,
+        jitter: 500,
+        retries: 2,
+        multiUrl: true,
+        skipProxy: true
+    },
+
+    {
+        key: 'mapple',
+        label: 'Mapple',
+        sourceFile: 'mapple',
+        proxyParam: 'mp',
+        timeout: 15000,
+        retries: 1,
+        jitter: 0
+    },
+
+    {
+        key: 'vidrift',
+        label: 'VidRift',
+        sourceFile: 'vidrift',
+        proxyParam: 'vr',
+        timeout: 20000,
+        jitter: 500,
+        retries: 2,
+        multiUrl: true,
+        skipProxy: true
+    },
 
 ];
-
-const isLocal = process.env.NODE_ENV === 'local' || (!process.env.NODE_ENV && process.env.SPACE_ID == null);
-
-if (isLocal) {
-    SOURCES.forEach(s => {
-        s.disabled = false;
-        s.skipProxy = false;
-    });
-}
 
 export const SOURCE_MAP = Object.fromEntries(SOURCES.map(s => [s.key, s]));
 export const ALLOWED_ORIGINS = [''];

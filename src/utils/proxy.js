@@ -1,7 +1,6 @@
 import { issueSessionToken } from '../middleware/auth.js';
 
-const isLocal = process.env.NODE_ENV === 'local' || (!process.env.NODE_ENV && process.env.SPACE_ID == null);
-const PROXY_STREAMS = process.env.PROXY_STREAMS === "true" || isLocal;
+const PROXY_STREAMS = process.env.PROXY_STREAMS === "true";
 const EXTERNAL_PROXY_URL = (process.env.PROXY_URL || "").replace(/\/+$/, "");
 
 function buildProxyUrl(base, params) {
@@ -14,22 +13,22 @@ export function wrapUrl(rawUrl, sourceKey, absoluteBase, SOURCE_MAP) {
     const raw = typeof rawUrl === "object" ? rawUrl.url : rawUrl;
     const cfg = SOURCE_MAP[sourceKey];
 
-    if (!cfg || (!isLocal && (cfg.skipProxy || rawUrl?.skipProxy))) {
+    if (!cfg || cfg.skipProxy || rawUrl?.skipProxy) {
         return raw;
     }
 
     const proxyParam = cfg.proxyParam || "proxy";
 
     if (PROXY_STREAMS) {
-        const isLocalHost =
+        const isLocal =
             absoluteBase.includes("localhost") ||
             absoluteBase.includes("127.0.0.1");
 
-        const safeBase = isLocalHost
+        const safeBase = isLocal
             ? absoluteBase.replace(/^https:\/\//, "http://")
             : absoluteBase.replace(/^http:\/\//, "https://");
 
-        const normalized = isLocalHost
+        const normalized = isLocal
             ? raw
             : raw.replace(/^http:\/\//, "https://");
 
