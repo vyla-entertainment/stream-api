@@ -1,10 +1,45 @@
 const tmdbInfoCache = new Map();
 const anilistCache = new Map();
 const tmdbValidationCache = new Map();
+const HELPER_CACHE_MAX = 3000;
+
+function pruneHelperCache(cache) {
+    const now = Date.now();
+    for (const [k, v] of cache) {
+        if (now - v.ts >= v.ttl) cache.delete(k);
+    }
+    if (cache.size > HELPER_CACHE_MAX) {
+        const overflow = cache.size - HELPER_CACHE_MAX;
+        const it = cache.keys();
+        for (let i = 0; i < overflow; i++) {
+            const k = it.next().value;
+            if (k === undefined) break;
+            cache.delete(k);
+        }
+    }
+}
+
+setInterval(() => {
+    pruneHelperCache(tmdbValidationCache);
+    pruneHelperCache(tmdbInfoCache);
+    pruneHelperCache(anilistCache);
+}, 60_000).unref();
+
+function cacheGet(cache, key) {
+    const entry = cache.get(key);
+    if (!entry) return undefined;
+    if (Date.now() - entry.ts >= entry.ttl) { cache.delete(key); return undefined; }
+    return entry.val;
+}
+
+function cacheSet(cache, key, val, ttl) {
+    cache.set(key, { val, ts: Date.now(), ttl });
+}
 
 export async function validateTmdbId(tmdbId, mediaType = 'movie') {
     const key = `${tmdbId}-${mediaType}`;
-    if (tmdbValidationCache.has(key)) return tmdbValidationCache.get(key);
+    const cached = cacheGet(tmdbValidationCache, key);
+    if (cached !== undefined) return cached;
 
     const k = process.env.TMDB_API_KEY;
     if (!k) return { valid: false, error: 'TMDB API key not configured' };
@@ -18,26 +53,24 @@ export async function validateTmdbId(tmdbId, mediaType = 'movie') {
             const data = await res.json();
             const isValid = !!(data?.id && (data?.title || data?.name));
             const result = { valid: isValid, error: isValid ? null : 'Invalid TMDB ID' };
-            tmdbValidationCache.set(key, result);
-            setTimeout(() => tmdbValidationCache.delete(key), 300000);
+            cacheSet(tmdbValidationCache, key, result, 300000);
             return result;
         } else {
             const result = { valid: false, error: `TMDB API error: ${res.status}` };
-            tmdbValidationCache.set(key, result);
-            setTimeout(() => tmdbValidationCache.delete(key), 60000);
+            cacheSet(tmdbValidationCache, key, result, 60000);
             return result;
         }
     } catch (error) {
         const result = { valid: false, error: `Failed to validate TMDB ID: ${error.message}` };
-        tmdbValidationCache.set(key, result);
-        setTimeout(() => tmdbValidationCache.delete(key), 60000);
+        cacheSet(tmdbValidationCache, key, result, 60000);
         return result;
     }
 }
 
 export async function getTmdbInfo(tmdbId, mediaType, season) {
     const key = `${tmdbId}-${mediaType}-${season || ''}`;
-    if (tmdbInfoCache.has(key)) return tmdbInfoCache.get(key);
+    const cached = cacheGet(tmdbInfoCache, key);
+    if (cached !== undefined) return cached;
     const k = process.env.TMDB_API_KEY;
     if (!k) return { isAnime: false, titles: [], year: null, imdbId: null };
     try {
@@ -62,23 +95,22 @@ export async function getTmdbInfo(tmdbId, mediaType, season) {
         const dateStr = seasonData?.air_date || mainData?.release_date || mainData?.first_air_date || '';
         if (dateStr) year = parseInt(dateStr.slice(0, 4), 10);
         const result = { isAnime, titles: [...new Set(titles.filter(Boolean))], year, imdbId: mainData?.imdb_id || mainData?.external_ids?.imdb_id || null };
-        tmdbInfoCache.set(key, result);
-        setTimeout(() => tmdbInfoCache.delete(key), 600000);
+        cacheSet(tmdbInfoCache, key, result, 600000);
         return result;
     } catch { return { isAnime: false, titles: [], year: null, imdbId: null }; }
 }
 
 export async function tmdbToAnilist(tmdbId, mediaType, season, titles = [], year = null) {
     const key = `${tmdbId}-${mediaType}-${season || ''}`;
-    if (anilistCache.has(key)) return anilistCache.get(key);
+    const cached = cacheGet(anilistCache, key);
+    if (cached !== undefined) return cached;
     try {
         const res = await fetch(`https://api.ani.zip/mappings?tmdb_id=${tmdbId}&type=${mediaType}&season=${season || 1}`, { signal: AbortSignal.timeout(6000) });
         if (res.ok) {
             const data = await res.json();
             const id = data?.mappings?.[0]?.anilist_id;
             if (id) {
-                anilistCache.set(key, id);
-                setTimeout(() => anilistCache.delete(key), 600000);
+                cacheSet(anilistCache, key, id, 600000);
                 return id;
             }
         } else res.body?.cancel();
@@ -113,21 +145,7 @@ export async function tmdbToAnilist(tmdbId, mediaType, season, titles = [], year
         } catch { }
     }
     if (bestId) {
-        anilistCache.set(key, bestId);
-        setTimeout(() => anilistCache.delete(key), 600000);
+        cacheSet(anilistCache, key, bestId, 600000);
     }
     return bestId;
-}
-
-export function unwrapTulnexProxy(url) {
-    if (!url) return { unwrapped: url, headers: null };
-    if (url.includes('pronhub.tulnex.com/m3u8-proxy') || url.includes('prxy.tulnex.com')) {
-        try {
-            const u = new URL(url);
-            const inner = u.searchParams.get('url');
-            const headersRaw = u.searchParams.get('headers');
-            if (inner) return { unwrapped: decodeURIComponent(inner), headers: headersRaw ? JSON.parse(decodeURIComponent(headersRaw)) : null };
-        } catch { }
-    }
-    return { unwrapped: url, headers: null };
 }

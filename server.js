@@ -20,9 +20,12 @@ const __dirname = path.dirname(__filename);
 
 const IS_HF = !!process.env.SPACE_ID;
 const PORT = process.env.PORT || 7860;
-const HF_FETCH_TIMEOUT = 25000;
+const HF_FETCH_TIMEOUT = 12000;
 const EARLY_CLOSE_MS = IS_HF ? 20000 : 14000;
 const MAX_GLOBAL_TEST_CONCURRENCY = IS_HF ? 30 : 300;
+const MAX_OUTBOUND_FETCH_CONCURRENCY = IS_HF ? 60 : 400;
+const MAX_SHARED_INFLIGHT = 2000;
+const MAX_IPC_PENDING = 2000;
 
 const FALLBACK_BASE = '';
 
@@ -204,9 +207,28 @@ async function validateGAConfig() {
     }
 }
 
-globalThis.fetch = (url, opts) => {
+let outboundFetchActive = 0;
+const outboundFetchQueue = [];
+
+function acquireFetchSlot() {
+    if (outboundFetchActive < MAX_OUTBOUND_FETCH_CONCURRENCY) { outboundFetchActive++; return Promise.resolve(); }
+    return new Promise(resolve => outboundFetchQueue.push(resolve));
+}
+
+function releaseFetchSlot() {
+    const next = outboundFetchQueue.shift();
+    if (next) next();
+    else outboundFetchActive = Math.max(0, outboundFetchActive - 1);
+}
+
+globalThis.fetch = async (url, opts) => {
     const signal = opts?.signal ?? AbortSignal.timeout(HF_FETCH_TIMEOUT);
-    return _nativeFetch(url, opts?.signal ? opts : { ...opts, signal });
+    await acquireFetchSlot();
+    try {
+        return await _nativeFetch(url, opts?.signal ? opts : { ...opts, signal });
+    } finally {
+        releaseFetchSlot();
+    }
 };
 
 class LRUCache {
@@ -253,6 +275,7 @@ let ipcIdCounter = 0;
 const ipcPending = new Map();
 
 const ipcSend = (msg) => new Promise(resolve => {
+    if (ipcPending.size >= MAX_IPC_PENDING) { resolve(null); return; }
     const id = ++ipcIdCounter;
     ipcPending.set(id, resolve);
     try {
@@ -307,13 +330,21 @@ function getSharedCached(key, fn, ttl) {
     const inflight = sharedInflight.get(key);
     if (inflight) return inflight;
 
-    const p = (async () => {
+    if (sharedInflight.size >= MAX_SHARED_INFLIGHT) {
+        return (async () => {
+            const shared = await sharedCacheGet(key);
+            if (shared !== undefined) return shared;
+            return fn();
+        })();
+    }
+
+    const p = withTimeout((async () => {
         const shared = await sharedCacheGet(key);
         if (shared !== undefined) return shared;
         const val = await fn();
         if (val != null) sharedCacheSet(key, val, ttl);
         return val;
-    })().finally(() => sharedInflight.delete(key));
+    })(), 60_000).finally(() => sharedInflight.delete(key));
 
     sharedInflight.set(key, p);
     return p;
@@ -643,9 +674,13 @@ async function handleTestSource(sourceKey, id, s, e, clientIP, host) {
         }
     }
 
+    if (sharedInflight.size >= MAX_SHARED_INFLIGHT) {
+        return respond(false, null, null, 'server busy, try again shortly');
+    }
+
     await acquireTestSlot();
 
-    const testPromise = (async () => {
+    const testPromise = withTimeout((async () => {
         try {
             let rawResult = null, fetchError = null;
             const audio = /dub$/.test(cfg.key) ? 'dub' : 'sub';
@@ -773,7 +808,7 @@ async function handleTestSource(sourceKey, id, s, e, clientIP, host) {
             releaseTestSlot();
             sharedInflight.delete(inflightKey);
         }
-    })();
+    })(), 45_000);
 
     sharedInflight.set(inflightKey, testPromise);
     const result = await testPromise;

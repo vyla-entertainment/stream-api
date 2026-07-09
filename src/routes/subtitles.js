@@ -15,6 +15,23 @@ const getUA = () => UA_LIST[Math.floor(Math.random() * UA_LIST.length)];
 
 const subtitleCache = new Map();
 const SUBTITLE_TTL = 15 * 60 * 1000;
+const SUBTITLE_CACHE_MAX = 2000;
+
+setInterval(() => {
+    const now = Date.now();
+    for (const [k, v] of subtitleCache) {
+        if (now - v.ts >= SUBTITLE_TTL) subtitleCache.delete(k);
+    }
+    if (subtitleCache.size > SUBTITLE_CACHE_MAX) {
+        const overflow = subtitleCache.size - SUBTITLE_CACHE_MAX;
+        const it = subtitleCache.keys();
+        for (let i = 0; i < overflow; i++) {
+            const k = it.next().value;
+            if (k === undefined) break;
+            subtitleCache.delete(k);
+        }
+    }
+}, 60_000).unref();
 
 const VYLIAN_MESSAGES = [
     "Thanks for using Vyla!"
