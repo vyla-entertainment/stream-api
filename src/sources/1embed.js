@@ -79,7 +79,6 @@ export async function getStream(args) {
     const { id, s, e, server } = args;
     const type = s != null && e != null ? "tv" : "movie";
     const token = await getToken();
-    console.log('[1embed] token', token ? 'ok' : 'MISSING');
     if (!token) return null;
     let targets = PROVIDERS;
     if (server && server !== 'all') {
@@ -88,7 +87,6 @@ export async function getStream(args) {
         if (!targets.length) targets = PROVIDERS;
     }
     const settled = await Promise.allSettled(targets.map(p => fetchProviderStream(p, type, id, s, e, token)));
-    console.log('[1embed] settled', settled.map(r => r.status === 'fulfilled' ? (r.value ? r.value.length : 'null') : 'rejected: ' + r.reason?.message));
     const allUrls = [];
     for (const r of settled) if (r.status === 'fulfilled' && r.value) allUrls.push(...r.value);
     return allUrls.length ? { allUrls } : null;
