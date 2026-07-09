@@ -35,6 +35,7 @@ export const SOURCES = [
         sourcesTimeout: 10000,
         jitter: 400,
         retries: 3,
+        disabled: true, // Temporarily disabled because their site is down, all streams are returning 403's
         verifyHeaders: {
             Accept: '/',
             'Accept-Language': 'en-US,en;q=0.9',

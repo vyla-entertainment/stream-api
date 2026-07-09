@@ -1,17 +1,10 @@
+import { getUA } from '../utils/source_helpers.js';
+
 const SUBTITLE_BASES = [
     'https://sub.vdrk.site/v1',
     'https://sub.vdrk.site/v2',
     'https://fed-subs.pstream.mov'
 ];
-
-const UA_LIST = [
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
-    'Mozilla/5.0 (X11; Linux x86_64; rv:125.0) Gecko/20100101 Firefox/125.0',
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:124.0) Gecko/20100101 Firefox/124.0',
-];
-
-const getUA = () => UA_LIST[Math.floor(Math.random() * UA_LIST.length)];
 
 const subtitleCache = new Map();
 const SUBTITLE_TTL = 15 * 60 * 1000;

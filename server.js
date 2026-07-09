@@ -13,12 +13,14 @@ import { authenticateRequest, checkRateLimit, canAccess, issueSessionToken, refr
 import { validateTmdbId } from './src/utils/helpers.js';
 import { wrapUrl } from './src/utils/proxy.js';
 import { handleTestRoute, handleDebugRoute } from './src/routes/test.js';
+import { getUA } from './src/utils/source_helpers.js';
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const IS_HF = !!process.env.SPACE_ID;
+const ENABLE_DEBUG_ROUTE = process.env.ENABLE_DEBUG_ROUTE === 'true';
 const PORT = process.env.PORT || 7860;
 const HF_FETCH_TIMEOUT = 12000;
 const EARLY_CLOSE_MS = IS_HF ? 20000 : 14000;
@@ -35,13 +37,6 @@ const LOGO_TEXT = (() => {
 
 const GA_MEASUREMENT_ID = process.env.GA_MEASUREMENT_ID;
 const GA_API_SECRET = process.env.GA_API_SECRET;
-
-const UA_LIST = [
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
-    'Mozilla/5.0 (X11; Linux x86_64; rv:125.0) Gecko/20100101 Firefox/125.0',
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:124.0) Gecko/20100101 Firefox/124.0',
-];
 
 const M3U8_REGEX = /\.m3u8?(\?|$)|mpegurl|m3u8/i;
 const TIKTOK_REGEX = /tiktokcdn\.com|ibyteimg\.com/i;
@@ -132,12 +127,18 @@ if (cluster.isPrimary) {
         './src/routes/health.js',
     ];
 
+    const intentionallyKilled = new Set();
     let restarting = false;
     const scheduleRestart = () => {
         if (restarting) return;
         restarting = true;
         setTimeout(() => {
-            for (const id in cluster.workers) cluster.workers[id]?.kill();
+            for (const id in cluster.workers) {
+                const w = cluster.workers[id];
+                if (!w) continue;
+                intentionallyKilled.add(w.process.pid);
+                w.kill();
+            }
             restarting = false;
         }, 500);
     };
@@ -146,12 +147,15 @@ if (cluster.isPrimary) {
     watchPaths.forEach(f => { try { fs.watch(f, scheduleRestart); } catch { } });
 
     let pendingForks = 0;
+    let nextWorkerId = workerCount;
     cluster.on('exit', (worker, code, signal) => {
-        const isIntentional = signal === 'SIGKILL' || code === 0;
+        const isIntentional = code === 0 || intentionallyKilled.delete(worker.process.pid);
         const delay = isIntentional ? 0 : Math.min(++pendingForks * 1000, 5000);
         setTimeout(() => {
             pendingForks = Math.max(0, pendingForks - 1);
-            cluster.fork();
+            const id = nextWorkerId++;
+            const w = cluster.fork({ WORKER_ID: String(id) });
+            w.on('online', () => w.send({ type: 'worker:id', id }));
         }, delay);
     });
 
@@ -350,7 +354,6 @@ function getSharedCached(key, fn, ttl) {
     return p;
 }
 
-const getUA = () => UA_LIST[Math.floor(Math.random() * UA_LIST.length)];
 const safeDecode = s => { try { return decodeURIComponent(s); } catch { return s; } };
 const jitter = ms => ms > 0 ? new Promise(r => setTimeout(r, Math.random() * ms)) : Promise.resolve();
 const withTimeout = (promise, ms) => Promise.race([promise, new Promise(r => setTimeout(() => r(null), ms))]);
@@ -403,8 +406,6 @@ function releaseTestSlot() {
 
 const getAbsoluteBase = host =>
     (host.startsWith('localhost') || host.startsWith('127.0.0.1')) ? `http://${host}` : `https://${host}`;
-
-const getEffectiveBase = abs => abs;
 
 function buildM3u8Rewriter(rewriteSegments) {
     return function rewrite(body, url, extraParam, absoluteBase) {
@@ -586,9 +587,8 @@ function applyCdnHeaders(cleanUrl, extraHeaders, sourceKey) {
 
 function fetchSource(cfg, cacheKey, id, s, e, clientIP, absoluteBase) {
     const mod = SOURCE_MODULES[cfg.key];
-    const effectiveBase = getEffectiveBase(absoluteBase);
     const audio = /dub$/.test(cfg.key) ? 'dub' : 'sub';
-    const streamArgs = extra => ({ id, s, e, clientIP, absoluteBase: extra || effectiveBase, audio, config: cfg });
+    const streamArgs = extra => ({ id, s, e, clientIP, absoluteBase: extra || absoluteBase, audio, config: cfg });
 
     if (cfg.skipCache) {
         return withTimeout(
@@ -867,7 +867,7 @@ async function handleRequest(req, res) {
     const { pathname, searchParams } = reqUrl;
     const clientIP = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket?.remoteAddress || null;
 
-    if (BLOCKED_IPS.has(clientIP)) return respondJson(403, { error: 'forbidden' });
+    if (BLOCKED_IPS.size && BLOCKED_IPS.has(clientIP)) return respondJson(403, { error: 'forbidden' });
 
     if (req.method === 'OPTIONS') return { status: 204, body: '', headers: CORS_HEADERS };
 
@@ -953,15 +953,11 @@ async function handleRequest(req, res) {
         return Object.fromEntries(Object.entries(raw).filter(([, v]) => v !== null && v !== undefined));
     };
 
-    const gaClientId = (() => {
-        if (clientIP && clientIP !== '127.0.0.1' && clientIP !== '::1' && clientIP !== '::ffff:127.0.0.1') {
-            return clientIP;
-        }
-        return `local.${Date.now()}.${Math.random().toString(36).slice(2, 9)}`;
-    })();
-
     const googleAnalytic = (event, extra = {}) => {
         if (!GA_MEASUREMENT_ID || !GA_API_SECRET) return;
+        const gaClientId = (clientIP && clientIP !== '127.0.0.1' && clientIP !== '::1' && clientIP !== '::ffff:127.0.0.1')
+            ? clientIP
+            : `local.${Date.now()}.${Math.random().toString(36).slice(2, 9)}`;
         const safeName = event.replace(/-/g, '_');
         const meta = getRequestMeta();
         sendGAEvent(safeName, { ...meta, ...extra }, gaClientId);
@@ -1070,7 +1066,7 @@ async function handleRequest(req, res) {
         return { status: result.status, body: result.body, headers: JSON_CORS };
     }
 
-    match = ROUTE_PATTERNS.debug.exec(pathname);
+    match = ENABLE_DEBUG_ROUTE ? ROUTE_PATTERNS.debug.exec(pathname) : null;
     if (match) {
         const result = await handleDebugRoute(match, searchParams, absoluteBase, _nativeFetch, verifyPlayable, SOURCE_MODULES);
         return { status: result.status, body: result.body, headers: JSON_CORS };
@@ -1090,8 +1086,6 @@ async function handleRequest(req, res) {
                 const extraHeaders = {};
                 const proxyHeaders = searchParams.get('proxyHeaders');
                 if (proxyHeaders) try { Object.assign(extraHeaders, JSON.parse(safeDecode(proxyHeaders))); } catch { }
-                if (!extraHeaders['User-Agent'] && !extraHeaders['user-agent']) extraHeaders['User-Agent'] = getUA();
-                delete extraHeaders['Host'];
                 if (!extraHeaders['User-Agent'] && !extraHeaders['user-agent']) extraHeaders['User-Agent'] = getUA();
                 const vlHost = extraHeaders['x-vl-host'];
                 delete extraHeaders['Host'];

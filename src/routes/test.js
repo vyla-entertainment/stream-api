@@ -1,14 +1,6 @@
 import { SOURCE_MAP } from '../../config.js';
 import { wrapUrl } from '../utils/proxy.js';
-
-const UA_LIST = [
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
-    'Mozilla/5.0 (X11; Linux x86_64; rv:125.0) Gecko/20100101 Firefox/125.0',
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:124.0) Gecko/20100101 Firefox/124.0',
-];
-
-const getUA = () => UA_LIST[Math.floor(Math.random() * UA_LIST.length)];
+import { getUA } from '../utils/source_helpers.js';
 
 export async function handleTestRoute(match, searchParams, clientIP, host, handleTestSource, googleAnalytic) {
     const source = searchParams.get('source');
@@ -27,30 +19,59 @@ export async function handleTestRoute(match, searchParams, clientIP, host, handl
     return { status: result.status, body: result.body };
 }
 
+function headersToObject(h) {
+    const out = {};
+    if (!h) return out;
+    for (const [k, v] of h.entries()) out[k] = v;
+    return out;
+}
+
+function safeStack(err) {
+    if (!err) return null;
+    return String(err.stack || err.message || err).split('\n').slice(0, 10);
+}
+
 export async function handleDebugRoute(match, searchParams, absoluteBase, _nativeFetch, verifyPlayable, SOURCE_MODULES) {
     const id = match[1];
     const s = searchParams.get('season') || searchParams.get('s') || null;
     const e = searchParams.get('episode') || searchParams.get('e') || null;
     const sourceKey = searchParams.get('source');
+    const maxCandidates = Math.min(parseInt(searchParams.get('limit') || '10', 10) || 10, 25);
+    const previewBytes = Math.min(parseInt(searchParams.get('preview') || '800', 10) || 800, 4000);
 
-    if (!sourceKey) return { status: 400, body: JSON.stringify({ error: 'missing source' }) };
+    if (!sourceKey) return { status: 400, body: JSON.stringify({ error: 'missing source', usage: '/debug/:id?source=key&season=&episode=&limit=&preview=' }) };
 
     const mod = SOURCE_MODULES[sourceKey];
     const cfg = SOURCE_MAP[sourceKey];
-    if (!mod) return { status: 400, body: JSON.stringify({ error: `unknown source: ${sourceKey}` }) };
+    if (!mod) return { status: 400, body: JSON.stringify({ error: `unknown source: ${sourceKey}`, available_sources: Object.keys(SOURCE_MODULES) }) };
 
     const t0 = Date.now();
-    let streamResult = null, streamError = null;
+    let streamResult = null, streamError = null, streamErrorStack = null;
     const fetchTrace = [];
 
-    const tracingFetch = async (url, opts) => {
+    const tracingFetch = async (url, opts = {}) => {
         const start = Date.now();
+        const reqHeaders = headersToObject(new Headers(opts.headers || {}));
+        const entry = {
+            step: fetchTrace.length,
+            url: String(url).slice(0, 500),
+            method: opts.method || 'GET',
+            request_headers: reqHeaders,
+        };
         try {
             const r = await _nativeFetch(url, opts);
-            fetchTrace.push({ url: String(url).slice(0, 200), status: r.status, ok: r.ok, ms: Date.now() - start });
+            entry.status = r.status;
+            entry.ok = r.ok;
+            entry.redirected = r.redirected;
+            entry.final_url = r.url && r.url !== String(url) ? r.url : undefined;
+            entry.response_headers = headersToObject(r.headers);
+            entry.ms = Date.now() - start;
+            fetchTrace.push(entry);
             return r;
         } catch (err) {
-            fetchTrace.push({ url: String(url).slice(0, 200), error: err.message, ms: Date.now() - start });
+            entry.error = err.message;
+            entry.ms = Date.now() - start;
+            fetchTrace.push(entry);
             throw err;
         }
     };
@@ -62,6 +83,7 @@ export async function handleDebugRoute(match, searchParams, absoluteBase, _nativ
         streamResult = await mod.getStream({ id, s, e, clientIP: null, absoluteBase, audio, config: cfg });
     } catch (err) {
         streamError = err.message;
+        streamErrorStack = safeStack(err);
     } finally {
         globalThis.fetch = prev;
     }
@@ -70,8 +92,8 @@ export async function handleDebugRoute(match, searchParams, absoluteBase, _nativ
         streamResult?.allUrls ||
         streamResult?.streams ||
         (streamResult?.url ? [streamResult] : []);
-        
-    const checks = await Promise.all(candidates.slice(0, 3).map(async (raw, i) => {
+
+    const checks = await Promise.all(candidates.slice(0, maxCandidates).map(async (raw, i) => {
         const rawUrl = typeof raw === 'object'
             ? (raw.url || raw.file || raw.stream || raw.src)
             : raw;
@@ -89,34 +111,75 @@ export async function handleDebugRoute(match, searchParams, absoluteBase, _nativ
             SOURCE_MAP
         );
 
-        let m3u8Preview = null, mp4Preview = null, playable_check = null;
         const isSkippedProxy = !!raw?.skipProxy;
+        const fetchUrl = isSkippedProxy ? rawUrl : (wrappedUrl || rawUrl);
+        const fetchHeaders = isSkippedProxy || !wrappedUrl ? { 'User-Agent': getUA(), ...rawHeaders } : { 'User-Agent': getUA() };
+
+        let m3u8Preview = null, mp4Preview = null, playable_check = null;
+        let previewRequestHeaders = null, previewResponseHeaders = null, previewStatus = null, previewOk = null, previewFinalUrl = null;
+
         try {
-            const fetchUrl = isSkippedProxy ? rawUrl : (wrappedUrl || rawUrl);
-            const fetchHeaders = isSkippedProxy || !wrappedUrl ? { 'User-Agent': getUA(), ...rawHeaders } : { 'User-Agent': getUA() };
-            const r = await _nativeFetch(fetchUrl, { signal: AbortSignal.timeout(15_000), headers: { ...fetchHeaders, 'Range': 'bytes=0-511' } });
+            const previewHeaders = { ...fetchHeaders, Range: `bytes=0-${previewBytes - 1}` };
+            previewRequestHeaders = previewHeaders;
+            const r = await _nativeFetch(fetchUrl, { signal: AbortSignal.timeout(15_000), headers: previewHeaders });
+            previewStatus = r.status;
+            previewOk = r.ok || r.status === 206;
+            previewFinalUrl = r.url && r.url !== fetchUrl ? r.url : undefined;
+            previewResponseHeaders = headersToObject(r.headers);
             const ct = (r.headers.get('content-type') || '').toLowerCase();
             const isMp4 = /\.mp4(\?|$)/i.test(fetchUrl) || ct.includes('video/mp4') || ct.includes('video/mp2t') || ct.includes('octet-stream');
             if (isMp4) {
                 const bytes = new Uint8Array(await r.arrayBuffer());
                 mp4Preview = Array.from(bytes.slice(0, 32)).map(b => b.toString(16).padStart(2, '0')).join(' ');
-                playable_check = { ok: r.ok || r.status === 206, error: (r.ok || r.status === 206) ? null : `mp4 fetch failed: ${r.status}` };
+                playable_check = { ok: previewOk, error: previewOk ? null : `mp4 fetch failed: ${r.status}` };
             } else {
-                m3u8Preview = (await r.text()).slice(0, 400);
+                m3u8Preview = (await r.text()).slice(0, previewBytes);
                 playable_check = await verifyPlayable(fetchUrl, fetchHeaders, isSkippedProxy || !wrappedUrl);
             }
-        } catch (err) { playable_check = { ok: false, error: err.message }; }
+        } catch (err) {
+            playable_check = { ok: false, error: err.message };
+        }
 
-        return { index: i, raw_url: rawUrl, proxy_url: isSkippedProxy ? rawUrl : wrappedUrl, playable_check, m3u8_preview: m3u8Preview, mp4_preview: mp4Preview };
-
+        return {
+            index: i,
+            raw_candidate: raw,
+            raw_url: rawUrl,
+            raw_headers: rawHeaders,
+            proxy_url: isSkippedProxy ? rawUrl : wrappedUrl,
+            skip_proxy: isSkippedProxy,
+            fetch_url_used: fetchUrl,
+            preview_request: { headers: previewRequestHeaders, method: 'GET' },
+            preview_response: {
+                status: previewStatus,
+                ok: previewOk,
+                final_url: previewFinalUrl,
+                headers: previewResponseHeaders,
+            },
+            playable_check,
+            m3u8_preview: m3u8Preview,
+            mp4_preview_hex: mp4Preview,
+        };
     }));
 
     return {
         status: 200,
         body: JSON.stringify({
-            source: sourceKey, id, candidates: candidates.length, checks,
-            elapsed_ms: Date.now() - t0, stream_error: streamError, fetch_trace: fetchTrace,
-            got_result: streamResult !== null, result_keys: streamResult ? Object.keys(streamResult) : null,
+            source: sourceKey,
+            id,
+            season: s,
+            episode: e,
+            config_used: cfg,
+            candidates_total: candidates.length,
+            candidates_checked: checks.length,
+            checks,
+            elapsed_ms: Date.now() - t0,
+            stream_error: streamError,
+            stream_error_stack: streamErrorStack,
+            fetch_trace: fetchTrace,
+            fetch_count: fetchTrace.length,
+            got_result: streamResult !== null,
+            result_keys: streamResult ? Object.keys(streamResult) : null,
+            raw_stream_result: streamResult,
         }, null, 2)
     };
 }
