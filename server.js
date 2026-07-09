@@ -375,23 +375,9 @@ const getAbsoluteBase = host =>
 
 const getEffectiveBase = abs => abs;
 
-function unwrapProxyUrl(url) {
-    try {
-        const inner = new URL(url).searchParams.get('url');
-        if (inner) return decodeURIComponent(inner);
-    } catch { }
-    return url;
-}
-
-function resolveUri(uri, dir, originBase) {
-    const abs = uri.startsWith('http') ? uri : uri.startsWith('/') ? originBase + uri : dir + uri;
-    const decoded = safeDecode(abs.startsWith('http://') ? 'https://' + abs.slice(7) : abs);
-    return decoded.startsWith('http') ? decoded : abs.startsWith('http://') ? 'https://' + abs.slice(7) : abs;
-}
-
 function buildM3u8Rewriter(rewriteSegments) {
     return function rewrite(body, url, extraParam, absoluteBase) {
-        const safeBase = absoluteBase.replace('https://localhost', 'http://localhost').replace('https://127.0.0.1', 'http://127.0.0.1');
+        const safeBase = absoluteBase.replace(/^https:\/\/(localhost|127\.0\.0\.1)/, 'http://$1');
         const qmark = url.indexOf('?');
         const base = qmark === -1 ? url : url.slice(0, qmark);
         const dir = base.slice(0, base.lastIndexOf('/') + 1);
@@ -399,27 +385,25 @@ function buildM3u8Rewriter(rewriteSegments) {
         const originBase = url.slice(0, url.indexOf('/', schemeEnd));
         const prefix = `${safeBase}/api?url=`;
         const lines = body.split('\n');
-        const out = new Array(lines.length);
-
         for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-            const t = line.trim();
-            if (!t) { out[i] = line; continue; }
-
+            const t = lines[i].trim();
+            if (!t) continue;
             if (t.charCodeAt(0) === 35) {
-                out[i] = t.replace(URI_REPLACE, (_, uri) => {
-                    const resolved = unwrapProxyUrl(resolveUri(uri, dir, originBase));
-                    return `URI="${prefix}${encodeURIComponent(resolved)}${extraParam}"`;
-                });
+                let uIdx = t.indexOf('URI="');
+                if (uIdx !== -1) {
+                    const end = t.indexOf('"', uIdx + 5);
+                    if (end !== -1) {
+                        const uri = t.slice(uIdx + 5, end);
+                        const abs = uri.startsWith('http') ? uri : uri.startsWith('/') ? originBase + uri : dir + uri;
+                        lines[i] = t.slice(0, uIdx + 5) + prefix + encodeURIComponent(abs) + extraParam + '"' + t.slice(end + 1);
+                    }
+                }
             } else {
-                const resolved = unwrapProxyUrl(resolveUri(t, dir, originBase));
-                out[i] = rewriteSegments
-                    ? `${prefix}${encodeURIComponent(resolved)}${extraParam}${STRIP_TEST_FAST.test(resolved) ? '&tt=1' : ''}`
-                    : resolved;
+                const abs = t.startsWith('http') ? t : t.startsWith('/') ? originBase + t : dir + t;
+                lines[i] = rewriteSegments ? `${prefix}${encodeURIComponent(abs)}${extraParam}${STRIP_TEST_FAST.test(abs) ? '&tt=1' : ''}` : abs;
             }
         }
-
-        return out.join('\n');
+        return lines.join('\n');
     };
 }
 
@@ -482,72 +466,52 @@ async function verifyPlayable(proxiedUrl, extraHeaders = {}, skipProxyCheck = fa
             if (rawUrl) { proxiedUrl = rawUrl; skipProxyCheck = true; }
         } catch { }
     }
-
     const cached = hlsVerifyCache.get(proxiedUrl);
     if (cached !== undefined) return cached;
-
     const store = val => { hlsVerifyCache.set(proxiedUrl, val); return val; };
     const fail = error => ({ ok: false, error });
-
     try {
         const fetchHeaders = extraHeaders['User-Agent'] ? extraHeaders : { 'User-Agent': getUA(), ...extraHeaders };
-        const m3u8Res = await _nativeFetch(proxiedUrl, { signal: AbortSignal.timeout(12_000), headers: fetchHeaders });
-
+        const m3u8Res = await _nativeFetch(proxiedUrl, { signal: AbortSignal.timeout(12000), headers: fetchHeaders });
         if (!m3u8Res.ok) {
             const val = fail(`m3u8 failed: ${m3u8Res.status}`);
             if (m3u8Res.status !== 429) store(val);
             return val;
         }
-
         const text = await m3u8Res.text();
         if (!text.trim().startsWith('#EXTM3U')) return fail('invalid m3u8');
         if (/^429$|^429\s/m.test(text) || text.includes('Too Many Requests')) return fail('Proxy Blocked or Invalid Hash');
         if (!text.includes('#EXTINF') && !text.includes('#EXT-X-STREAM-INF')) return fail('empty playlist');
-
         if (!skipProxyCheck) {
             let nextUrl = null;
-            for (const l of text.split('\n')) {
-                const t = l.trim();
+            const lines = text.split('\n');
+            for (let i = 0; i < lines.length; i++) {
+                const t = lines[i].trim();
                 if (t && t.charCodeAt(0) !== 35) { nextUrl = t; break; }
             }
-
             if (nextUrl) {
                 if (!nextUrl.startsWith('http')) nextUrl = new URL(nextUrl, proxiedUrl).href;
-                const variantRes = await _nativeFetch(nextUrl, {
-                    method: 'GET',
-                    headers: { 'User-Agent': getUA(), ...extraHeaders, 'Range': 'bytes=0-1024' },
-                    signal: AbortSignal.timeout(10_000),
-                });
-
+                const variantRes = await _nativeFetch(nextUrl, { method: 'GET', headers: { ...fetchHeaders, 'Range': 'bytes=0-1024' }, signal: AbortSignal.timeout(10000) });
                 if (!variantRes.ok && variantRes.status !== 206) return fail(`Variant failed: ${variantRes.status}`);
-
                 const ct = (variantRes.headers.get('content-type') || '').toLowerCase();
                 if (ct.includes('mpegurl') || ct.includes('m3u8') || nextUrl.includes('.m3u8')) {
                     let segUrl = null;
-                    for (const l of (await variantRes.text()).split('\n')) {
-                        const t = l.trim();
+                    const vLines = (await variantRes.text()).split('\n');
+                    for (let i = 0; i < vLines.length; i++) {
+                        const t = vLines[i].trim();
                         if (t && t.charCodeAt(0) !== 35) { segUrl = t; break; }
                     }
                     if (segUrl) {
                         if (!segUrl.startsWith('http')) segUrl = new URL(segUrl, nextUrl).href;
-                        const segRes = await _nativeFetch(segUrl, {
-                            method: 'HEAD',
-                            signal: AbortSignal.timeout(5_000),
-                            headers: { 'User-Agent': getUA(), ...extraHeaders },
-                        });
+                        const segRes = await _nativeFetch(segUrl, { method: 'HEAD', signal: AbortSignal.timeout(5000), headers: fetchHeaders });
                         segRes.body?.cancel();
                         if (!segRes.ok && segRes.status !== 206) return fail(`Segment failed: ${segRes.status}`);
                     }
-                } else if (!variantRes.ok && variantRes.status !== 206) {
-                    return fail(`Variant fetch failed: ${variantRes.status}`);
                 }
             }
         }
-
         return store({ ok: true, error: null });
-    } catch (err) {
-        return fail(err.message);
-    }
+    } catch (err) { return fail(err.message); }
 }
 
 async function getMetadata(id, s, e) {
@@ -631,13 +595,6 @@ function normalizeCandidates(rawResult) {
         candidates = rawResult.map(u => typeof u === 'object' ? u : { url: u });
     } else if (rawResult) {
         candidates = [{ url: typeof rawResult === 'object' ? rawResult.url : rawResult, headers: rawResult?.headers, skipProxy: rawResult?.skipProxy, skipHlsCheck: rawResult?.skipHlsCheck }];
-    }
-
-    const isLocal = process.env.NODE_ENV === 'local' || (!process.env.NODE_ENV && process.env.SPACE_ID == null);
-    if (isLocal) {
-        candidates.forEach(c => {
-            c.skipProxy = false;
-        });
     }
 
     return candidates;

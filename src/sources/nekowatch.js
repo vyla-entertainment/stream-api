@@ -1,132 +1,58 @@
-'use strict';
-
 import { getTmdbInfo, tmdbToAnilist } from '../utils/helpers.js';
+import { fetchJson, fetchText } from '../utils/source_helpers.js';
 
-const BASE = "https://nekowatch.xyz";
-const ANIME_JS_URL = `${BASE}/js/anime.js?v=v263_fast_player_start`;
+const BASE_URL = "https://nekowatch.xyz";
+const ANIME_JS_URL = `${BASE_URL}/js/anime.js?v=v263_fast_player_start`;
+const FALLBACK_ORDER = ['kiwi', 'ally', 'bee', 'arc', 'anikoto', 'jet', 'bonk', 'moo', 'hop', 'pulsar', 'pahe'];
 
-const FALLBACK_PROVIDER_ORDER = [
-    'kiwi',
-    'ally',
-    'bee',
-    'arc',
-    'anikoto',
-    'jet',
-    'bonk',
-    'moo',
-    'hop',
-    'pulsar',
-    'pahe',
-];
-
-let providerOrderCache = null;
-let providerOrderCacheTs = 0;
-const PROVIDER_ORDER_TTL = 30 * 60 * 1000;
+let providerOrderCache = null, providerOrderTs = 0;
 
 async function getProviderOrder() {
     const now = Date.now();
-    if (providerOrderCache && (now - providerOrderCacheTs) < PROVIDER_ORDER_TTL) {
-        return providerOrderCache;
-    }
+    if (providerOrderCache && now - providerOrderTs < 1800000) return providerOrderCache;
     try {
-        const res = await fetch(ANIME_JS_URL, { signal: AbortSignal.timeout(6000) });
-        if (!res.ok) throw new Error(`status ${res.status}`);
-        const js = await res.text();
+        const js = await fetchText(ANIME_JS_URL, { signal: AbortSignal.timeout(6000) });
         const match = js.match(/PROVIDER_ORDER\s*=\s*\[([\s\S]*?)\]/);
-        if (!match) throw new Error('PROVIDER_ORDER not found');
-        const order = [...match[1].matchAll(/['"]([a-z0-9_]+)['"]/gi)].map(m => m[1]);
-        if (order.length === 0) throw new Error('empty PROVIDER_ORDER');
-        providerOrderCache = order;
-        providerOrderCacheTs = now;
-        return order;
-    } catch {
-        return providerOrderCache || FALLBACK_PROVIDER_ORDER;
-    }
+        if (match) {
+            const order = [...match[1].matchAll(/['"]([a-z0-9_]+)['"]/gi)].map(m => m[1]);
+            if (order.length) { providerOrderCache = order; providerOrderTs = now; return order; }
+        }
+    } catch { }
+    return providerOrderCache || FALLBACK_ORDER;
 }
 
-async function fetchProvider(provider, anilistId, audio, episodeNum) {
-    const slug = `${provider}-${episodeNum}`;
-    const url = `${BASE}/api/anime/watch/${provider}/${anilistId}/${audio}/${slug}`;
-    try {
-        const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-        if (!res.ok) return null;
-        return await res.json();
-    } catch {
-        return null;
-    }
-}
-
-export async function getStream(args) {
-    const { id, s, e, audio: prefAudio } = args;
+export async function getStream({ id, s, e, audio }) {
     try {
         const info = await getTmdbInfo(id, s ? 'tv' : 'movie', s);
         if (!info || !info.isAnime) return null;
-
         const anilistId = await tmdbToAnilist(id, s ? 'tv' : 'movie', s, info.titles, info.year);
         if (!anilistId) return null;
-
-        const episodeNum = e || 1;
-        const audiosToTry = prefAudio === "all" ? ["sub", "dub"] : (prefAudio === "dub" ? ["dub", "sub"] : ["sub", "dub"]);
+        const ep = e || 1;
+        const audiosToTry = audio === "all" ? ["sub", "dub"] : (audio === "dub" ? ["dub", "sub"] : ["sub", "dub"]);
         const providerOrder = await getProviderOrder();
-
         for (const aud of audiosToTry) {
-            const results = await Promise.all(
-                providerOrder.map(provider => fetchProvider(provider, anilistId, aud, episodeNum))
-            );
-
-            const allUrls = [];
-            const seenActual = new Set();
-            for (const data of results) {
-                if (!data) continue;
-
-                let streams = [];
-                let actual = data.attempted?.actualProvider || data.provider;
-
-                if (Array.isArray(data.streams)) {
-                    streams = data.streams;
-                } else {
-                    for (const key of Object.keys(data)) {
-                        if (data[key] && Array.isArray(data[key].streams)) {
-                            streams.push(...data[key].streams);
-                            if (!actual) actual = data[key].provider || key;
-                        }
-                    }
+            const results = await Promise.allSettled(providerOrder.map(p => fetchJson(`${BASE_URL}/api/anime/watch/${p}/${anilistId}/${aud}/${p}-${ep}`, { signal: AbortSignal.timeout(8000) })));
+            const allUrls = [], seenActual = new Set();
+            for (const r of results) {
+                if (r.status !== 'fulfilled' || !r.value) continue;
+                const data = r.value;
+                let streams = [], actual = data.attempted?.actualProvider || data.provider;
+                if (Array.isArray(data.streams)) streams = data.streams;
+                else {
+                    for (const key of Object.keys(data)) if (data[key] && Array.isArray(data[key].streams)) { streams.push(...data[key].streams); if (!actual) actual = data[key].provider || key; }
                 }
-
-                if (streams.length === 0) continue;
-
-                if (actual) {
-                    if (seenActual.has(actual)) continue;
-                    seenActual.add(actual);
-                }
-
-                const validStreams = streams
-                    .filter(s => s.type === "hls" && s.url)
-                    .sort((a, b) => (b.priority || 0) - (a.priority || 0));
-
-                for (const s of validStreams) {
-                    allUrls.push({
-                        url: s.url,
-                        type: "hls",
-                        audio: aud,
-                        server: s.server ? `NekoWatch-${s.server}` : "NekoWatch",
-                        headers: s.referer ? { Referer: s.referer } : undefined,
-                        skipProxy: /\.workers\.dev(\/|$)/i.test(s.url)
-                    });
-                }
+                if (!streams.length) continue;
+                if (actual) { if (seenActual.has(actual)) continue; seenActual.add(actual); }
+                const valid = streams.filter(st => st.type === "hls" && st.url).sort((a, b) => (b.priority || 0) - (a.priority || 0));
+                for (const st of valid) allUrls.push({ url: st.url, type: "hls", audio: aud, server: st.server ? `NekoWatch-${st.server}` : "NekoWatch", headers: st.referer ? { Referer: st.referer } : undefined, skipProxy: /\.workers\.dev(\/|$)/i.test(st.url) });
             }
-
-            if (allUrls.length > 0) return { allUrls };
+            if (allUrls.length) return { allUrls };
         }
-
         return null;
-    } catch (err) {
-        return null;
-    }
+    } catch { return null; }
 }
 
 export async function getSources(args) {
     const stream = await getStream(args);
-    if (!stream || !stream.allUrls) return [];
-    return [...new Set(stream.allUrls.map(u => u.server))];
+    return stream?.allUrls ? [...new Set(stream.allUrls.map(u => u.server))] : [];
 }

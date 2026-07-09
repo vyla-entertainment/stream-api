@@ -32,7 +32,7 @@ async function fetchServerStream(srv, id, isTv, title, year, imdbId, s, e, seed)
 
         const encTitle = encodeURIComponent(encodeURIComponent(title));
         const type = isTv ? 'tv' : 'movie';
-        
+
         let url = `${WINGS_BASE}/${srv.id}/sources-with-title?title=${encTitle}&mediaType=${type}&year=${year}&tmdbId=${id}&imdbId=${imdbId}&enc=2&seed=${seed}`;
         if (isTv) {
             url += `&episodeId=${e}&seasonId=${s}`;
@@ -48,13 +48,13 @@ async function fetchServerStream(srv, id, isTv, title, year, imdbId, s, e, seed)
             body: JSON.stringify({ text: encText, id: id, seed: seed }),
             signal: AbortSignal.timeout(10000)
         });
-        
+
         if (!decRes.ok) return null;
         const decJson = await decRes.json();
         if (decJson.status !== 200 || !decJson.result) return null;
 
         const rawResults = Array.isArray(decJson.result) ? decJson.result : [decJson.result];
-        
+
         return rawResults.map(res => {
             const streamUrl = res.url || res.file || res.link || res.playlist || res.stream;
             if (!streamUrl) return null;

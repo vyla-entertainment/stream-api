@@ -35,7 +35,6 @@ export const SOURCES = [
         sourcesTimeout: 10000,
         jitter: 400,
         retries: 3,
-        disabled: true, // Temporarily disabled due to their site being down, all streams are returning 403's
         verifyHeaders: {
             Accept: '/',
             'Accept-Language': 'en-US,en;q=0.9',
@@ -53,6 +52,8 @@ export const SOURCES = [
         jitter: 500,
         retries: 2,
         skipProxy: true,
+        multiUrl: true,
+        disabled: true, // Temporarily disabled because their site is down, all streams are returning 403's
     },
 
     {
@@ -74,13 +75,13 @@ export const SOURCES = [
         jitter: 0,
         retries: 2,
         multiUrl: false,
+        skipProxy: true,
         verifyHeaders: {
             Accept: 'application/json, text/javascript, /; q=0.01',
             'Accept-Language': 'en-US,en;q=0.9',
             Referer: 'https://vixsrc.to/',
             Origin: 'https://vixsrc.to',
         },
-        // This is blocked on HF datacenter IP
     },
 
     {
@@ -159,7 +160,6 @@ export const SOURCES = [
             Referer: 'https://player.videasy.net/',
             Origin: 'https://player.videasy.net',
         },
-        disabled: true,  // Temporarily disabled because their seed fetcher rate limit is too strict
     },
 
     {
@@ -202,7 +202,6 @@ export const SOURCES = [
         jitter: 500,
         retries: 2,
         sourcesTimeout: 10000,
-        disabled: true,  // Temporarily disabled because their site is down, all streams are returning 403's
     },
 
     {
@@ -310,18 +309,6 @@ export const SOURCES = [
             Referer: 'https://ani.pm/',
             Origin: 'https://ani.pm',
         },
-    },
-
-    {
-        key: 'biavox',
-        sourceFile: 'biavox',
-        label: 'BiaVox',
-        proxyParam: 'bx',
-        timeout: 40000,
-        jitter: 600,
-        retries: 2,
-        skipProxy: true,
-
     },
 
     {
@@ -444,71 +431,6 @@ export const SOURCES = [
     },
 
     {
-        key: 'streamvault',
-        label: 'StreamVault',
-        sourceFile: 'streamvault',
-        proxyParam: 'sv',
-        timeout: 20000,
-        jitter: 500,
-        retries: 2,
-        multiUrl: true,
-        skipProxy: true,
-        disabled: true, // Temporarily disabled due to them being too slow
-    },
-
-    {
-        key: 'goated',
-        label: 'Goated',
-        sourceFile: 'goated',
-        proxyParam: 'gt',
-        timeout: 20000,
-        jitter: 500,
-        retries: 2,
-        multiUrl: false,
-        skipVerify: true,
-        skipProxy: true,
-        disabled: true, // Temporarily disabled due to website being down
-    },
-
-    {
-        key: 'netmirror',
-        label: 'NetMirror',
-        sourceFile: 'netmirror',
-        proxyParam: 'nm',
-        timeout: 20000,
-        jitter: 500,
-        retries: 2,
-        multiUrl: true,
-        disabled: true, // Temporarily disabled due to their site being down, all streams are not working
-    },
-
-    {
-        key: 'aether',
-        label: 'aether',
-        sourceFile: 'aether',
-        proxyParam: 'ae',
-        timeout: 20000,
-        jitter: 500,
-        retries: 2,
-        multiUrl: false,
-        skipVerify: true,
-        skipProxy: true,
-        disabled: true, // Temporarily disabled due to their site being down, all streams are not working
-    },
-
-    {
-        key: 'xyra',
-        label: 'Xyra',
-        sourceFile: 'xyra',
-        proxyParam: 'xr',
-        timeout: 20000,
-        jitter: 500,
-        retries: 2,
-        multiUrl: true,
-        skipProxy: true
-    },
-
-    {
         key: '1embed',
         label: '1Embed',
         sourceFile: '1embed',
@@ -517,7 +439,6 @@ export const SOURCES = [
         jitter: 500,
         retries: 2,
         multiUrl: true,
-        skipProxy: true
     },
 
     {

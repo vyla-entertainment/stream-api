@@ -66,12 +66,28 @@ export async function handleDebugRoute(match, searchParams, absoluteBase, _nativ
         globalThis.fetch = prev;
     }
 
-    const candidates = streamResult?.allUrls || (streamResult ? [streamResult] : []);
-
+    const candidates =
+        streamResult?.allUrls ||
+        streamResult?.streams ||
+        (streamResult?.url ? [streamResult] : []);
+        
     const checks = await Promise.all(candidates.slice(0, 3).map(async (raw, i) => {
-        const rawUrl = typeof raw === 'object' ? raw.url : raw;
-        const rawHeaders = (typeof raw === 'object' && raw.headers) ? raw.headers : {};
-        const wrappedUrl = wrapUrl(typeof raw === 'object' ? raw : { url: raw }, sourceKey, absoluteBase, SOURCE_MAP);
+        const rawUrl = typeof raw === 'object'
+            ? (raw.url || raw.file || raw.stream || raw.src)
+            : raw;
+
+        const rawHeaders = typeof raw === 'object' && raw.headers
+            ? raw.headers
+            : {};
+
+        const wrappedUrl = wrapUrl(
+            typeof raw === 'object'
+                ? raw
+                : { url: raw },
+            sourceKey,
+            absoluteBase,
+            SOURCE_MAP
+        );
 
         let m3u8Preview = null, mp4Preview = null, playable_check = null;
         const isSkippedProxy = !!raw?.skipProxy;
