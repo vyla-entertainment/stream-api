@@ -11,6 +11,7 @@ export function wrapUrl(rawUrl, sourceKey, absoluteBase, SOURCE_MAP) {
     if (!rawUrl) return null;
 
     const raw = typeof rawUrl === "object" ? rawUrl.url : rawUrl;
+    if (!raw) return null;
     const cfg = SOURCE_MAP[sourceKey];
 
     if (!cfg || cfg.skipProxy || rawUrl?.skipProxy) {

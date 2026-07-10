@@ -621,12 +621,13 @@ function normalizeCandidates(rawResult) {
     let candidates = [];
     if (rawResult?.allUrls?.length) {
         candidates = rawResult.allUrls.map(u => typeof u === 'object' ? u : { url: u });
+    } else if (rawResult?.streams?.length) {
+        candidates = rawResult.streams.map(u => typeof u === 'object' ? u : { url: u });
     } else if (Array.isArray(rawResult)) {
         candidates = rawResult.map(u => typeof u === 'object' ? u : { url: u });
     } else if (rawResult) {
         candidates = [{ url: typeof rawResult === 'object' ? rawResult.url : rawResult, headers: rawResult?.headers, skipProxy: rawResult?.skipProxy, skipHlsCheck: rawResult?.skipHlsCheck }];
     }
-
     return candidates;
 }
 
@@ -744,6 +745,25 @@ async function handleTestSource(sourceKey, id, s, e, clientIP, host) {
                 if (cfg.skipVerify || cfg.multiUrl) {
                     const checkUrl = IS_HF ? candidate.url : wrappedUrl;
                     const checkHeaders = IS_HF ? (candidate.headers ?? {}) : {};
+
+                    if (candidate.type === 'dash' || /\.mpd(\?|$)/i.test(candidate.url)) {
+                        try {
+                            const headRes = await _nativeFetch(candidate.url, {
+                                method: 'HEAD',
+                                headers: { 'User-Agent': getUA(), ...(candidate.headers ?? {}) },
+                                signal: AbortSignal.timeout(6_000),
+                                redirect: 'follow',
+                            });
+                            headRes.body?.cancel();
+                            if (headRes.status < 400) {
+                                const result = { ok: true, url: wrappedUrl, raw_url: candidate.url };
+                                if (!rawResult?.skipCache) { testResultCache.set(cacheKey, result); sharedCacheSet(cacheKey, result, cfg.testCacheTtl ?? 90_000); }
+                                return result;
+                            }
+                        } catch { }
+                        continue;
+                    }
+
                     const check = await verifyPlayable(checkUrl, checkHeaders, false);
 
                     if (check.ok) {
@@ -1219,8 +1239,9 @@ const server = http.createServer(async (req, res) => {
         } else {
             res.end(result.body ?? '');
         }
-    } catch {
+    } catch (err) {
         if (!res.headersSent) {
+            console.error(err)
             try { res.writeHead(500, { 'Content-Type': 'application/json' }); res.end('{"error":"internal server error"}'); } catch { }
         }
     }
