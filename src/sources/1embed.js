@@ -64,9 +64,6 @@ async function fetchProviderStream(provider, type, id, s, e, token) {
                 quality: src.quality || src.label || src.title || "Auto",
                 type: isHls ? "hls" : "mp4",
                 headers: { "User-Agent": USER_AGENT, "Referer": referer, "Origin": BASE_URL, ...srcHeaders },
-                skipProxy: false,
-                skipVerify: true,
-                skipHlsCheck: true
             });
         }
         return results;

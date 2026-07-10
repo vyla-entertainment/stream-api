@@ -212,7 +212,6 @@ export const SOURCES = [
         timeout: 20000,
         jitter: 500,
         retries: 2,
-        skipProxy: true,
     },
 
     {
