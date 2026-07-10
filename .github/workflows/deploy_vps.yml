@@ -17,7 +17,9 @@ jobs:
           username: root
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            cd /var/www/api
+            set -e
+
+            cd /var/www/stream-api
 
             git fetch origin main
             git reset --hard origin/main
@@ -25,9 +27,9 @@ jobs:
 
             npm install
 
-            chown -R www-data:www-data /var/www/api
-            chmod -R 755 /var/www/api
+            chown -R www-data:www-data .
+            chmod -R 755 .
 
-            pm2 restart api || pm2 start server.js --name api
+            pm2 restart stream-api || pm2 start server.js --name stream-api
 
             pm2 save
