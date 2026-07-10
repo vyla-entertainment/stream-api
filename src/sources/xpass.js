@@ -1,4 +1,4 @@
-import { fetchJson, fetchText, USER_AGENT } from '../utils/source_helpers.js';
+import { fetchJson, fetchText, USER_AGENT } from '../utils/helpers.js';
 
 const BASE = "https://play.xpass.top";
 const HEADERS = { "accept": "*/*", "accept-language": "en-US,en;q=0.9", "cache-control": "no-cache", "pragma": "no-cache", "User-Agent": USER_AGENT, "Origin": BASE, "Referrer": `${BASE}/`, "Cookie": "auth_token=de21073d24bca9b50f189b402ac870734cf945f2085cb7e1a4fc453fcfe4f57e" };

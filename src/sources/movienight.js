@@ -1,4 +1,4 @@
-import { getTmdbInfo, fetchJson, USER_AGENT } from '../utils/source_helpers.js';
+import { getTmdbInfo, fetchJson, USER_AGENT } from '../utils/helpers.js';
 
 const BASE_URL = 'https://movienig.ht';
 

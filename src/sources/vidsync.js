@@ -1,4 +1,4 @@
-import { fetchJson, fetchText, USER_AGENT, getTmdbInfo } from '../utils/source_helpers.js';
+import { fetchJson, fetchText, USER_AGENT, getTmdbInfo } from '../utils/helpers.js';
 
 const API_BASE = "https://enc-dec.app/api";
 const DOMAIN = "https://vidsync.xyz";

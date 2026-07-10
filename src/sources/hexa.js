@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { fetchJson, fetchText, USER_AGENT } from '../utils/source_helpers.js';
+import { fetchJson, fetchText, USER_AGENT } from '../utils/helpers.js';
 
 const ENC_API = "https://enc-dec.app/api";
 const DOMAINS = ['hexa.su', 'flixer.su'];

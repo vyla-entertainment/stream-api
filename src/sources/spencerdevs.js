@@ -1,5 +1,5 @@
 import { pbkdf2Sync, createDecipheriv } from 'node:crypto';
-import { fetchJson, fetchText, USER_AGENT } from '../utils/source_helpers.js';
+import { fetchJson, fetchText, USER_AGENT } from '../utils/helpers.js';
 
 const HEADERS = { 'Referer': 'https://spencerdevs.xyz/', 'Origin': 'https://spencerdevs.xyz', 'User-Agent': USER_AGENT };
 const BASE64_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";

@@ -1,4 +1,4 @@
-import { getTmdbInfo, fetchJson } from '../utils/source_helpers.js';
+import { getTmdbInfo, fetchJson } from '../utils/helpers.js';
 
 const BASE_URL = "https://ani.pm";
 

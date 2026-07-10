@@ -1,4 +1,4 @@
-import { fetchJson, fetchText, getTmdbInfo, tmdbToAnilist } from '../utils/source_helpers.js';
+import { fetchJson, fetchText, getTmdbInfo, tmdbToAnilist } from '../utils/helpers.js';
 
 const BASE_URL = "https://nekowatch.xyz";
 const ANIME_JS_URL = `${BASE_URL}/js/anime.js?v=v263_fast_player_start`;

@@ -1,5 +1,5 @@
 import { webcrypto } from 'node:crypto';
-import { fetchJson, USER_AGENT } from '../utils/source_helpers.js';
+import { fetchJson, USER_AGENT } from '../utils/helpers.js';
 
 const PLAYER_URL = 'https://player.vidzee.wtf';
 const CORE_URL = 'https://core.vidzee.wtf';

@@ -1,4 +1,4 @@
-import { USER_AGENT, fetchJson } from '../utils/source_helpers.js';
+import { USER_AGENT, fetchJson } from '../utils/helpers.js';
 
 const API_KEY = "WDNUNBUB3HR983Y9ISBADK4O82";
 const BASE_URL = "https://dulo.tv";

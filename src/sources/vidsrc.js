@@ -1,4 +1,4 @@
-import { fetchText, USER_AGENT } from '../utils/source_helpers.js';
+import { fetchText, USER_AGENT } from '../utils/helpers.js';
 
 const BASE_URL = 'https://vsembed.ru';
 const HEADERS = { 'User-Agent': USER_AGENT, 'Referer': `${BASE_URL}/` };

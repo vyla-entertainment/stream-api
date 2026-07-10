@@ -1,5 +1,5 @@
 import { webcrypto } from 'node:crypto';
-import { fetchJson, USER_AGENT } from '../utils/source_helpers.js';
+import { fetchJson, USER_AGENT } from '../utils/helpers.js';
 
 const GCM_HEX_KEY = '7f3e9c2a8b5d1f4e6a9c3b7d2e5f8a1c4b6d9e2f5a8c1b4d7e9f2a5c8b1d4e7f';
 const BASE_URL = 'https://vidrock.ru/';

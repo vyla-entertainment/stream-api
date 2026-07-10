@@ -1,4 +1,4 @@
-import { getUA } from '../utils/source_helpers.js';
+import { getUA } from '../utils/helpers.js';
 
 const SUBTITLE_BASES = [
     'https://sub.vdrk.site/v1',

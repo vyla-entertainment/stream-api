@@ -1,4 +1,4 @@
-import { fetchJson, USER_AGENT } from '../utils/source_helpers.js';
+import { fetchJson, USER_AGENT } from '../utils/helpers.js';
 
 const BASE = "https://vidlink.pro";
 const HEADERS = { 'User-Agent': USER_AGENT, Origin: BASE, Referer: `${BASE}/` };

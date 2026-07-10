@@ -1,4 +1,4 @@
-import { USER_AGENT } from '../utils/source_helpers.js';
+import { USER_AGENT } from '../utils/helpers.js';
 
 const BASE_URL = "https://1embed.cc";
 

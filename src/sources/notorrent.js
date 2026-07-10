@@ -1,4 +1,4 @@
-import { fetchJson } from '../utils/source_helpers.js';
+import { fetchJson } from '../utils/helpers.js';
 
 const API = "https://addon-osvh.onrender.com";
 

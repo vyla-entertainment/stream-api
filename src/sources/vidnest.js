@@ -1,4 +1,4 @@
-import { fetchJson, fetchText, USER_AGENT } from '../utils/source_helpers.js';
+import { fetchJson, fetchText, USER_AGENT } from '../utils/helpers.js';
 
 const BASE_URL = 'https://vidnest.fun';
 const API_BASE_URL = 'https://new.vidnest.fun';

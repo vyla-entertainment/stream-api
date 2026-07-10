@@ -1,4 +1,4 @@
-import { fetchJson, USER_AGENT, getTmdbInfo, tmdbToAnilist } from '../utils/source_helpers.js';
+import { fetchJson, USER_AGENT, getTmdbInfo, tmdbToAnilist } from '../utils/helpers.js';
 
 const BASE_URL = 'https://streamguide.cfd';
 const HEADERS = { 'User-Agent': USER_AGENT, 'Accept': 'application/json' };

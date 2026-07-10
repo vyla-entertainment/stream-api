@@ -1,4 +1,4 @@
-import { fetchJson, USER_AGENT, getTmdbInfo } from '../utils/source_helpers.js';
+import { fetchJson, USER_AGENT, getTmdbInfo } from '../utils/helpers.js';
 
 export const SKIP_VERIFY = true;
 export const MULTI_URL = false;

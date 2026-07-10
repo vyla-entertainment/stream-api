@@ -1,4 +1,4 @@
-import { fetchJson } from '../utils/source_helpers.js';
+import { fetchJson } from '../utils/helpers.js';
 
 const API_BASE = 'https://itjiocunahckqxcnzpoy.supabase.co/functions/v1';
 const APIKEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml0amlvY3VuYWhja3F4Y256cG95Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzczMzM1MjQsImV4cCI6MjA5MjkwOTUyNH0.9x9ykdHAzrv_GSvnawPeQaOxQeh3sZg0QAh4u9VOF4M';

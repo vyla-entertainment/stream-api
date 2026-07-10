@@ -1,6 +1,6 @@
 import { SOURCE_MAP } from '../../config.js';
 import { wrapUrl } from '../utils/proxy.js';
-import { getUA } from '../utils/source_helpers.js';
+import { getUA } from '../utils/helpers.js';
 
 export async function handleTestRoute(match, searchParams, clientIP, host, handleTestSource, googleAnalytic) {
     const source = searchParams.get('source');

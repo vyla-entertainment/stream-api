@@ -12,7 +12,7 @@ import { handleHealth } from './src/routes/health.js';
 import { authenticateRequest, checkRateLimit, canAccess, issueSessionToken, refreshSessionToken, initAuth } from './src/middleware/auth.js';
 import { wrapUrl } from './src/utils/proxy.js';
 import { handleTestRoute, handleDebugRoute } from './src/routes/test.js';
-import { getUA, validateTmdbId } from './src/utils/source_helpers.js';
+import { getUA, validateTmdbId } from './src/utils/helpers.js';
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);

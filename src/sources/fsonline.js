@@ -1,4 +1,4 @@
-import { fetchText, USER_AGENT, getTmdbInfo } from '../utils/source_helpers.js';
+import { fetchText, USER_AGENT, getTmdbInfo } from '../utils/helpers.js';
 
 const ORIGIN = 'https://www3.fsonline.app';
 const AJAX_URL = `${ORIGIN}/wp-admin/admin-ajax.php`;

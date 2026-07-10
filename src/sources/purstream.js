@@ -1,4 +1,4 @@
-import { fetchJson, USER_AGENT, getTmdbInfo } from '../utils/source_helpers.js';
+import { fetchJson, USER_AGENT, getTmdbInfo } from '../utils/helpers.js';
 
 const DOMAIN = 'https://purstream.club';
 const API_BASE = 'https://api.purstream.club/api/v1';

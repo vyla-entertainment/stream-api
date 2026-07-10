@@ -1,4 +1,4 @@
-import { fetchJson, fetchText, USER_AGENT } from '../utils/source_helpers.js';
+import { fetchJson, fetchText, USER_AGENT } from '../utils/helpers.js';
 
 const API_BASE = 'https://enc-dec.app/api';
 const HEADERS = { 'User-Agent': USER_AGENT, 'Referer': 'https://vidcore.net/', 'X-Requested-With': 'XMLHttpRequest' };

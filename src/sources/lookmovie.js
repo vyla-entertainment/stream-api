@@ -1,4 +1,4 @@
-import { USER_AGENT, fetchText, fetchJson } from '../utils/source_helpers.js';
+import { USER_AGENT, fetchText, fetchJson } from '../utils/helpers.js';
 
 const TMDB_BASE = 'https://api.themoviedb.org/3';
 const LM_DOMAINS = ['https://www.lookmovie2.to', 'https://lookmovie2.to', 'https://lookmovie.foundation'];

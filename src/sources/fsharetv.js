@@ -1,4 +1,4 @@
-import { fetchText, fetchJson, USER_AGENT, getTmdbInfo } from '../utils/source_helpers.js';
+import { fetchText, fetchJson, USER_AGENT, getTmdbInfo } from '../utils/helpers.js';
 
 const BASE_URL = 'https://fsharetv.cc';
 const HEADERS = { 'User-Agent': USER_AGENT, 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', 'Accept-Language': 'en-US,en;q=0.9', 'Referer': `${BASE_URL}/` };
