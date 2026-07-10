@@ -19,6 +19,8 @@ jobs:
           script: |
             set -e
 
+            git config --global --add safe.directory /var/www/stream-api
+
             cd /var/www/stream-api
 
             git fetch origin main
@@ -27,9 +29,6 @@ jobs:
 
             npm install
 
-            chown -R www-data:www-data .
-            chmod -R 755 .
-
-            pm2 restart stream-api || pm2 start server.js --name stream-api
+            pm2 restart api || pm2 start server.js --name api
 
             pm2 save
