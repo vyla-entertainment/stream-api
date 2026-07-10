@@ -1,6 +1,6 @@
 'use strict';
 
-import { getTmdbInfo } from '../utils/helpers.js';
+import { getTmdbInfo } from '../utils/source_helpers.js';
 
 const DEC_API = "https://enc-dec.app/api/dec-videasy";
 const WINGS_BASE = "https://api.wingsdatabase.com";

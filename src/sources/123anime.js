@@ -1,5 +1,4 @@
-import { getTmdbInfo } from '../utils/helpers.js';
-import { fetchJson, USER_AGENT } from '../utils/source_helpers.js';
+import { getTmdbInfo, fetchJson, USER_AGENT } from '../utils/source_helpers.js';
 
 async function resolveSlug(id, s, e, info) {
     const titles = info?.titles || [];

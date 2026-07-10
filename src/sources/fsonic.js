@@ -1,5 +1,4 @@
-import { getTmdbInfo } from '../utils/helpers.js';
-import { fetchText, fetchJson, USER_AGENT } from '../utils/source_helpers.js';
+import { fetchText, fetchJson, USER_AGENT, getTmdbInfo } from '../utils/source_helpers.js';
 
 const BASE_URL = 'https://www.fsonic.net';
 const FSHARE_BASE = 'https://fsharetv.co';

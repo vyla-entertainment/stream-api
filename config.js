@@ -120,7 +120,6 @@ export const SOURCES = [
         timeout: 20000,
         jitter: 500,
         retries: 2,
-        skipProxy: true,
         multiUrl: true,
         verifyHeaders: {
             'Accept-Language': 'en-US,en;q=0.9',
@@ -460,6 +459,18 @@ export const SOURCES = [
         timeout: 20000,
         jitter: 500,
         retries: 2,
+        multiUrl: true,
+        skipProxy: true
+    },
+
+    {
+        key: 'movienight',
+        label: 'MovieNight',
+        sourceFile: 'movienight',
+        proxyParam: 'mn',
+        timeout: 20000,
+        jitter: 500,
+        retries: 1,
         multiUrl: true,
         skipProxy: true
     },

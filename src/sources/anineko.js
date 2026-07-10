@@ -1,5 +1,4 @@
-import { getTmdbInfo } from '../utils/helpers.js';
-import { fetchText } from '../utils/source_helpers.js';
+import { getTmdbInfo } from '../utils/source_helpers.js';
 
 const BASE_URL = "https://anineko.to";
 
