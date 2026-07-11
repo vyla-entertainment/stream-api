@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import { fetchJson, fetchText, USER_AGENT } from '../utils/helpers.js';
 
 const HEADERS = { 'Accept': '*/*', 'Origin': 'https://lordflix.org', 'Referer': 'https://lordflix.org/', 'User-Agent': USER_AGENT };
-const API = 'https://snowhouse.lordflix.club';
+const API = 'https://hongkong.lordflix.club';
 const ENC_API = 'https://enc-dec.app/api';
 
 function solveChallengeSync(challenge) {
