@@ -15,6 +15,7 @@ export const SOURCES = [
         jitter: 800,
         retries: 3,
         multiUrl: true,
+        disabled: true, // Temporarily disabled because their streams are extremely slow and unstable.
         cdnHeaders: [{
             pattern: /./,
             headers: {
