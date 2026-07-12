@@ -121,7 +121,7 @@ export const SOURCES = [
         timeout: 20000,
         jitter: 500,
         retries: 2,
-        multiUrl: true,        
+        multiUrl: true,
         verifyHeaders: {
             'Accept-Language': 'en-US,en;q=0.9',
         },
@@ -438,6 +438,17 @@ export const SOURCES = [
         retries: 2,
         multiUrl: true,
         skipProxy: true
+    },
+
+    {
+        key: 'vidup',
+        label: 'VidUp',
+        sourceFile: 'vidup',
+        proxyParam: 'vu',
+        timeout: 35000,
+        jitter: 500,
+        retries: 1,
+        multiUrl: true
     },
 
 ];
