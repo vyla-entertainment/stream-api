@@ -29,6 +29,6 @@ jobs:
 
             npm install
 
-            pm2 restart api || pm2 start server.js --name api
+            pm2 restart stream-api || pm2 start server.js --name stream-api
 
             pm2 save
