@@ -122,6 +122,7 @@ export const SOURCES = [
         jitter: 500,
         retries: 2,
         multiUrl: true,
+        skipProxy: true,
         verifyHeaders: {
             'Accept-Language': 'en-US,en;q=0.9',
         },
@@ -183,18 +184,6 @@ export const SOURCES = [
     },
 
     {
-        key: 'streamguide',
-        label: 'StreamGuide',
-        sourceFile: 'streamguide',
-        proxyParam: 'sg',
-        timeout: 20000,
-        jitter: 400,
-        retries: 2,
-        skipProxy: true,
-        disabled: true, // Temporarily disabled because you have to login to watch streams
-    },
-
-    {
         key: 'vidcore',
         sourceFile: 'vidcore',
         label: 'Vidcore',
@@ -223,18 +212,8 @@ export const SOURCES = [
         timeout: 20000,
         jitter: 500,
         retries: 2,
+        skipProxy: true,
         // This is blocked on HF datacenter IP
-    },
-
-    {
-        key: 'spencerdevs',
-        sourceFile: 'spencerdevs',
-        label: 'SpencerDevs',
-        proxyParam: 'sd',
-        timeout: 30000,
-        jitter: 500,
-        retries: 2,
-        disabled: true, // Temporarily disabled due to website being down
     },
 
     {
@@ -320,7 +299,6 @@ export const SOURCES = [
         retries: 1,
         jitter: 0,
         multiUrl: true,
-        skipProxy: true,
         // This is blocked on HF datacenter IP
     },
 
@@ -359,18 +337,6 @@ export const SOURCES = [
         retries: 2,
         multiUrl: true,
         disabled: true, // Temporarily disabled due to enc dec issues
-    },
-
-    {
-        key: 'dulo',
-        label: 'Dulo',
-        sourceFile: 'dulo',
-        proxyParam: 'dl',
-        timeout: 20000,
-        retries: 1,
-        jitter: 0,
-        multiUrl: true,
-        disabled: true, // Disabled due to owner asking me to do so
     },
 
     {
@@ -464,13 +430,13 @@ export const SOURCES = [
     },
 
     {
-        key: 'movienight',
-        label: 'MovieNight',
-        sourceFile: 'movienight',
-        proxyParam: 'mn',
+        key: 'meowtv',
+        label: 'MeowTV',
+        sourceFile: 'meowtv',
+        proxyParam: 'mt',
         timeout: 20000,
         jitter: 500,
-        retries: 1,
+        retries: 2,
         multiUrl: true,
         skipProxy: true
     },

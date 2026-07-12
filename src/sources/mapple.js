@@ -61,7 +61,7 @@ function solvePoW(challenge, difficulty) {
     return { found: false };
 }
 
-const SERVER_LIST = [{ id: "mapple", name: "Mapple 🔥" }, { id: "s1", name: "Nexus" }, { id: "s2", name: "Cipher" }, { id: "s3", name: "Pulse" }, { id: "s4", name: "Vertex" }, { id: "s10", name: "Chimp" }];
+const SERVER_LIST = [{ id: "mapple", name: "Mapple" }, { id: "s1", name: "Nexus" }, { id: "s2", name: "Cipher" }, { id: "s3", name: "Pulse" }, { id: "s4", name: "Vertex" }, { id: "s10", name: "Chimp" }];
 
 export async function getStream(args) {
     const { id, s, e, server } = args;

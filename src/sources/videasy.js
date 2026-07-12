@@ -1,17 +1,7 @@
-'use strict';
+import { getTmdbInfo, fetchJson, fetchText, USER_AGENT } from '../utils/helpers.js';
 
-import { getTmdbInfo } from '../utils/helpers.js';
-
-const DEC_API = "https://enc-dec.app/api/dec-videasy";
 const WINGS_BASE = "https://api.wingsdatabase.com";
-
-const HEADERS = {
-    "Accept": "*/*",
-    "Origin": "https://player.videasy.to",
-    "Referer": "https://player.videasy.to/",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36"
-};
-
+const HEADERS = { "Accept": "*/*", "Origin": "https://player.videasy.to", "Referer": "https://player.videasy.to/", "User-Agent": USER_AGENT };
 const SERVERS = [
     { id: 'jett', name: 'Jett' },
     { id: 'cdn', name: 'Yoru' },
@@ -26,93 +16,83 @@ const SERVERS = [
     { id: 'superflix', name: 'Raze' }
 ];
 
-async function fetchServerStream(srv, id, isTv, title, year, imdbId, s, e, seed) {
-    try {
-        if (srv.id === 'cdn' && isTv) return null;
-
-        const encTitle = encodeURIComponent(encodeURIComponent(title));
-        const type = isTv ? 'tv' : 'movie';
-
-        let url = `${WINGS_BASE}/${srv.id}/sources-with-title?title=${encTitle}&mediaType=${type}&year=${year}&tmdbId=${id}&imdbId=${imdbId}&enc=2&seed=${seed}`;
-        if (isTv) {
-            url += `&episodeId=${e}&seasonId=${s}`;
-        }
-
-        const encDataRes = await fetch(url, { headers: HEADERS, signal: AbortSignal.timeout(10000) });
-        if (!encDataRes.ok) return null;
-        const encText = await encDataRes.text();
-
-        const decRes = await fetch(DEC_API, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: encText, id: id, seed: seed }),
-            signal: AbortSignal.timeout(10000)
-        });
-
-        if (!decRes.ok) return null;
-        const decJson = await decRes.json();
-        if (decJson.status !== 200 || !decJson.result) return null;
-
-        const rawResults = Array.isArray(decJson.result) ? decJson.result : [decJson.result];
-
-        return rawResults.map(res => {
-            const streamUrl = res.url || res.file || res.link || res.playlist || res.stream;
-            if (!streamUrl) return null;
-
-            return {
-                url: streamUrl,
-                quality: res.quality || "Auto",
-                server: `VidEasy - ${srv.name}`,
-                type: streamUrl.includes('.m3u8') ? 'hls' : 'mp4',
-                headers: HEADERS,
-                skipProxy: false,
-                skipVerify: true,
-                skipHlsCheck: true
-            };
-        }).filter(Boolean);
-    } catch (err) {
-        return null;
-    }
-}
-
-export async function getStream(args) {
-    const { id, s, e, server: serverName } = args;
+export async function getStream({ id, s, e, server }) {
     try {
         const isTv = s != null && e != null;
         const info = await getTmdbInfo(id, isTv ? 'tv' : 'movie');
-        if (!info || !info.titles || !info.titles.length) return null;
+        if (!info?.titles?.length) return null;
 
-        const seedRes = await fetch(`${WINGS_BASE}/seed?mediaId=${id}`, { headers: HEADERS, signal: AbortSignal.timeout(5000) });
-        if (!seedRes.ok) return null;
-        const { seed } = await seedRes.json();
+        const seedData = await fetchJson(`${WINGS_BASE}/seed?mediaId=${id}`, { headers: HEADERS, signal: AbortSignal.timeout(5000) });
+        const seed = seedData?.seed;
+        if (!seed) return null;
 
-        const title = info.titles[0];
-        const year = info.year;
-        const imdbId = info.imdbId || "tt0000000";
+        const encTitle = encodeURIComponent(encodeURIComponent(info.titles[0]));
+        let targets = SERVERS;
 
-        let targetServers = SERVERS;
-        if (serverName && serverName !== 'all') {
-            const cleanName = serverName.replace('VidEasy - ', '');
-            targetServers = SERVERS.filter(sv => sv.name === cleanName);
-            if (targetServers.length === 0) targetServers = SERVERS;
+        if (server && server !== 'all') {
+            const cleanName = server.replace('VidEasy - ', '');
+            targets = SERVERS.filter(sv => sv.name === cleanName);
+            if (!targets.length) targets = SERVERS;
         }
 
-        const settled = await Promise.allSettled(
-            targetServers.map(srv => fetchServerStream(srv, id, isTv, title, year, imdbId, s, e, seed))
-        );
+        const settled = await Promise.allSettled(targets.map(async srv => {
+            if (srv.id === 'cdn' && isTv) throw new Error();
 
-        const allUrls = settled
-            .filter(r => r.status === 'fulfilled' && r.value)
-            .flatMap(r => r.value);
+            let url = `${WINGS_BASE}/${srv.id}/sources-with-title?title=${encTitle}&mediaType=${isTv ? 'tv' : 'movie'}&year=${info.year || ''}&tmdbId=${id}&imdbId=${info.imdbId || "tt0000000"}&enc=2&seed=${seed}`;
+            if (isTv) url += `&episodeId=${e}&seasonId=${s}`;
 
-        if (allUrls.length === 0) return null;
+            const encText = await fetchText(url, { headers: HEADERS, signal: AbortSignal.timeout(10000) });
+            const decJson = await fetchJson("https://enc-dec.app/api/dec-videasy", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: encText, id: String(id), seed }),
+                signal: AbortSignal.timeout(10000)
+            });
 
-        return { allUrls };
-    } catch (err) {
-        return null;
-    }
+            if (decJson.status !== 200 || !decJson.result) throw new Error();
+
+            let sourcesArray = [];
+            let subsArray = [];
+
+            if (Array.isArray(decJson.result)) {
+                sourcesArray = decJson.result;
+            } else if (decJson.result.sources && Array.isArray(decJson.result.sources)) {
+                sourcesArray = decJson.result.sources;
+                if (decJson.result.subtitles && Array.isArray(decJson.result.subtitles)) {
+                    subsArray = decJson.result.subtitles.map(sub => ({
+                        url: sub.url || sub.file,
+                        lang: sub.language || sub.lang || sub.label || 'Unknown'
+                    })).filter(sub => sub.url);
+                }
+            } else {
+                sourcesArray = [decJson.result];
+            }
+
+            return sourcesArray.map(res => {
+                const streamUrl = res.url || res.file || res.link || res.playlist || res.stream;
+                return streamUrl ? {
+                    url: streamUrl,
+                    quality: res.quality || "Auto",
+                    server: `VidEasy - ${srv.name}`,
+                    type: streamUrl.includes('.m3u8') ? 'hls' : 'mp4',
+                    headers: HEADERS,
+                    subtitles: subsArray.length > 0 ? subsArray : undefined,
+                    skipProxy: false,
+                    skipVerify: true,
+                    skipHlsCheck: true
+                } : null;
+            }).filter(Boolean);
+        }));
+
+        const allUrls = [];
+        for (const r of settled) {
+            if (r.status === 'fulfilled' && r.value) allUrls.push(...r.value);
+        }
+
+        return allUrls.length ? { allUrls } : null;
+    } catch { return null; }
 }
 
-export async function getSources(args) {
+export async function getSources() {
     return SERVERS.map(s => `VidEasy - ${s.name}`);
 }
