@@ -478,6 +478,17 @@ export const SOURCES = [
         },
     },
 
+    {
+        key: 'vidapi',
+        label: 'VidAPI',
+        sourceFile: 'vidapi',
+        proxyParam: 'va',
+        timeout: 25000,
+        jitter: 500,
+        retries: 1,
+        multiUrl: true
+    },
+
 ];
 
 export const SOURCE_MAP = Object.fromEntries(SOURCES.map(s => [s.key, s]));
