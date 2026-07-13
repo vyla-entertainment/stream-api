@@ -125,7 +125,6 @@ export const SOURCES = [
         verifyHeaders: {
             'Accept-Language': 'en-US,en;q=0.9',
         },
-        // This is blocked on HF datacenter IP
     },
 
     {
@@ -212,7 +211,6 @@ export const SOURCES = [
         jitter: 500,
         retries: 2,
         skipProxy: true,
-        // This is blocked on HF datacenter IP
     },
 
     {
@@ -298,7 +296,6 @@ export const SOURCES = [
         retries: 1,
         jitter: 0,
         multiUrl: true,
-        // This is blocked on HF datacenter IP
     },
 
     {
@@ -311,7 +308,30 @@ export const SOURCES = [
         jitter: 0,
         multiUrl: true,
         skipProxy: true,
-        // This is blocked on HF datacenter IP
+    },
+
+    {
+        key: 'anihq-sub',
+        label: 'AniHQ (Sub)',
+        sourceFile: 'anihq',
+        proxyParam: 'ahsub',
+        timeout: 25000,
+        jitter: 500,
+        retries: 2,
+        multiUrl: true,
+        skipProxy: true
+    },
+
+    {
+        key: 'anihq-dub',
+        label: 'AniHQ (Dub)',
+        sourceFile: 'anihq',
+        proxyParam: 'ahdub',
+        timeout: 25000,
+        jitter: 500,
+        retries: 2,
+        multiUrl: true,
+        skipProxy: true
     },
 
     {
@@ -324,7 +344,6 @@ export const SOURCES = [
         jitter: 0,
         multiUrl: true,
         skipProxy: true,
-        // This is blocked on HF datacenter IP
     },
 
     {
@@ -347,7 +366,6 @@ export const SOURCES = [
         retries: 1,
         jitter: 0,
         multiUrl: true,
-        // This is blocked on HF datacenter IP
     },
 
     {
@@ -360,7 +378,6 @@ export const SOURCES = [
         jitter: 0,
         multiUrl: true,
         skipProxy: true,
-        // This is blocked on HF datacenter IP
     },
 
 
