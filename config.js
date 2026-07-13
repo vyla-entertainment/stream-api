@@ -451,6 +451,33 @@ export const SOURCES = [
         multiUrl: true
     },
 
+    {
+        key: 'peachify',
+        label: 'Peachify',
+        sourceFile: 'peachify',
+        proxyParam: 'pf',
+        timeout: 30000,
+        jitter: 500,
+        retries: 1,
+        multiUrl: true
+    },
+
+    {
+        key: 'opstream',
+        label: 'OpStream',
+        sourceFile: 'opstream',
+        proxyParam: 'op',
+        timeout: 35000,
+        jitter: 500,
+        retries: 2,
+        multiUrl: true,
+        skipProxy: true,
+        verifyHeaders: {
+            Referer: 'https://opstream.fun/',
+            Origin: 'https://opstream.fun',
+        },
+    },
+
 ];
 
 export const SOURCE_MAP = Object.fromEntries(SOURCES.map(s => [s.key, s]));
