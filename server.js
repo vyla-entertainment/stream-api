@@ -510,6 +510,9 @@ async function verifyPlayable(proxiedUrl, extraHeaders = {}, skipProxyCheck = fa
             return val;
         }
         const text = await m3u8Res.text();
+        if (/\.mpd(\?|$)/i.test(proxiedUrl) || text.includes('<MPD') || text.includes('urn:mpeg:dash')) {
+            return store({ ok: true, error: null });
+        }
         if (!text.trim().startsWith('#EXTM3U')) return fail('invalid m3u8');
         if (/^429$|^429\s/m.test(text) || text.includes('Too Many Requests')) return fail('Proxy Blocked or Invalid Hash');
         if (!text.includes('#EXTINF') && !text.includes('#EXT-X-STREAM-INF')) return fail('empty playlist');
@@ -696,6 +699,25 @@ async function handleTestSource(sourceKey, id, s, e, clientIP, host) {
                 const wrappedUrl = wrapUrl(candidate, sourceKey, absoluteBase, SOURCE_MAP);
                 if (!wrappedUrl) continue;
 
+                if (candidate.type === 'dash' || /\.mpd(\?|$)/i.test(candidate.url)) {
+                    try {
+                        const headRes = await _nativeFetch(candidate.url, {
+                            method: 'HEAD',
+                            headers: { 'User-Agent': getUA(), ...(candidate.headers ?? {}) },
+                            signal: AbortSignal.timeout(6_000),
+                            redirect: 'follow',
+                        });
+                        headRes.body?.cancel();
+                        if (headRes.status < 400) {
+                            const result = { ok: true, url: wrappedUrl, raw_url: candidate.url };
+                            testResultCache.set(cacheKey, result);
+                            sharedCacheSet(cacheKey, result, cfg.testCacheTtl ?? 90_000);
+                            return result;
+                        }
+                    } catch { }
+                    continue;
+                }
+
                 if (candidate?.skipProxy) {
                     const check = await verifyPlayable(candidate.url, candidate.headers ?? {}, true);
                     if (check.ok || /timeout|aborted/i.test(check.error ?? '')) {
@@ -745,24 +767,6 @@ async function handleTestSource(sourceKey, id, s, e, clientIP, host) {
                 if (cfg.skipVerify || cfg.multiUrl) {
                     const checkUrl = IS_HF ? candidate.url : wrappedUrl;
                     const checkHeaders = IS_HF ? (candidate.headers ?? {}) : {};
-
-                    if (candidate.type === 'dash' || /\.mpd(\?|$)/i.test(candidate.url)) {
-                        try {
-                            const headRes = await _nativeFetch(candidate.url, {
-                                method: 'HEAD',
-                                headers: { 'User-Agent': getUA(), ...(candidate.headers ?? {}) },
-                                signal: AbortSignal.timeout(6_000),
-                                redirect: 'follow',
-                            });
-                            headRes.body?.cancel();
-                            if (headRes.status < 400) {
-                                const result = { ok: true, url: wrappedUrl, raw_url: candidate.url };
-                                if (!rawResult?.skipCache) { testResultCache.set(cacheKey, result); sharedCacheSet(cacheKey, result, cfg.testCacheTtl ?? 90_000); }
-                                return result;
-                            }
-                        } catch { }
-                        continue;
-                    }
 
                     const check = await verifyPlayable(checkUrl, checkHeaders, false);
 
