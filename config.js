@@ -489,6 +489,17 @@ export const SOURCES = [
         multiUrl: true
     },
 
+    {
+        key: 'vidbolt',
+        label: 'VidBolt',
+        sourceFile: 'vidbolt',
+        proxyParam: 'vb',
+        timeout: 25000,
+        jitter: 500,
+        retries: 1,
+        multiUrl: true
+    },
+
 ];
 
 export const SOURCE_MAP = Object.fromEntries(SOURCES.map(s => [s.key, s]));
