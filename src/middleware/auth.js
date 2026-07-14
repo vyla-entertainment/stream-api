@@ -44,13 +44,18 @@ export async function loadKeysFromDB() {
     }
 }
 
+let authInitialized = false;
+
 export async function initAuth() {
+    if (authInitialized) return;
+    authInitialized = true;
+
     await ensureApiKeysTable();
     await ensurePublicKey();
     await loadKeysFromDB();
 
     setInterval(() => {
-        loadKeysFromDB();
+        loadKeysFromDB().catch(console.error);
     }, KEY_REFRESH_INTERVAL_MS);
 }
 
