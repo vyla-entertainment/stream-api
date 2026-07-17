@@ -5,6 +5,7 @@
     "description": "Vyla API — multi-provider stream scraper on Hugging Face Spaces",
     "type": "module",
     "dependencies": {
-        "better-sqlite3": "^11.9.1"
+        "better-sqlite3": "^11.9.1",
+        "dotenv": "^17.4.2"
     }
 }
