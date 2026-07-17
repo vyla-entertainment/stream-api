@@ -23,11 +23,19 @@ jobs:
 
             cd /var/www/stream-api
 
+            mkdir -p /var/backups/stream-api
+            if [ -f data/api_keys.db ]; then
+              cp data/api_keys.db "/var/backups/stream-api/api_keys-$(date +%Y%m%d%H%M%S).db"
+              ls -t /var/backups/stream-api/api_keys-*.db | tail -n +31 | xargs -r rm --
+            fi
+
             git fetch origin main
             git reset --hard origin/main
-            git clean -fd
+            git clean -fd -e data
 
             npm install
+
+            mkdir -p data
 
             pm2 restart stream-api || pm2 start server.js --name stream-api
 

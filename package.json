@@ -5,7 +5,6 @@
     "description": "Vyla API — multi-provider stream scraper on Hugging Face Spaces",
     "type": "module",
     "dependencies": {
-        "@neondatabase/serverless": "^1.1.0",
-        "dotenv": "^17.4.2"
+        "better-sqlite3": "^11.9.1"
     }
 }

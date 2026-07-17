@@ -1,68 +1,60 @@
-import { Pool } from '@neondatabase/serverless';
-import dotenv from 'dotenv';
+import Database from 'better-sqlite3';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-dotenv.config({ path: path.join(__dirname, '.env') });
+const DB_DIR = path.join(__dirname, 'data');
+const DB_PATH = path.join(DB_DIR, 'api_keys.db');
 
-const DATABASE_URL = process.env.DATABASE_URL;
+if (!fs.existsSync(DB_DIR)) {
+    fs.mkdirSync(DB_DIR, { recursive: true });
+}
 
-const pool = new Pool({
-    connectionString: DATABASE_URL,
-    max: 5,
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 10000
-});
-
-pool.on('error', (err) => {
-    console.error('Unexpected pool error', err);
-});
+const db = new Database(DB_PATH);
+db.pragma('journal_mode = WAL');
+db.pragma('busy_timeout = 5000');
 
 export async function ensureApiKeysTable() {
-    await pool.query(`
-        CREATE TABLE IF NOT EXISTS public.api_keys (
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS api_keys (
             key TEXT PRIMARY KEY,
             type TEXT NOT NULL DEFAULT 'standard',
             rpm INTEGER NOT NULL DEFAULT 100,
-            active BOOLEAN NOT NULL DEFAULT true,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            active INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
         )
     `);
 }
 
 export async function fetchDisabledApiKeys() {
-    const result = await pool.query(`
+    return db.prepare(`
         SELECT key
         FROM api_keys
-        WHERE active = false
-    `);
-
-    return result.rows;
+        WHERE active = 0
+    `).all();
 }
 
 export async function fetchActiveApiKeys() {
-    const result = await pool.query(`
+    return db.prepare(`
         SELECT key, type, rpm
         FROM api_keys
-        WHERE active = true
-    `);
-
-    return result.rows;
+        WHERE active = 1
+    `).all();
 }
 
 export async function ensurePublicKey() {
-    const existing = await pool.query(`
-        SELECT key FROM public.api_keys WHERE key = 'public_api_key'
-    `);
+    const existing = db.prepare(`
+        SELECT key FROM api_keys WHERE key = 'public_api_key'
+    `).get();
 
-    if (existing.rows.length === 0) {
-        await pool.query(`
-            INSERT INTO public.api_keys (key, type, rpm, active)
-            VALUES ('public_api_key', 'public', 10, true)
-        `);
+    if (!existing) {
+        db.prepare(`
+            INSERT INTO api_keys (key, type, rpm, active)
+            VALUES ('public_api_key', 'public', 10, 1)
+        `).run();
     }
 }
 
-export default pool;
+export default db;
