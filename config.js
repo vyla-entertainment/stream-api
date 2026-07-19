@@ -15,7 +15,6 @@ export const SOURCES = [
         jitter: 800,
         retries: 3,
         multiUrl: true,
-        disabled: true, // Temporarily disabled because their streams are extremely slow and unstable.
         cdnHeaders: [{
             pattern: /./,
             headers: {
@@ -136,6 +135,7 @@ export const SOURCES = [
         jitter: 500,
         retries: 2,
         multiUrl: true,
+        disabled: true, // Temporarily disabled because their site is down, all streams are returning 403's
         cdnHeaders: [{
             pattern: /flix2watch\.pro/i,
             headers: {
@@ -514,7 +514,8 @@ export const SOURCES = [
         timeout: 25000,
         jitter: 500,
         retries: 1,
-        multiUrl: true
+        multiUrl: true,
+        disabled: true, // Temporarily disabled because their site is down, all streams are returning 403's
     },
 
 ];
