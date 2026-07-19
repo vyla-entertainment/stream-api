@@ -5,7 +5,7 @@ import { ensureApiKeysTable, fetchActiveApiKeys, fetchDisabledApiKeys, ensurePub
 
 dotenv.config();
 
-const BYPASS_AUTH = true;
+const BYPASS_AUTH = false;
 
 const API_KEYS = new Map();
 const DISABLED_KEYS = new Set();
