@@ -507,6 +507,18 @@ export const SOURCES = [
         skipProxy: true,
     },
 
+    {
+        key: 'nebula',
+        label: 'Nebula',
+        sourceFile: 'nebula',
+        proxyParam: 'nb',
+        timeout: 25000,
+        jitter: 500,
+        retries: 1,
+        multiUrl: true,
+        skipProxy: true,
+    },
+
 ];
 
 export const SOURCE_MAP = Object.fromEntries(SOURCES.map(s => [s.key, s]));
