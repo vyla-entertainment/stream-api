@@ -6,8 +6,10 @@ const HEADERS = { 'User-Agent': USER_AGENT, 'Referer': 'https://vidcore.net/', '
 async function getDynamicServers(id, s, e) {
     try {
         const html = await fetchText(s != null && e != null ? `https://vidcore.net/tv/${id}/${s}/${e}/` : `https://vidcore.net/movie/${id}/`, { headers: HEADERS });
-        const match = html.match(/\\"en\\":\\"(.*?)\\"/) || html.match(/"en":"(.*?)"/);
+
+        const match = html.match(/\\"token\\":\\"(.*?)\\"/) || html.match(/"token":"(.*?)"/);
         if (!match?.[1]) return null;
+
         const encData = await fetchJson(`${API_BASE}/enc-vidcore?text=${encodeURIComponent(match[1])}`);
         if (!encData?.result) return null;
         const { servers: serversUrl, stream: streamUrl, token } = encData.result;

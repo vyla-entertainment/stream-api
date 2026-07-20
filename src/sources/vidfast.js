@@ -8,14 +8,19 @@ async function getVidfastMeta(id, s, e) {
     try {
         const embedUrl = s != null && e != null ? `${DOMAIN}/tv/${id}/${s}/${e}/` : `${DOMAIN}/movie/${id}/`;
         const html = await fetchText(embedUrl, { headers: { 'User-Agent': USER_AGENT } });
-        const match = html.match(/\\"en\\":\\"(.*?)\\"/) || html.match(/"en":"(.*?)"/);
+
+        const match = html.match(/\\"token\\":\\"(.*?)\\"/) || html.match(/"token":"(.*?)"/);
         if (!match?.[1]) return null;
+
         const encData = await fetchJson(`${API_BASE}/enc-vidfast?text=${encodeURIComponent(match[1])}`);
         if (encData.status !== 200 || !encData.result) return null;
+
         const { servers: serversUrl, stream: streamUrl, token } = encData.result;
         const reqHeaders = { ...HEADERS, 'X-CSRF-Token': token };
+
         const serversEncrypted = await fetchText(serversUrl, { method: 'POST', headers: reqHeaders });
         const decServersData = await fetchJson(`${API_BASE}/dec-vidfast`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: serversEncrypted }) });
+
         if (decServersData.status !== 200 || !decServersData.result) return null;
         return { servers: decServersData.result, streamUrl, reqHeaders };
     } catch { return null; }

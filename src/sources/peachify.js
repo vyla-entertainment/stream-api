@@ -40,7 +40,6 @@ export async function getStream({ id, s, e, server }) {
             if (decJson.status !== 200 || !decJson.result) throw new Error();
             const res = decJson.result;
 
-            // Peachify usually returns a single object or array of sources
             const sources = Array.isArray(res) ? res : (res.sources || [res]);
             const subs = res.subtitles || [];
 

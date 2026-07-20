@@ -402,17 +402,6 @@ export const SOURCES = [
     },
 
     {
-        key: 'notorrent',
-        label: 'NoTorrent',
-        sourceFile: 'notorrent',
-        proxyParam: 'nt',
-        timeout: 20000,
-        jitter: 500,
-        retries: 2,
-        multiUrl: true,
-    },
-
-    {
         key: '1embed',
         label: '1Embed',
         sourceFile: '1embed',
@@ -507,15 +496,15 @@ export const SOURCES = [
     },
 
     {
-        key: 'vidbolt',
-        label: 'VidBolt',
-        sourceFile: 'vidbolt',
-        proxyParam: 'vb',
+        key: 'pengu',
+        label: 'Pengu',
+        sourceFile: 'pengu',
+        proxyParam: 'pg',
         timeout: 25000,
         jitter: 500,
         retries: 1,
         multiUrl: true,
-        disabled: true, // Temporarily disabled because their site is down, all streams are returning 403's
+        skipProxy: true,
     },
 
 ];

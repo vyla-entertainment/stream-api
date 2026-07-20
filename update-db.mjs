@@ -22,7 +22,6 @@ db.transaction(() => {
 
     const incoming = data.map(x => x.key);
 
-    // Remove keys deleted from db.json
     for (const key of existing) {
         if (!incoming.includes(key)) {
             db.prepare(`
@@ -34,7 +33,6 @@ db.transaction(() => {
         }
     }
 
-    // Insert/update keys
     const upsert = db.prepare(`
         INSERT INTO api_keys (
             key,
