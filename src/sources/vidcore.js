@@ -7,7 +7,7 @@ async function getDynamicServers(id, s, e) {
     try {
         const html = await fetchText(s != null && e != null ? `https://vidcore.net/tv/${id}/${s}/${e}/` : `https://vidcore.net/movie/${id}/`, { headers: HEADERS });
 
-        const match = html.match(/\\"token\\":\\"(.*?)\\"/) || html.match(/"token":"(.*?)"/);
+        const match = html.match(/\\"(?:en|token)\\":\\"(.*?)\\"/) || html.match(/"(?:en|token)":"(.*?)"/);
         if (!match?.[1]) return null;
 
         const encData = await fetchJson(`${API_BASE}/enc-vidcore?text=${encodeURIComponent(match[1])}`);

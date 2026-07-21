@@ -9,7 +9,7 @@ async function getVidupMeta(id, s, e) {
         const embedUrl = s != null && e != null ? `${DOMAIN}/tv/${id}/${s}/${e}/` : `${DOMAIN}/movie/${id}/`;
         const html = await fetchText(embedUrl, { headers: { 'User-Agent': USER_AGENT } });
 
-        const match = html.match(/\\"token\\":\\"(.*?)\\"/) || html.match(/"token":"(.*?)"/);
+        const match = html.match(/\\"(?:en|token)\\":\\"(.*?)\\"/) || html.match(/"(?:en|token)":"(.*?)"/);
         if (!match?.[1]) return null;
 
         const encData = await fetchJson(`${API_BASE}/enc-vidup?text=${encodeURIComponent(match[1])}`);
