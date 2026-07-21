@@ -1,4 +1,4 @@
-import Database from 'better-sqlite3';
+import { DatabaseSync } from 'node:sqlite';
 import crypto from 'crypto';
 
 const [, , type, rpmArg, label] = process.argv;
@@ -19,8 +19,8 @@ const prefix = type === 'partner' ? 'pk' : type === 'public' ? 'pub' : 'sk';
 const suffix = crypto.randomBytes(16).toString('hex');
 const key = label ? `${prefix}_${label}_${suffix}` : `${prefix}_${suffix}`;
 
-const db = new Database('./data/api_keys.db');
-db.pragma('journal_mode = WAL');
+const db = new DatabaseSync('./data/api_keys.db');
+db.exec('PRAGMA journal_mode = WAL;');
 
 db.prepare(`
     INSERT INTO api_keys (key, type, rpm, active)

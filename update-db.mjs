@@ -1,4 +1,4 @@
-import Database from "better-sqlite3";
+import { DatabaseSync } from "node:sqlite";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -8,14 +8,14 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DB_PATH = path.join(__dirname, "data", "api_keys.db");
 const INPUT = path.join(__dirname, "db.json");
 
-const db = new Database(DB_PATH);
+const db = new DatabaseSync(DB_PATH);
 
 const data = JSON.parse(
     fs.readFileSync(INPUT, "utf8")
 );
 
-db.transaction(() => {
-
+db.exec('BEGIN TRANSACTION');
+try {
     const existing = db.prepare(`
         SELECT key FROM api_keys
     `).all().map(x => x.key);
@@ -42,11 +42,11 @@ db.transaction(() => {
             created_at
         )
         VALUES (
-            @key,
-            @type,
-            @rpm,
-            @active,
-            @created_at
+            ?,
+            ?,
+            ?,
+            ?,
+            ?
         )
         ON CONFLICT(key) DO UPDATE SET
             type = excluded.type,
@@ -55,17 +55,20 @@ db.transaction(() => {
     `);
 
     for (const row of data) {
-        upsert.run({
-            key: row.key,
-            type: row.type ?? "standard",
-            rpm: row.rpm ?? 100,
-            active: row.active ?? 1,
-            created_at: row.created_at ?? new Date().toISOString()
-        });
+        upsert.run(
+            row.key,
+            row.type ?? "standard",
+            row.rpm ?? 100,
+            row.active ?? 1,
+            row.created_at ?? new Date().toISOString()
+        );
 
         console.log(`Updated ${row.key}`);
     }
-
-})();
+    db.exec('COMMIT');
+} catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+}
 
 console.log("Database synced from db.json");
