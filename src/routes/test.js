@@ -43,7 +43,7 @@ export async function handleDebugRoute(match, searchParams, absoluteBase, _nativ
 
     const mod = SOURCE_MODULES[sourceKey];
     const cfg = SOURCE_MAP[sourceKey];
-    if (!mod) return { status: 400, body: JSON.stringify({ error: `unknown source: ${sourceKey}`, available_sources: Object.keys(SOURCE_MODULES) }) };
+    if (!mod) return { status: 400, body: JSON.stringify({ error: `unknown source: ${sourceKey}` }) };
 
     const t0 = Date.now();
     let streamResult = null, streamError = null, streamErrorStack = null;

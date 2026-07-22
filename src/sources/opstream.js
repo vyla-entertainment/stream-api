@@ -3,9 +3,15 @@ import { getTmdbInfo, USER_AGENT } from '../utils/helpers.js';
 const BASE_URL = 'https://opstream.fun';
 const API_BASE = `${BASE_URL}/api/resolve`;
 
-const HEADERS = {
+const API_HEADERS = {
     'User-Agent': USER_AGENT,
     'Accept': 'application/x-ndjson; charset=utf-8',
+    'Referer': `${BASE_URL}/`,
+    'Origin': BASE_URL,
+};
+
+const STREAM_HEADERS = {
+    'User-Agent': USER_AGENT,
     'Referer': `${BASE_URL}/`,
     'Origin': BASE_URL,
 };
@@ -23,7 +29,6 @@ export async function getStream({ id, s, e }) {
             title: info.titles[0],
             year: info.year || '',
             imdbId: info.imdbId,
-            dash: '1',
             progress: '1'
         });
 
@@ -33,7 +38,7 @@ export async function getStream({ id, s, e }) {
         }
 
         const res = await fetch(`${API_BASE}?${params}`, { 
-            headers: HEADERS, 
+            headers: API_HEADERS, 
             signal: AbortSignal.timeout(15000) 
         });
         
@@ -48,7 +53,7 @@ export async function getStream({ id, s, e }) {
             if (!trimmed) continue;
             try {
                 const json = JSON.parse(trimmed);
-                if (json.t === 'done' && json.data?.url) {
+                if (json.t === 'done' && json.data) {
                     streamData = json.data;
                     break;
                 }
@@ -57,33 +62,59 @@ export async function getStream({ id, s, e }) {
 
         if (!streamData) return null;
 
-        let finalUrl = streamData.url;
-        
-        if (finalUrl.includes('?u=')) {
-            try {
-                const uParam = new URL(finalUrl, BASE_URL).searchParams.get('u');
-                if (uParam) finalUrl = Buffer.from(uParam, 'base64').toString('utf8');
-            } catch {}
-        } else if (!finalUrl.startsWith('http')) {
-            finalUrl = `${BASE_URL}${finalUrl}`;
-        }
+        const subtitles = (streamData.captions || []).map(c => ({
+            url: c.url.startsWith('http') ? c.url : `${BASE_URL}${c.url}`,
+            lang: c.label || 'Unknown'
+        }));
 
-        const isDash = streamData.kind === 'dash' || finalUrl.includes('.mpd');
-        const isHls = streamData.kind === 'hls' || finalUrl.includes('.m3u8');
+        const allUrls = [];
 
-        return {
-            allUrls: [{
+        if (streamData.qualities && streamData.qualities.length > 0) {
+            for (const q of streamData.qualities) {
+                let finalUrl = q.url;
+                if (!finalUrl.startsWith('http')) {
+                    finalUrl = `${BASE_URL}${finalUrl}`;
+                }
+
+                const isDash = finalUrl.includes('.mpd');
+                const isHls = finalUrl.includes('.m3u8');
+
+                allUrls.push({
+                    url: finalUrl,
+                    server: `OpStream - ${q.label}`,
+                    type: isDash ? 'dash' : (isHls ? 'hls' : 'mp4'),
+                    headers: STREAM_HEADERS,
+                    subtitles,
+                    skipProxy: true
+                });
+            }
+        } else if (streamData.url) {
+            let finalUrl = streamData.url;
+            if (finalUrl.includes('?u=')) {
+                try {
+                    const uParam = new URL(finalUrl, BASE_URL).searchParams.get('u');
+                    if (uParam) finalUrl = Buffer.from(uParam, 'base64').toString('utf8');
+                } catch {}
+            } else if (!finalUrl.startsWith('http')) {
+                finalUrl = `${BASE_URL}${finalUrl}`;
+            }
+
+            const isDash = streamData.kind === 'dash' || finalUrl.includes('.mpd');
+            const isHls = streamData.kind === 'hls' || finalUrl.includes('.m3u8');
+
+            allUrls.push({
                 url: finalUrl,
                 server: 'OpStream',
                 type: isDash ? 'dash' : (isHls ? 'hls' : 'mp4'),
-                headers: HEADERS,
-                subtitles: (streamData.captions || []).map(c => ({
-                    url: c.url.startsWith('http') ? c.url : `${BASE_URL}${c.url}`,
-                    lang: c.label || 'Unknown'
-                })),
+                headers: STREAM_HEADERS,
+                subtitles,
                 skipProxy: true
-            }]
-        };
+            });
+        }
+
+        if (allUrls.length === 0) return null;
+
+        return { allUrls };
     } catch { return null; }
 }
 

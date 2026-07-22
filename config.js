@@ -358,17 +358,6 @@ export const SOURCES = [
     },
 
     {
-        key: 'lordflix',
-        label: 'Lordflix',
-        sourceFile: 'lordflix',
-        proxyParam: 'lf',
-        timeout: 20000,
-        retries: 1,
-        jitter: 0,
-        multiUrl: true,
-    },
-
-    {
         key: 'fsonline',
         label: 'FSOnline',
         sourceFile: 'fsonline',
@@ -505,6 +494,7 @@ export const SOURCES = [
         retries: 1,
         multiUrl: true,
         skipProxy: true,
+        disabled: true, // Temporarily disabled because they now require google auth
     },
 
     {

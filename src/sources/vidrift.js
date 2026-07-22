@@ -1,6 +1,6 @@
 'use strict';
 
-const BASE = "https://vidrift.in";
+const BASE = "https://embed.vidrift.in";
 
 const DEFAULT_HEADERS = {
     "Accept": "*/*",
@@ -12,98 +12,67 @@ const DEFAULT_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36 Edg/150.0.0.0"
 };
 
-let cachedSecret = null;
-let secretTimestamp = 0;
-const SECRET_TTL_MS = 5 * 60 * 1000;
-
-async function fetchVrSecret() {
-    const now = Date.now();
-    if (cachedSecret && (now - secretTimestamp) < SECRET_TTL_MS) {
-        return cachedSecret;
-    }
-
+function decodeStreams(encodedStr) {
     try {
-        const embedUrl = `${BASE}/embed/movie/550?primarycolor=7ef7c4`;
-        const res = await fetch(embedUrl, {
-            headers: {
-                ...DEFAULT_HEADERS,
-                "Accept": "text/html",
-            },
-            signal: AbortSignal.timeout(8000)
-        });
+        const base64Str = encodedStr.replace(/-/g, '+').replace(/_/g, '/');
 
-        if (!res.ok) throw new Error(`Embed fetch failed: ${res.status}`);
+        const binaryStr = typeof atob === 'function'
+            ? atob(base64Str)
+            : Buffer.from(base64Str, 'base64').toString('binary');
 
-        const html = await res.text();
-
-        const patterns = [
-            /const\s+VR_SECRET\s*=\s*['"`]([^'"`]+)['"`]/,
-            /var\s+VR_SECRET\s*=\s*['"`]([^'"`]+)['"`]/,
-            /VR_SECRET\s*=\s*['"`]([^'"`]+)['"`]/,
-            /vr_sec_[a-zA-Z0-9_]+/,
-        ];
-
-        for (const pattern of patterns) {
-            const match = html.match(pattern);
-            if (match) {
-                cachedSecret = match[1] || match[0];
-                secretTimestamp = now;
-                console.log(`[VidRift] Extracted VR_SECRET: ${cachedSecret}`);
-                return cachedSecret;
-            }
+        const bytes = new Uint8Array(binaryStr.length);
+        for (let i = 0; i < binaryStr.length; i++) {
+            bytes[i] = binaryStr.charCodeAt(i);
         }
 
-        throw new Error('VR_SECRET not found in embed page');
-    } catch (err) {
-        cachedSecret = 'vr_sec_v2_9kL8mN4qR2tX';
-        secretTimestamp = now;
-        return cachedSecret;
-    }
-}
+        const key = bytes[0];
+        let decodedStr = '';
+        for (let i = 1; i < bytes.length; i++) {
+            decodedStr += String.fromCharCode(bytes[i] ^ key);
+        }
 
-function vrHash(s) {
-    let h = 0;
-    for (let i = 0; i < s.length; i++) {
-        h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+        return JSON.parse(decodedStr);
+    } catch (e) {
+        return [];
     }
-    return Math.abs(h).toString(36).padStart(8, '0');
-}
-
-async function vrToken() {
-    const secret = await fetchVrSecret();
-    const t = Math.floor(Date.now() / 1000);
-    return t + '-' + vrHash(t + ':' + secret);
 }
 
 export async function getStream(args) {
     const { id, s, e, server: serverName } = args;
     const type = s != null && e != null ? "tv" : "movie";
 
-    const t = await vrToken();
-
     const endpoint = type === "tv"
-        ? `${BASE}/api/source/tv/${id}/${s}/${e}?_t=${t}&source=embed`
-        : `${BASE}/api/source/movie/${id}?_t=${t}&source=embed`;
+        ? `${BASE}/embed/tv/${id}/${s}/${e}`
+        : `${BASE}/embed/movie/${id}`;
 
     try {
         const res = await fetch(endpoint, {
-            headers: DEFAULT_HEADERS,
+            headers: {
+                ...DEFAULT_HEADERS,
+                "Accept": "text/html",
+            },
             signal: AbortSignal.timeout(10000)
         });
 
         if (!res.ok) return null;
 
-        const data = await res.json();
+        const html = await res.text();
 
-        if (!data.success || !Array.isArray(data.streams) || !data.streams.length) {
+        const match = html.match(/var\s+_s\s*=\s*['"]([^'"]+)['"]/);
+        if (!match) return null;
+
+        const encodedStreams = match[1];
+        const streamsData = decodeStreams(encodedStreams);
+
+        if (!Array.isArray(streamsData) || !streamsData.length) {
             return null;
         }
 
-        const allUrls = data.streams.map(stream => ({
-            url: stream.proxyUrl.startsWith("http")
-                ? stream.proxyUrl
-                : `${BASE}${stream.proxyUrl}`,
-            server: `VidRift - Server ${stream.index + 1}`,
+        const allUrls = streamsData.map((stream, index) => ({
+            url: stream.url.startsWith("http")
+                ? stream.url
+                : `${BASE}${stream.url}`,
+            server: stream.label || `VidRift - Server ${index + 1}`,
             type: "hls",
             headers: DEFAULT_HEADERS
         }));
@@ -114,7 +83,7 @@ export async function getStream(args) {
         }
 
         return { allUrls };
-    } catch {
+    } catch (err) {
         return null;
     }
 }
