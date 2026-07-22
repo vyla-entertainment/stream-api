@@ -1,12 +1,3 @@
----
-title: x
-emoji: 🎬
-colorFrom: gray
-colorTo: gray
-sdk: docker
-pinned: false
----
-
 # [./DOCUMENTATION/DMCA.md](./DOCUMENTATION/DMCA.md)
 
 If your source is listed here, I sincerely apologize. I understand that its inclusion may be costing you a lot of money, and that was never my intention. Please contact me as soon as possible, and I'll remove it ASAP.
