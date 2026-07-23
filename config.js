@@ -7,159 +7,14 @@
 
 export const SOURCES = [
     {
-        key: 'vidrock',
-        label: 'VidRock',
-        sourceFile: 'vidrock',
-        proxyParam: 'vr',
-        timeout: 20000,
-        jitter: 800,
-        retries: 3,
-        multiUrl: true,
-        cdnHeaders: [{
-            pattern: /./,
-            headers: {
-                Accept: '/',
-                'Accept-Language': 'en-US,en;q=0.9',
-                Referer: 'https://vidrock.ru/',
-                Origin: 'https://vidrock.ru',
-            },
-        },],
-    },
-
-    {
-        key: 'vidzee',
-        label: 'VidZee',
-        sourceFile: 'vidzee',
-        proxyParam: 'vz',
-        timeout: 20000,
-        sourcesTimeout: 10000,
-        jitter: 400,
-        retries: 3,
-        disabled: true, // Temporarily disabled because their site is down, all streams are returning 403's
-        verifyHeaders: {
-            Accept: '/',
-            'Accept-Language': 'en-US,en;q=0.9',
-            Referer: 'https://player.vidzee.wtf',
-            Origin: 'https://player.vidzee.wtf',
-        },
-    },
-
-    {
-        key: 'vidlink',
-        label: 'Vidlink',
-        sourceFile: 'vidlink',
-        proxyParam: 'vl',
-        timeout: 20000,
-        jitter: 500,
-        retries: 2,
-        skipProxy: true,
-        multiUrl: true,
-        disabled: true, // Temporarily disabled because their site is down, all streams are returning 403's
-    },
-
-    {
-        key: 'vidfast',
-        label: 'Vidfast',
-        sourceFile: 'vidfast',
-        proxyParam: 'vf',
-        timeout: 35000,
-        jitter: 500,
-        retries: 1,
-    },
-
-    {
-        key: 'vixsrc',
-        label: 'VixSrc',
-        sourceFile: 'vixsrc',
-        proxyParam: 'vx',
-        timeout: 35000,
-        jitter: 0,
-        retries: 2,
-        multiUrl: false,
-        skipProxy: true,
-        verifyHeaders: {
-            Accept: 'application/json, text/javascript, /; q=0.01',
-            'Accept-Language': 'en-US,en;q=0.9',
-            Referer: 'https://vixsrc.to/',
-            Origin: 'https://vixsrc.to',
-        },
-    },
-
-    {
-        key: 'fsharetv',
-        label: 'FShareTV',
-        sourceFile: 'fsharetv',
-        proxyParam: 'fs',
-        timeout: 25000,
-        jitter: 600,
-        retries: 2,
-        multiUrl: false,
-        verifyHeaders: {
-            Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,/;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.9',
-            Referer: 'https://fsharetv.cc',
-        },
-    },
-
-    {
-        key: 'fsonic',
-        label: 'Fsonic',
-        sourceFile: 'fsonic',
-        proxyParam: 'fn',
-        timeout: 35000,
-        jitter: 600,
-        retries: 1,
-        multiUrl: true,
-    },
-
-    {
-        key: 'lookmovie',
-        label: 'LookMovie',
-        sourceFile: 'lookmovie',
-        proxyParam: 'lm',
+        key: '1embed',
+        label: '1Embed',
+        sourceFile: '1embed',
+        proxyParam: '1e',
         timeout: 20000,
         jitter: 500,
         retries: 2,
         multiUrl: true,
-        verifyHeaders: {
-            'Accept-Language': 'en-US,en;q=0.9',
-        },
-    },
-
-    {
-        key: 'flaxmovies',
-        label: 'FlaxMovies',
-        sourceFile: 'flaxmovies',
-        proxyParam: 'fx',
-        timeout: 20000,
-        jitter: 500,
-        retries: 2,
-        multiUrl: true,
-        disabled: true, // Temporarily disabled because their site is down, all streams are returning 403's
-        cdnHeaders: [{
-            pattern: /flix2watch\.pro/i,
-            headers: {
-                Referer: 'https://flaxmovies.xyz/',
-                Origin: 'https://flaxmovies.xyz',
-            },
-        },],
-    },
-
-    {
-        key: 'videasy',
-        label: 'Videasy',
-        sourceFile: 'videasy',
-        proxyParam: 'vy',
-        timeout: 40000,
-        sourcesTimeout: 10000,
-        jitter: 900,
-        retries: 3,
-        multiUrl: true,
-        verifyHeaders: {
-            Accept: 'application/json, /; q=0.01',
-            Referer: 'https://player.videasy.net/',
-            Origin: 'https://player.videasy.net',
-        },
     },
 
     {
@@ -182,35 +37,27 @@ export const SOURCES = [
     },
 
     {
-        key: 'vidcore',
-        sourceFile: 'vidcore',
-        label: 'Vidcore',
-        proxyParam: 'vc',
-        timeout: 30000,
+        key: 'anihq-sub',
+        label: 'AniHQ (Sub)',
+        sourceFile: 'anihq',
+        proxyParam: 'ahsub',
+        timeout: 25000,
         jitter: 500,
         retries: 2,
-        sourcesTimeout: 10000,
+        multiUrl: true,
+        skipProxy: true
     },
 
     {
-        key: 'purstream',
-        sourceFile: 'purstream',
-        label: 'Purstream',
-        proxyParam: 'ps',
-        timeout: 20000,
+        key: 'anihq-dub',
+        label: 'AniHQ (Dub)',
+        sourceFile: 'anihq',
+        proxyParam: 'ahdub',
+        timeout: 25000,
         jitter: 500,
         retries: 2,
-    },
-
-    {
-        key: 'xpass',
-        sourceFile: 'xpass',
-        label: 'XPass',
-        proxyParam: 'xp',
-        timeout: 20000,
-        jitter: 500,
-        retries: 2,
-        skipProxy: true,
+        multiUrl: true,
+        skipProxy: true
     },
 
     {
@@ -229,26 +76,6 @@ export const SOURCES = [
         label: 'AniNeko (Dub)',
         proxyParam: 'ankdub',
         timeout: 25000,
-        jitter: 500,
-        retries: 2
-    },
-
-    {
-        key: 'nekowatch-sub',
-        sourceFile: 'nekowatch',
-        label: 'NekoWatch (Sub)',
-        proxyParam: 'nwsub',
-        timeout: 30000,
-        jitter: 500,
-        retries: 2
-    },
-
-    {
-        key: 'nekowatch-dub',
-        sourceFile: 'nekowatch',
-        label: 'NekoWatch (Dub)',
-        proxyParam: 'nwdub',
-        timeout: 30000,
         jitter: 500,
         retries: 2
     },
@@ -288,6 +115,264 @@ export const SOURCES = [
     },
 
     {
+        key: 'flaxmovies',
+        label: 'FlaxMovies',
+        sourceFile: 'flaxmovies',
+        proxyParam: 'fx',
+        timeout: 20000,
+        jitter: 500,
+        retries: 2,
+        multiUrl: true,
+        disabled: true, // Temporarily disabled because their site is down, all streams are returning 403's
+        cdnHeaders: [{
+            pattern: /flix2watch\.pro/i,
+            headers: {
+                Referer: 'https://flaxmovies.xyz/',
+                Origin: 'https://flaxmovies.xyz',
+            },
+        },],
+    },
+
+    {
+        key: 'fsharetv',
+        label: 'FShareTV',
+        sourceFile: 'fsharetv',
+        proxyParam: 'fs',
+        timeout: 25000,
+        jitter: 600,
+        retries: 2,
+        multiUrl: false,
+        verifyHeaders: {
+            Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,/;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
+            Referer: 'https://fsharetv.cc',
+        },
+    },
+
+    {
+        key: 'fsonic',
+        label: 'Fsonic',
+        sourceFile: 'fsonic',
+        proxyParam: 'fn',
+        timeout: 35000,
+        jitter: 600,
+        retries: 1,
+        multiUrl: true,
+    },
+
+    {
+        key: 'fsonline',
+        label: 'FSOnline',
+        sourceFile: 'fsonline',
+        proxyParam: 'fo',
+        timeout: 20000,
+        retries: 1,
+        jitter: 0,
+        multiUrl: true,
+        skipProxy: true,
+    },
+
+    {
+        key: 'hexa',
+        label: 'Hexa',
+        sourceFile: 'hexa',
+        proxyParam: 'hx',
+        timeout: 20000,
+        jitter: 500,
+        retries: 2,
+    },
+
+    {
+        key: 'kisskh',
+        label: 'KissKH',
+        sourceFile: 'kisskh',
+        proxyParam: 'kk',
+        timeout: 30000,
+        jitter: 500,
+        retries: 1,
+    },
+
+    {
+        key: 'lookmovie',
+        label: 'LookMovie',
+        sourceFile: 'lookmovie',
+        proxyParam: 'lm',
+        timeout: 20000,
+        jitter: 500,
+        retries: 2,
+        multiUrl: true,
+        verifyHeaders: {
+            'Accept-Language': 'en-US,en;q=0.9',
+        },
+    },
+
+    {
+        key: 'mapple',
+        label: 'Mapple',
+        sourceFile: 'mapple',
+        proxyParam: 'mp',
+        timeout: 15000,
+        retries: 1,
+        jitter: 0
+    },
+
+    {
+        key: 'meowtv',
+        label: 'MeowTV',
+        sourceFile: 'meowtv',
+        proxyParam: 'mt',
+        timeout: 20000,
+        jitter: 500,
+        retries: 2,
+        multiUrl: true,
+        skipProxy: true
+    },
+
+    {
+        key: 'nebula',
+        label: 'Nebula',
+        sourceFile: 'nebula',
+        proxyParam: 'nb',
+        timeout: 25000,
+        jitter: 500,
+        retries: 1,
+        multiUrl: true,
+        skipProxy: true,
+    },
+
+    {
+        key: 'nekowatch-sub',
+        sourceFile: 'nekowatch',
+        label: 'NekoWatch (Sub)',
+        proxyParam: 'nwsub',
+        timeout: 30000,
+        jitter: 500,
+        retries: 2
+    },
+
+    {
+        key: 'nekowatch-dub',
+        sourceFile: 'nekowatch',
+        label: 'NekoWatch (Dub)',
+        proxyParam: 'nwdub',
+        timeout: 30000,
+        jitter: 500,
+        retries: 2
+    },
+
+    {
+        key: 'opstream',
+        label: 'OpStream',
+        sourceFile: 'opstream',
+        proxyParam: 'op',
+        timeout: 35000,
+        jitter: 500,
+        retries: 2,
+        multiUrl: true,
+        skipProxy: true,
+        verifyHeaders: {
+            Referer: 'https://opstream.fun/',
+            Origin: 'https://opstream.fun',
+        },
+    },
+
+    {
+        key: 'peachify',
+        label: 'Peachify',
+        sourceFile: 'peachify',
+        proxyParam: 'pf',
+        timeout: 30000,
+        jitter: 500,
+        retries: 1,
+        multiUrl: true
+    },
+
+    {
+        key: 'pengu',
+        label: 'Pengu',
+        sourceFile: 'pengu',
+        proxyParam: 'pg',
+        timeout: 25000,
+        jitter: 500,
+        retries: 1,
+        multiUrl: true,
+        skipProxy: true,
+        disabled: true, // Temporarily disabled because they now require google auth
+    },
+
+    {
+        key: 'purstream',
+        sourceFile: 'purstream',
+        label: 'Purstream',
+        proxyParam: 'ps',
+        timeout: 20000,
+        jitter: 500,
+        retries: 2,
+    },
+
+    {
+        key: 'vidapi',
+        label: 'VidAPI',
+        sourceFile: 'vidapi',
+        proxyParam: 'va',
+        timeout: 25000,
+        jitter: 500,
+        retries: 1,
+        multiUrl: true
+    },
+
+    {
+        key: 'vidcore',
+        sourceFile: 'vidcore',
+        label: 'Vidcore',
+        proxyParam: 'vc',
+        timeout: 30000,
+        jitter: 500,
+        retries: 2,
+        sourcesTimeout: 10000,
+    },
+
+    {
+        key: 'videasy',
+        label: 'Videasy',
+        sourceFile: 'videasy',
+        proxyParam: 'vy',
+        timeout: 40000,
+        sourcesTimeout: 10000,
+        jitter: 900,
+        retries: 3,
+        multiUrl: true,
+        verifyHeaders: {
+            Accept: 'application/json, /; q=0.01',
+            Referer: 'https://player.videasy.net/',
+            Origin: 'https://player.videasy.net',
+        },
+    },
+
+    {
+        key: 'vidfast',
+        label: 'Vidfast',
+        sourceFile: 'vidfast',
+        proxyParam: 'vf',
+        timeout: 35000,
+        jitter: 500,
+        retries: 1,
+    },
+
+    {
+        key: 'vidlink',
+        label: 'Vidlink',
+        sourceFile: 'vidlink',
+        proxyParam: 'vl',
+        timeout: 20000,
+        jitter: 500,
+        retries: 2,
+        skipProxy: true,
+        multiUrl: true,
+        disabled: true, // Temporarily disabled because their site is down, all streams are returning 403's
+    },
+
+    {
         key: 'vidnest',
         label: 'VidNest',
         sourceFile: 'vidnest',
@@ -311,30 +396,6 @@ export const SOURCES = [
     },
 
     {
-        key: 'anihq-sub',
-        label: 'AniHQ (Sub)',
-        sourceFile: 'anihq',
-        proxyParam: 'ahsub',
-        timeout: 25000,
-        jitter: 500,
-        retries: 2,
-        multiUrl: true,
-        skipProxy: true
-    },
-
-    {
-        key: 'anihq-dub',
-        label: 'AniHQ (Dub)',
-        sourceFile: 'anihq',
-        proxyParam: 'ahdub',
-        timeout: 25000,
-        jitter: 500,
-        retries: 2,
-        multiUrl: true,
-        skipProxy: true
-    },
-
-    {
         key: 'vidnest-dub',
         label: 'VidNest (Dub)',
         sourceFile: 'vidnest',
@@ -344,71 +405,6 @@ export const SOURCES = [
         jitter: 0,
         multiUrl: true,
         skipProxy: true,
-    },
-
-    {
-        key: 'vidsync',
-        label: 'VidSync',
-        sourceFile: 'vidsync',
-        proxyParam: 'vs',
-        timeout: 20000,
-        retries: 2,
-        multiUrl: true,
-        disabled: true, // Temporarily disabled due to enc dec issues
-    },
-
-    {
-        key: 'fsonline',
-        label: 'FSOnline',
-        sourceFile: 'fsonline',
-        proxyParam: 'fo',
-        timeout: 20000,
-        retries: 1,
-        jitter: 0,
-        multiUrl: true,
-        skipProxy: true,
-    },
-
-
-    {
-        key: 'kisskh',
-        label: 'KissKH',
-        sourceFile: 'kisskh',
-        proxyParam: 'kk',
-        timeout: 30000,
-        jitter: 500,
-        retries: 1,
-    },
-
-    {
-        key: 'hexa',
-        label: 'Hexa',
-        sourceFile: 'hexa',
-        proxyParam: 'hx',
-        timeout: 20000,
-        jitter: 500,
-        retries: 2,
-    },
-
-    {
-        key: '1embed',
-        label: '1Embed',
-        sourceFile: '1embed',
-        proxyParam: '1e',
-        timeout: 20000,
-        jitter: 500,
-        retries: 2,
-        multiUrl: true,
-    },
-
-    {
-        key: 'mapple',
-        label: 'Mapple',
-        sourceFile: 'mapple',
-        proxyParam: 'mp',
-        timeout: 15000,
-        retries: 1,
-        jitter: 0
     },
 
     {
@@ -424,15 +420,34 @@ export const SOURCES = [
     },
 
     {
-        key: 'meowtv',
-        label: 'MeowTV',
-        sourceFile: 'meowtv',
-        proxyParam: 'mt',
+        key: 'vidrock',
+        label: 'VidRock',
+        sourceFile: 'vidrock',
+        proxyParam: 'vr',
         timeout: 20000,
-        jitter: 500,
+        jitter: 800,
+        retries: 3,
+        multiUrl: true,
+        cdnHeaders: [{
+            pattern: /./,
+            headers: {
+                Accept: '/',
+                'Accept-Language': 'en-US,en;q=0.9',
+                Referer: 'https://vidrock.ru/',
+                Origin: 'https://vidrock.ru',
+            },
+        },],
+    },
+
+    {
+        key: 'vidsync',
+        label: 'VidSync',
+        sourceFile: 'vidsync',
+        proxyParam: 'vs',
+        timeout: 20000,
         retries: 2,
         multiUrl: true,
-        skipProxy: true
+        disabled: true, // Temporarily disabled due to enc dec issues
     },
 
     {
@@ -447,65 +462,49 @@ export const SOURCES = [
     },
 
     {
-        key: 'peachify',
-        label: 'Peachify',
-        sourceFile: 'peachify',
-        proxyParam: 'pf',
-        timeout: 30000,
-        jitter: 500,
-        retries: 1,
-        multiUrl: true
-    },
-
-    {
-        key: 'opstream',
-        label: 'OpStream',
-        sourceFile: 'opstream',
-        proxyParam: 'op',
-        timeout: 35000,
-        jitter: 500,
-        retries: 2,
-        multiUrl: true,
-        skipProxy: true,
+        key: 'vidzee',
+        label: 'VidZee',
+        sourceFile: 'vidzee',
+        proxyParam: 'vz',
+        timeout: 20000,
+        sourcesTimeout: 10000,
+        jitter: 400,
+        retries: 3,
+        disabled: true, // Temporarily disabled because their site is down, all streams are returning 403's
         verifyHeaders: {
-            Referer: 'https://opstream.fun/',
-            Origin: 'https://opstream.fun',
+            Accept: '/',
+            'Accept-Language': 'en-US,en;q=0.9',
+            Referer: 'https://player.vidzee.wtf',
+            Origin: 'https://player.vidzee.wtf',
         },
     },
 
     {
-        key: 'vidapi',
-        label: 'VidAPI',
-        sourceFile: 'vidapi',
-        proxyParam: 'va',
-        timeout: 25000,
-        jitter: 500,
-        retries: 1,
-        multiUrl: true
-    },
-
-    {
-        key: 'pengu',
-        label: 'Pengu',
-        sourceFile: 'pengu',
-        proxyParam: 'pg',
-        timeout: 25000,
-        jitter: 500,
-        retries: 1,
-        multiUrl: true,
+        key: 'vixsrc',
+        label: 'VixSrc',
+        sourceFile: 'vixsrc',
+        proxyParam: 'vx',
+        timeout: 35000,
+        jitter: 0,
+        retries: 2,
+        multiUrl: false,
         skipProxy: true,
-        disabled: true, // Temporarily disabled because they now require google auth
+        verifyHeaders: {
+            Accept: 'application/json, text/javascript, /; q=0.01',
+            'Accept-Language': 'en-US,en;q=0.9',
+            Referer: 'https://vixsrc.to/',
+            Origin: 'https://vixsrc.to',
+        },
     },
 
     {
-        key: 'nebula',
-        label: 'Nebula',
-        sourceFile: 'nebula',
-        proxyParam: 'nb',
-        timeout: 25000,
+        key: 'xpass',
+        sourceFile: 'xpass',
+        label: 'XPass',
+        proxyParam: 'xp',
+        timeout: 20000,
         jitter: 500,
-        retries: 1,
-        multiUrl: true,
+        retries: 2,
         skipProxy: true,
     },
 

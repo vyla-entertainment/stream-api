@@ -4,8 +4,8 @@ import crypto from 'crypto';
 const [, , type, rpmArg, label] = process.argv;
 
 if (!type || !rpmArg) {
-    console.log('Usage: node add-key.mjs <type> <rpm> [label]');
-    console.log('Example: node add-key.mjs standard 500 flixora');
+    console.log('Usage: node database/add-key.mjs <type> <rpm> [label]');
+    console.log('Example: node database/add-key.mjs standard 500 flixora');
     process.exit(1);
 }
 

@@ -1,4 +1,4 @@
-# [./DOCUMENTATION/DMCA.md](./DOCUMENTATION/DMCA.md)
+# [DMCA](https://docs.vyla.cc/misc/dmca)
 
 If your source is listed here, I sincerely apologize. I understand that its inclusion may be costing you a lot of money, and that was never my intention. Please contact me as soon as possible, and I'll remove it ASAP.
 
